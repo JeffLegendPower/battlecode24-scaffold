@@ -1,4 +1,4 @@
-package examplelearn;
+package REAL;
 
 import battlecode.common.*;
 
@@ -40,6 +40,8 @@ public strictfp class RobotPlayer {
 
     static Direction lastDir = Direction.CENTER;
 
+    static HashMap<MapLocation, MapInfo> field = new HashMap<MapLocation, MapInfo>();
+    static Stack<MapLocation> toMove = new Stack<MapLocation>();
     /**
      * run() is the method that is called when a robot is instantiated in the Battlecode world.
      * It is like the main function for your robot. If this method returns, the robot dies!
@@ -64,7 +66,8 @@ public strictfp class RobotPlayer {
         boolean supporter2 = !defender && !supporter1 && rand % 5 == 1; // Last resort backup
         System.out.println((defender ? "Defender" : supporter1 ? "Supporter1" : supporter2 ? "Supporter2" : "Attacker") + " reporting for duty!");
         int movesSinceLastEnemy = 0;
-
+        MapLocation target;
+        MapLocation spawn = null;
         while (true) {
 
             turnCount += 1;  // We have now been alive for one more turn!
@@ -77,7 +80,10 @@ public strictfp class RobotPlayer {
                     MapLocation[] spawnLocs = rc.getAllySpawnLocations();
                     // Pick a random spawn location to attempt spawning in.
                     MapLocation randomLoc = spawnLocs[rng.nextInt(spawnLocs.length)];
-                    if (rc.canSpawn(randomLoc)) rc.spawn(randomLoc);
+                    if (rc.canSpawn(randomLoc)) {
+                        rc.spawn(randomLoc);
+                        spawn = randomLoc;
+                    }
                     spawnLoc = new MapLocation(
                             rc.getMapWidth() - 2 * randomLoc.x > 0 ? 0 : rc.getMapWidth(),
                             rc.getMapHeight() - 2 * randomLoc.y > 0 ? 0 : rc.getMapHeight()
@@ -85,9 +91,20 @@ public strictfp class RobotPlayer {
 
                 }
                 else {
-                    if (rc.canPickupFlag(rc.getLocation())) {
-                        rc.pickupFlag(rc.getLocation());
+                    MapLocation curLoc = rc.getLocation();
+                    for(Direction d : directions)
+                    {
+                        MapLocation loc = curLoc.add(d);
+                        MapInfo info = rc.senseMapInfo(loc);
+                        if(field.get(loc) != info)
+                        {
+                            field.put(loc, info);
+                        }
+                    }
+                    if (rc.canPickupFlag(curLoc)) {
+                        rc.pickupFlag(curLoc);
                         rc.setIndicatorString("Holding a flag!");
+                        getPath(rc, curLoc, spawn);
                     }
                     if (supporter1)
                         defender = rc.readSharedArray(0) >= 1;
@@ -143,7 +160,7 @@ public strictfp class RobotPlayer {
                         }
                         // Hover around the area if nothing to do
                         Direction dir = directions[rng.nextInt(directions.length)];
-                        MapLocation nextLoc = rc.getLocation().add(dir);
+                        MapLocation nextLoc = curLoc.add(dir);
                         moveTowards(rc, nextLoc);
                     }
 
@@ -155,10 +172,12 @@ public strictfp class RobotPlayer {
                                 Comparator.comparingInt(a -> a.getLocation().distanceSquaredTo(rc.getLocation())));
                         // If we are holding an enemy flag, singularly focus on moving towards
                         // an ally spawn zone to capture it!
-                        if (rc.hasFlag()) {
-                            MapLocation[] spawnLocs = rc.getAllySpawnLocations();
-                            MapLocation firstLoc = spawnLocs[0];
-                            moveTowards(rc, firstLoc);
+                        if (rc.hasFlag() && !toMove.isEmpty()) {
+                            MapLocation nextMove = toMove.peek();
+                            if(rc.canMove(curLoc.directionTo(nextMove))) {
+                                rc.move(curLoc.directionTo(nextMove));
+                                toMove.pop();
+                            }
                             rc.writeSharedArray(1, rc.getLocation().x);
                             rc.writeSharedArray(2, rc.getLocation().y);
                         }
@@ -270,6 +289,38 @@ public strictfp class RobotPlayer {
         if (bestDir != Direction.CENTER)
             lastDir = bestDir;
         if (bestDir != Direction.CENTER) rc.move(bestDir);
+    }
+
+    public static void getPath(RobotController rc, MapLocation curLoc, MapLocation target) {
+        HashMap<MapLocation, MapLocation> parent = new HashMap<MapLocation, MapLocation>();
+        HashMap<MapLocation, Boolean> visited = new HashMap<MapLocation, Boolean>();
+        Queue<MapLocation> q = new PriorityQueue<MapLocation>();
+        MapLocation loc = curLoc;
+        q.add(loc);
+        visited.put(loc, true);
+        parent.put(loc, null);
+        MapLocation child;
+        while(!q.isEmpty()) {
+            loc = q.remove();
+            if (!loc.equals(target)) {
+                for (Direction dir : directions) {
+                    child = loc.add(dir);
+                    MapInfo info = field.get(child);
+                    if (info != null && visited.get(child) == null && info.isPassable() && !info.isWater() && !info.isWall()) {
+                        q.add(child);
+                        parent.put(child, loc);
+                        visited.put(child, true);
+                    } else {
+                        MapLocation pindex = loc;
+                        toMove = new Stack<MapLocation>();
+                        while (!pindex.equals(curLoc)) {
+                            toMove.push(pindex);
+                            pindex = parent.get(pindex);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     public static void moveTowards(RobotController rc, Direction target) throws GameActionException {
