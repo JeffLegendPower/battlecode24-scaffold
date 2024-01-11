@@ -291,7 +291,7 @@ public strictfp class RobotPlayer {
         if (bestDir != Direction.CENTER) rc.move(bestDir);
     }
 
-    public static void getPath(RobotController rc, MapLocation curLoc, MapLocation target) {
+public static void getPath(RobotController rc, MapLocation curLoc, MapLocation target) {
         HashMap<MapLocation, MapLocation> parent = new HashMap<MapLocation, MapLocation>();
         HashMap<MapLocation, Boolean> visited = new HashMap<MapLocation, Boolean>();
         Queue<MapLocation> q = new PriorityQueue<MapLocation>();
@@ -310,14 +310,15 @@ public strictfp class RobotPlayer {
                         q.add(child);
                         parent.put(child, loc);
                         visited.put(child, true);
-                    } else {
-                        MapLocation pindex = loc;
-                        toMove = new Stack<MapLocation>();
-                        while (!pindex.equals(curLoc)) {
-                            toMove.push(pindex);
-                            pindex = parent.get(pindex);
-                        }
                     }
+                }
+            }
+            else {
+                MapLocation pindex = loc;
+                toMove = new Stack<MapLocation>();
+                while (!pindex.equals(curLoc)) {
+                    toMove.push(pindex);
+                    pindex = parent.get(pindex);
                 }
             }
         }
