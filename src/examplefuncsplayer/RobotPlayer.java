@@ -56,6 +56,7 @@ public strictfp class RobotPlayer {
         HashMap<MapLocation, MapInfo> map = new HashMap<MapLocation, MapInfo>();
         Stack<MapLocation> toMove = new Stack<MapLocation>();
         MapLocation target;
+        MapLocation spawn = null;
         while (true) {
             // This code runs during the entire lifespan of the robot, which is why it is in an infinite
             // loop. If we ever leave this loop and return from run(), the robot dies! At the end of the
@@ -71,20 +72,24 @@ public strictfp class RobotPlayer {
                     MapLocation[] spawnLocs = rc.getAllySpawnLocations();
                     // Pick a random spawn location to attempt spawning in.
                     MapLocation randomLoc = spawnLocs[rng.nextInt(spawnLocs.length)];
-                    if (rc.canSpawn(randomLoc)) rc.spawn(randomLoc);
+                    if (rc.canSpawn(randomLoc)) {
+                        rc.spawn(randomLoc);
+                        spawn = randomLoc;
+                    }
                 }
-                else{
+                else {
+                    MapLocation curLoc = rc.getLocation();
                     for(Direction d : directions)
                     {
-                        MapLocation loc = rc.getLocation().add(d);
+                        MapLocation loc = curLoc.add(d);
                         MapInfo info = rc.senseMapInfo(loc);
                         if(map.get(loc) != info)
                         {
                             map.put(loc, info);
                         }
                     }
-                    if (rc.canPickupFlag(rc.getLocation())){
-                        rc.pickupFlag(rc.getLocation());
+                    if (rc.canPickupFlag(curLoc)){
+                        rc.pickupFlag(curLoc);
                         rc.setIndicatorString("Holding a flag!");
                     }
                     // If we are holding an enemy flag, singularly focus on moving towards
@@ -92,31 +97,53 @@ public strictfp class RobotPlayer {
                     // to make sure setup phase has ended.
                     if (rc.hasFlag() && rc.getRoundNum() >= GameConstants.SETUP_ROUNDS) {
                         //set directions for bfs
-                        target = rc.getAllySpawnLocations()[0];
+                        target = spawn;
                         HashMap<MapLocation, MapLocation> parent = new HashMap<MapLocation, MapLocation>();
                         HashMap<MapLocation, Boolean> visited = new HashMap<MapLocation, Boolean>();
                         Queue<MapLocation> q = new PriorityQueue<MapLocation>();
-                        MapLocation loc = rc.getLocation();
+                        MapLocation loc = curLoc;
                         q.add(loc);
                         visited.put(loc, true);
                         parent.put(loc, null);
                         MapLocation child;
-                        while(!q.isEmpty())
-                        {
+                        while(!q.isEmpty()) {
                             loc = q.remove();
-                            if(!loc.equals(target))
-                            {
-
+                            if(!loc.equals(target)) {
+                                for(Direction dir : directions) {
+                                    child = loc.add(dir);
+                                    MapInfo info = map.get(child);
+                                    if(info != null && visited.get(child) == null && info.isPassable() && !info.isWater() && !info.isWall()) {
+                                        q.add(child);
+                                        parent.put(child, loc);
+                                        visited.put(child, true);
+                                    }
+                                    else {
+                                        MapLocation pindex = loc;
+                                        toMove = new Stack<MapLocation>();
+                                        while(!pindex.equals(curLoc))
+                                        {
+                                            toMove.push(pindex);
+                                            pindex = parent.get(pindex);
+                                        }
+                                    }
+                                }
                             }
                         }
+
                     }
                     // Move and attack randomly if no objectives
                     if(!toMove.isEmpty()) {
-
+                        MapLocation nextMove = toMove.peek();
+                        Direction moveDir = curLoc.directionTo(nextMove);
+                        if(rc.canMove(moveDir));
+                        {
+                            rc.move(moveDir);
+                            toMove.pop();
+                        }
                     }
                     else {
                         Direction dir = directions[rng.nextInt(directions.length)];
-                        MapLocation nextLoc = rc.getLocation().add(dir);
+                        MapLocation nextLoc = curLoc.add(dir);
                         if (rc.canMove(dir)){
                             rc.move(dir);
                         }
@@ -126,7 +153,7 @@ public strictfp class RobotPlayer {
                         }
 
                         // Rarely attempt placing traps behind the robot.
-                        MapLocation prevLoc = rc.getLocation().subtract(dir);
+                        MapLocation prevLoc = curLoc.subtract(dir);
                         if (rc.canBuild(TrapType.EXPLOSIVE, prevLoc) && rng.nextInt() % 37 == 1)
                             rc.build(TrapType.EXPLOSIVE, prevLoc);
                     }
