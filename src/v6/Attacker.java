@@ -1,10 +1,9 @@
-package REAL2;
+package v6;
 
 import battlecode.common.*;
 
-import static REAL2.Pathfinding.*;
-import static REAL2.RobotPlayer.*;
-import static REAL2.Util.*;
+import static v6.Pathfinding.*;
+import static v6.Util.*;
 
 public class Attacker {
 

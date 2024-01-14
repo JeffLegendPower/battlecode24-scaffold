@@ -1,4 +1,4 @@
-package OLD3;
+package v3;
 
 import battlecode.common.*;
 

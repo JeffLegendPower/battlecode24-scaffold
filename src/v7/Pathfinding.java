@@ -1,10 +1,13 @@
-package REAL2;
+package v7;
 
-import battlecode.common.*;
+import battlecode.common.Direction;
+import battlecode.common.GameActionException;
+import battlecode.common.MapLocation;
+import battlecode.common.RobotController;
 
 import java.util.ArrayList;
 
-import static REAL2.RobotPlayer.rng;
+import static v7.RobotPlayer.rng;
 
 public class Pathfinding {
 

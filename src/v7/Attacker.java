@@ -1,24 +1,35 @@
-package REAL;
+package v7;
 
 import battlecode.common.*;
 
-import static REAL.Pathfinding.*;
-import static REAL.RobotPlayer.*;
+import static v7.Pathfinding.calculateDistance;
+import static v7.Pathfinding.moveTowards;
+import static v7.Util.getClosest;
+import static v7.Util.getFurthest;
 
 public class Attacker {
 
     public static void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
         if(!rc.isSpawned()) return;
 
+        RobotInfo[] allyRobots = rc.senseNearbyRobots(-1, rc.getTeam());
+        RobotInfo flagHolder = null;
+        for (RobotInfo ally : allyRobots) {
+            if (ally.hasFlag) {
+                moveTowards(rc, curLoc, ally.getLocation());
+                flagHolder = ally;
+            }
+        }
+
         RobotInfo[] enemyRobots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-//        Arrays.sort(
-//                enemyRobots,
-//                Comparator.comparingInt(a -> a.getLocation().distanceSquaredTo(curLoc)));
+
         // If we are holding an enemy flag, singularly focus on moving towards
         // an ally spawn zone to capture it!
+
         if (rc.hasFlag()) {
-            moveTowards(rc, curLoc, spawn);
+            moveTowards(rc, curLoc, getClosest(rc.getAllySpawnLocations(), curLoc));
         }
+
         else if (enemyRobots.length > 0) {
             // Enemies nearby, deal with this first
             // Find the nearest enemy robot
@@ -27,12 +38,17 @@ public class Attacker {
             int nearestDistance = 99999;
             int dist;
             for (int i = 1; i < enemyRobots.length; i++) {
+                if (enemyRobots[i].hasFlag) { // Target enemy flagholders
+                    nearestEnemy = enemyRobots[i];
+                    break;
+                }
                 dist = calculateDistance(rc.getLocation(), enemyRobots[i].getLocation());
                 if (dist < nearestDistance) {
                     nearestEnemy = enemyRobots[i];
                     nearestDistance = dist;
                 }
             }
+//            RobotInfo nearestEnemy = getClosest(enemyRobots, curLoc);
 
             //int flagX = rc.readSharedArray(1);
             //int flagY = rc.readSharedArray(2);
@@ -51,14 +67,18 @@ public class Attacker {
             }
         }
 
-        // If we are not holding an enemy flag, let's go find one!
+        // If we are not holding an enemy flag, let's go to the nearest one
         FlagInfo[] nearbyFlags = rc.senseNearbyFlags(-1, rc.getTeam().opponent());
         if (nearbyFlags.length > 0) {
             FlagInfo firstFlag = nearbyFlags[0];
             MapLocation flagLoc = firstFlag.getLocation();
             moveTowards(rc, curLoc, flagLoc);
         } else {
-            moveTowards(rc, curLoc, new MapLocation(rc.getMapWidth() - spawn.x, rc.getMapHeight() - spawn.y));
+            MapLocation furthestSpawn = getFurthest(rc.getAllySpawnLocations(), curLoc);
+            moveTowards(rc, curLoc, new MapLocation(rc.getMapWidth() - furthestSpawn.x, rc.getMapHeight() - furthestSpawn.y));
         }
+
+        if (flagHolder != null && rc.canHeal(flagHolder.getLocation()))
+            rc.heal(flagHolder.getLocation());
     }
 }

@@ -1,4 +1,4 @@
-package REAL2;
+package v5;
 
 import battlecode.common.*;
 
@@ -9,7 +9,7 @@ import battlecode.common.GameActionException;
 import battlecode.common.MapLocation;
 import battlecode.common.RobotController;
 
-import static REAL2.Pathfinding.*;
+import static v5.Pathfinding.*;
 
 /**
  * RobotPlayer is the class that describes your main robot strategy.
@@ -22,7 +22,7 @@ public strictfp class RobotPlayer {
 
     public static final Random rng = new Random();
 
-    public static final Direction[] directions = {
+    static final Direction[] directions = {
             Direction.NORTH,
             Direction.NORTHEAST,
             Direction.EAST,
@@ -33,31 +33,12 @@ public strictfp class RobotPlayer {
             Direction.NORTHWEST,
     };
 
-    public static MapLocation spawn = null;
-
-    private static int spawnFlag = -1;
+    static MapLocation spawn = null;
 
     @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
         int rand = rng.nextInt();
-        int numDefendersFlag1 = rc.readSharedArray(1);
-        int numDefendersFlag2 = rc.readSharedArray(2);
-        int numDefendersFlag3 = rc.readSharedArray(3);
-        boolean defender = false; // Will stay at the spawn location at all times
-        if (numDefendersFlag1 < 2) {
-            defender = true;
-            rc.writeSharedArray(1, numDefendersFlag1 + 1);
-            spawnFlag = 0;
-        } else if (numDefendersFlag2 < 2) {
-            defender = true;
-            rc.writeSharedArray(2, numDefendersFlag2 + 1);
-            spawnFlag = 1;
-        } else if (numDefendersFlag3 < 2) {
-            defender = true;
-            rc.writeSharedArray(3, numDefendersFlag3 + 1);
-            spawnFlag = 2;
-        }
-
+        boolean defender = rand % 8 == 1; // Will stay at the spawn location at all times
         boolean supporter1 = !defender && rand % 7 == 1; // Will attack but will return to spawn if being rushed
         boolean supporter2 = !defender && !supporter1 && rand % 5 == 1; // Last resort backup
         int movesSinceLastEnemy = 0;
@@ -73,6 +54,9 @@ public strictfp class RobotPlayer {
                 // Robots not spawned in do not have vision of any tiles and cannot perform any actions.
                 MapLocation curLoc = rc.getLocation();
 
+                if (rc.canBuyGlobal(GlobalUpgrade.HEALING))
+                    rc.buyGlobal(GlobalUpgrade.HEALING);
+
                 if (!rc.isSpawned()) {
                     spawn(rc);
                 } else if (rc.getRoundNum() <= GameConstants.SETUP_ROUNDS / 2) {
@@ -82,8 +66,8 @@ public strictfp class RobotPlayer {
                     MapLocation nextLoc = curLoc.add(dir);
                     moveTowards(rc, curLoc, nextLoc);
 
-                } else if (rc.getRoundNum() >= GameConstants.SETUP_ROUNDS - 5) {
-                    // RUNS AFTER SETUP PHASE (prepares for action 5 rounds before)
+                } else if (rc.getRoundNum() >= GameConstants.SETUP_ROUNDS && rc.isSpawned()) {
+                    // RUNS AFTER SETUP PHASE
 
                     if (rc.canPickupFlag(curLoc))
                         rc.pickupFlag(curLoc);
@@ -140,8 +124,7 @@ public strictfp class RobotPlayer {
     public static void spawn(RobotController rc) throws GameActionException {
         MapLocation[] spawnLocs = rc.getAllySpawnLocations();
         // Pick a random spawn location to attempt spawning in.
-        if (spawnFlag == -1) spawnFlag = rng.nextInt(spawnLocs.length);
-        MapLocation randomLoc = spawnLocs[spawnFlag];
+        MapLocation randomLoc = spawnLocs[rng.nextInt(spawnLocs.length)];
         rc.writeSharedArray(20, rc.getID());
         if (rc.canSpawn(randomLoc)) {
             rc.spawn(randomLoc);

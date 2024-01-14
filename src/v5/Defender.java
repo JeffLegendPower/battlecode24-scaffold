@@ -1,9 +1,9 @@
-package REAL;
+package v5;
 
 import battlecode.common.*;
 
-import static REAL.Pathfinding.*;
-import static REAL.RobotPlayer.*;
+import static v5.Pathfinding.*;
+import static v5.RobotPlayer.*;
 
 public class Defender {
 

@@ -1,4 +1,4 @@
-package REAL2;
+package v6;
 
 import battlecode.common.FlagInfo;
 import battlecode.common.MapInfo;

@@ -1,9 +1,10 @@
-package REAL2;
+package v7;
 
 import battlecode.common.*;
 
-import static REAL2.Pathfinding.*;
-import static REAL2.RobotPlayer.*;
+import static v7.Pathfinding.calculateDistance;
+import static v7.Pathfinding.moveTowards;
+import static v7.RobotPlayer.*;
 
 public class Defender {
 
@@ -33,23 +34,28 @@ public class Defender {
             }
 
             // Try to move towards the nearest enemy
-            moveTowards(rc, curLoc, nearestEnemy.getLocation());
+            if (spawn.isWithinDistanceSquared(curLoc, 25))
+                moveTowards(rc, curLoc, nearestEnemy.getLocation());
             // Now attack the nearest enemy
             if (rc.canAttack(nearestEnemy.getLocation())) {
                 rc.attack(nearestEnemy.getLocation());
             }
 
-//            if (rc.canBuild(TrapType.EXPLOSIVE, curLoc) && rng.nextInt() % 12 == 1)
-//                rc.build(TrapType.EXPLOSIVE, curLoc);
-
             // Way too many enemies, call backup
             if (enemyRobots.length >= 3) {
-                rc.writeSharedArray(0, enemyRobots.length >= 5 ? 2 : 1);
+                rc.writeSharedArray(0, (spawnFlag + 2) + (enemyRobots.length >= 5 ? 2 : 1));
             }
             movesSinceLastEnemy = 0;
 
 
         } else movesSinceLastEnemy++;
+
+        rc.setIndicatorString(String.valueOf(rc.getCrumbs()));
+        if (rc.canBuild(TrapType.EXPLOSIVE, curLoc) && spawn.isWithinDistanceSquared(curLoc, 4))
+            rc.build(TrapType.EXPLOSIVE, curLoc);
+        else if (spawn.isWithinDistanceSquared(curLoc, 4) && map[curLoc.y][curLoc.x].getTrapType() == TrapType.NONE) {
+            return;
+        }
 
         FlagInfo[] nearbyAllyFlags = rc.senseNearbyFlags(-1, rc.getTeam());
 //        Arrays.sort(
@@ -57,6 +63,7 @@ public class Defender {
 //                Comparator.comparingInt(a -> a.getLocation().distanceSquaredTo(curLoc)));
 
         // Don't go too far from the nearest flag
+//        rc.setIndicatorString("Spawn: " + spawn.x + ", " + spawn.y);
         if (nearbyAllyFlags.length > 0 && !spawn.isWithinDistanceSquared(curLoc, 9)) {
             moveTowards(rc, curLoc, spawn);
 
@@ -65,8 +72,13 @@ public class Defender {
 //            moveTowards(rc, curLoc, spawn);
 //        }
 
-        if (rc.canBuild(TrapType.EXPLOSIVE, curLoc))
-            rc.build(TrapType.EXPLOSIVE, curLoc);
+        if (rc.canBuild(TrapType.EXPLOSIVE, curLoc)) {
+            for (MapLocation spawnLoc : rc.getAllySpawnLocations())
+                if (spawnLoc.equals(curLoc)) {
+                    rc.build(TrapType.EXPLOSIVE, curLoc);
+                    break;
+                }
+        }
 
         // Hover around the area if nothing to do
         Direction dir = directions[rng.nextInt(directions.length)];
