@@ -10,6 +10,15 @@ public class Attacker {
     public static void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
         if(!rc.isSpawned()) return;
 
+        RobotInfo[] allyRobots = rc.senseNearbyRobots(-1, rc.getTeam());
+        RobotInfo flagHolder = null;
+        for (RobotInfo ally : allyRobots) {
+            if (ally.hasFlag) {
+                moveTowards(rc, curLoc, ally.getLocation());
+                flagHolder = ally;
+            }
+        }
+
         RobotInfo[] enemyRobots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
 //        Arrays.sort(
 //                enemyRobots,
@@ -60,5 +69,8 @@ public class Attacker {
         } else {
             moveTowards(rc, curLoc, new MapLocation(rc.getMapWidth() - spawn.x, rc.getMapHeight() - spawn.y));
         }
+
+        if (flagHolder != null && rc.canHeal(flagHolder.getLocation()))
+            rc.heal(flagHolder.getLocation());
     }
 }

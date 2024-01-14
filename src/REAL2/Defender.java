@@ -57,12 +57,17 @@ public class Defender {
 //                Comparator.comparingInt(a -> a.getLocation().distanceSquaredTo(curLoc)));
 
         // Don't go too far from the nearest flag
-        if (nearbyAllyFlags.length > 0 && !nearbyAllyFlags[0].getLocation().isWithinDistanceSquared(curLoc, 25)) {
-            moveTowards(rc, curLoc, nearbyAllyFlags[0].getLocation());
-
-        } else if (nearbyAllyFlags.length == 0 && !spawn.isWithinDistanceSquared(curLoc, 25)) {
+        if (nearbyAllyFlags.length > 0 && !spawn.isWithinDistanceSquared(curLoc, 9)) {
             moveTowards(rc, curLoc, spawn);
+
         }
+//        else if (nearbyAllyFlags.length == 0 && !spawn.isWithinDistanceSquared(curLoc, 9)) {
+//            moveTowards(rc, curLoc, spawn);
+//        }
+
+        if (rc.canBuild(TrapType.EXPLOSIVE, curLoc))
+            rc.build(TrapType.EXPLOSIVE, curLoc);
+
         // Hover around the area if nothing to do
         Direction dir = directions[rng.nextInt(directions.length)];
         MapLocation nextLoc = rc.getLocation().add(dir);
