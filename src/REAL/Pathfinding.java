@@ -1,10 +1,10 @@
-package REAL2;
+package REAL;
 
 import battlecode.common.*;
 
 import java.util.ArrayList;
 
-import static REAL2.RobotPlayer.rng;
+import static REAL.RobotPlayer.rng;
 
 public class Pathfinding {
 

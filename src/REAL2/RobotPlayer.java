@@ -33,7 +33,6 @@ public strictfp class RobotPlayer {
             Direction.NORTHWEST,
     };
 
-    static HashMap<MapLocation, MapInfo> field = new HashMap<>();
     static MapLocation spawn = null;
 
     @SuppressWarnings("unused")
@@ -53,26 +52,20 @@ public strictfp class RobotPlayer {
             try {
                 // Make sure you spawn your robot in before you attempt to take any actions!
                 // Robots not spawned in do not have vision of any tiles and cannot perform any actions.
+                MapLocation curLoc = rc.getLocation();
+
                 if (!rc.isSpawned()) {
                     spawn(rc);
                 } else if (rc.getRoundNum() <= GameConstants.SETUP_ROUNDS / 2) {
                     // RUNS DURING FIRST HALF OF SETUP PHASE
                     // Move around randomly to collect crumbs
                     Direction dir = directions[rng.nextInt(directions.length)];
-                    MapLocation nextLoc = rc.getLocation().add(dir);
-                    moveTowards(rc, nextLoc);
+                    MapLocation nextLoc = curLoc.add(dir);
+                    moveTowards(rc, curLoc, nextLoc);
 
                 } else if (rc.getRoundNum() >= GameConstants.SETUP_ROUNDS && rc.isSpawned()) {
                     // RUNS AFTER SETUP PHASE
-                    MapLocation curLoc = rc.getLocation();
-                    for(Direction d : directions) {
-                        MapLocation loc = curLoc.add(d);
-                        if (rc.canSenseLocation(loc)) {
-                            MapInfo info = rc.senseMapInfo(loc);
-                            if (field.get(loc) != info)
-                                field.put(loc, info);
-                        }
-                    }
+
                     if (rc.canPickupFlag(curLoc))
                         rc.pickupFlag(curLoc);
 
@@ -82,10 +75,12 @@ public strictfp class RobotPlayer {
                         defender = rc.readSharedArray(0) == 2;
 
                     // Robot assigned to be defender, hold spawn location
-                    if (defender)
-                        Defender.tick(rc);
-                    else
-                        Attacker.tick(rc);
+                    if (rc.isSpawned()) {
+                        if (defender)
+                            Defender.tick(rc, curLoc);
+                        else
+                            Attacker.tick(rc, curLoc);
+                    }
 
                     // Heal teammate if possible
                     for (RobotInfo ally : rc.senseNearbyRobots(-1, rc.getTeam()))
@@ -95,7 +90,7 @@ public strictfp class RobotPlayer {
                 } else {
                     // RUNS DURING SECOND HALF OF SETUP PHASE
                     // Move towards the center of the map
-                    moveTowards(rc, new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2));
+                    moveTowards(rc, curLoc, new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2));
 //                        moveTowardsFar(rc, new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2));
                     // Last 20 moves start placing traps
                     if (rc.getRoundNum() >= GameConstants.SETUP_ROUNDS - 20 &&
@@ -103,8 +98,8 @@ public strictfp class RobotPlayer {
                         // Check if movement is restricted in any one direction
                         // if yes then the robot is touching the wall and should place a trap
                         for (Direction d : directions)
-                            if (!rc.canMove(d) && rc.canBuild(TrapType.EXPLOSIVE, rc.getLocation()))
-                                rc.build(TrapType.EXPLOSIVE, rc.getLocation());
+                            if (!rc.canMove(d) && rc.canBuild(TrapType.EXPLOSIVE, curLoc))
+                                rc.build(TrapType.EXPLOSIVE, curLoc);
                     }
                 }
 
@@ -127,6 +122,7 @@ public strictfp class RobotPlayer {
         MapLocation[] spawnLocs = rc.getAllySpawnLocations();
         // Pick a random spawn location to attempt spawning in.
         MapLocation randomLoc = spawnLocs[rng.nextInt(spawnLocs.length)];
+        rc.writeSharedArray(20, rc.getID());
         if (rc.canSpawn(randomLoc)) {
             rc.spawn(randomLoc);
             spawn = randomLoc;
