@@ -57,11 +57,13 @@ public class Pathfinding {
             }
         }
 
-
         prevLocs.add(rc.getLocation());
         if (prevLocs.size() > 7) {
             prevLocs.remove(0);
         }
+
+        if (rc.canMove(rightDir))
+            rc.move(rightDir);
     }
 
     public static void moveTowards(RobotController rc, MapLocation curLoc, Direction target) throws GameActionException {
