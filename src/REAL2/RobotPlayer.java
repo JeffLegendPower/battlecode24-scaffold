@@ -82,7 +82,7 @@ public strictfp class RobotPlayer {
                     MapLocation nextLoc = curLoc.add(dir);
                     moveTowards(rc, curLoc, nextLoc);
 
-                } else if (rc.getRoundNum() >= GameConstants.SETUP_ROUNDS - 100) {
+                } else if (rc.getRoundNum() >= GameConstants.SETUP_ROUNDS - 5) {
                     // RUNS AFTER SETUP PHASE (prepares for action 5 rounds before)
 
                     if (rc.canPickupFlag(curLoc))
