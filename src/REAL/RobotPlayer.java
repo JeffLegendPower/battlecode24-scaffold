@@ -54,6 +54,9 @@ public strictfp class RobotPlayer {
                 // Robots not spawned in do not have vision of any tiles and cannot perform any actions.
                 MapLocation curLoc = rc.getLocation();
 
+                if (rc.canBuyGlobal(GlobalUpgrade.HEALING))
+                    rc.buyGlobal(GlobalUpgrade.HEALING);
+
                 if (!rc.isSpawned()) {
                     spawn(rc);
                 } else if (rc.getRoundNum() <= GameConstants.SETUP_ROUNDS / 2) {

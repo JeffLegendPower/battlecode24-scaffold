@@ -4,6 +4,7 @@ import battlecode.common.*;
 
 import static REAL2.Pathfinding.*;
 import static REAL2.RobotPlayer.*;
+import static REAL2.Util.*;
 
 public class Attacker {
 
@@ -25,9 +26,10 @@ public class Attacker {
 //                Comparator.comparingInt(a -> a.getLocation().distanceSquaredTo(curLoc)));
         // If we are holding an enemy flag, singularly focus on moving towards
         // an ally spawn zone to capture it!
-        if (rc.hasFlag()) {
-            moveTowards(rc, curLoc, spawn);
-        }
+
+        if (rc.hasFlag())
+            moveTowards(rc, curLoc, getClosest(rc.getAllySpawnLocations(), curLoc));
+
         else if (enemyRobots.length > 0) {
             // Enemies nearby, deal with this first
             // Find the nearest enemy robot
@@ -36,12 +38,17 @@ public class Attacker {
             int nearestDistance = 99999;
             int dist;
             for (int i = 1; i < enemyRobots.length; i++) {
+                if (enemyRobots[i].hasFlag) { // Target enemy flagholders
+                    nearestEnemy = enemyRobots[i];
+                    break;
+                }
                 dist = calculateDistance(rc.getLocation(), enemyRobots[i].getLocation());
                 if (dist < nearestDistance) {
                     nearestEnemy = enemyRobots[i];
                     nearestDistance = dist;
                 }
             }
+//            RobotInfo nearestEnemy = getClosest(enemyRobots, curLoc);
 
             //int flagX = rc.readSharedArray(1);
             //int flagY = rc.readSharedArray(2);
@@ -60,14 +67,15 @@ public class Attacker {
             }
         }
 
-        // If we are not holding an enemy flag, let's go find one!
+        // If we are not holding an enemy flag, let's go to the nearest one
         FlagInfo[] nearbyFlags = rc.senseNearbyFlags(-1, rc.getTeam().opponent());
         if (nearbyFlags.length > 0) {
             FlagInfo firstFlag = nearbyFlags[0];
             MapLocation flagLoc = firstFlag.getLocation();
             moveTowards(rc, curLoc, flagLoc);
         } else {
-            moveTowards(rc, curLoc, new MapLocation(rc.getMapWidth() - spawn.x, rc.getMapHeight() - spawn.y));
+            MapLocation furthestSpawn = getFurthest(rc.getAllySpawnLocations(), curLoc);
+            moveTowards(rc, curLoc, new MapLocation(rc.getMapWidth() - furthestSpawn.x, rc.getMapHeight() - furthestSpawn.y));
         }
 
         if (flagHolder != null && rc.canHeal(flagHolder.getLocation()))
