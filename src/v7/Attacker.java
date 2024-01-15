@@ -2,10 +2,13 @@ package v7;
 
 import battlecode.common.*;
 
+import static v7.Pathfinding.*;
 import static v7.Pathfinding.calculateDistance;
-import static v7.Pathfinding.moveTowards;
+import static v7.RobotPlayer.*;
 import static v7.Util.getClosest;
 import static v7.Util.getFurthest;
+
+import v7.Constants;
 
 public class Attacker {
 
@@ -16,10 +19,10 @@ public class Attacker {
         RobotInfo flagHolder = null;
         for (RobotInfo ally : allyRobots) {
             if (ally.hasFlag) {
-                moveTowards(rc, curLoc, ally.getLocation());
                 flagHolder = ally;
+                moveTowards(rc, curLoc, flagHolder.getLocation().add(directions[rng.nextInt(8)]).add(directions[rng.nextInt(8)]), true);
             }
-        }
+         }
 
         RobotInfo[] enemyRobots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
 
@@ -27,7 +30,8 @@ public class Attacker {
         // an ally spawn zone to capture it!
 
         if (rc.hasFlag()) {
-            moveTowards(rc, curLoc, getClosest(rc.getAllySpawnLocations(), curLoc));
+//            moveTowards(rc, curLoc, getClosest(rc.getAllySpawnLocations(), curLoc), 3);
+            moveTowards(rc, curLoc, getClosest(rc.getAllySpawnLocations(), curLoc), true);
         }
 
         else if (enemyRobots.length > 0) {
@@ -48,19 +52,13 @@ public class Attacker {
                     nearestDistance = dist;
                 }
             }
-//            RobotInfo nearestEnemy = getClosest(enemyRobots, curLoc);
-
-            //int flagX = rc.readSharedArray(1);
-            //int flagY = rc.readSharedArray(2);
-            //if (flagX > 0 || flagY > 0)
-            //    moveTowards(rc, new MapLocation(flagX, flagY));
 
             if (rc.getHealth() < 300)
-                moveTowards(rc, curLoc, curLoc.directionTo(nearestEnemy.getLocation()).opposite());
+                moveTowards(rc, curLoc, curLoc.add(curLoc.directionTo(nearestEnemy.getLocation()).opposite()), true);
 
             dist = curLoc.distanceSquaredTo(nearestEnemy.getLocation());
             if (dist < 9 || dist > 16) // If we move forward to attack they will get the first hit
-                moveTowards(rc, curLoc, nearestEnemy.getLocation()); // Try to move towards the nearest enemy
+                moveTowards(rc, curLoc, nearestEnemy.getLocation(), true); // Try to move towards the nearest enemy
             // Now attack the nearest enemy
             if (rc.canAttack(nearestEnemy.getLocation())) {
                 rc.attack(nearestEnemy.getLocation());
@@ -72,10 +70,14 @@ public class Attacker {
         if (nearbyFlags.length > 0) {
             FlagInfo firstFlag = nearbyFlags[0];
             MapLocation flagLoc = firstFlag.getLocation();
-            moveTowards(rc, curLoc, flagLoc);
+            moveTowards(rc, curLoc, flagLoc, true);
+
         } else {
-            MapLocation furthestSpawn = getFurthest(rc.getAllySpawnLocations(), curLoc);
-            moveTowards(rc, curLoc, new MapLocation(rc.getMapWidth() - furthestSpawn.x, rc.getMapHeight() - furthestSpawn.y));
+            MapLocation[] locs = {
+                    Util.getLocationInSharedArray(rc, 9), Util.getLocationInSharedArray(rc, 10), Util.getLocationInSharedArray(rc, 11)
+            };
+            MapLocation closestFlag = getClosest(locs, curLoc);
+            moveTowards(rc, curLoc, closestFlag, true);
         }
 
         if (flagHolder != null && rc.canHeal(flagHolder.getLocation()))

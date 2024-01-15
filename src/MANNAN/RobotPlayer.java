@@ -41,6 +41,10 @@ public strictfp class RobotPlayer {
 
     static MapLocation lastLocation = null;
     static ArrayList<MapLocation> prevLocs = new ArrayList<>();
+    static String[] types = {"Simple", "Flood", "Depth 2", "Depth 3", "Depth 4"};
+    static int mytype = -1;
+
+    public static MapInfo[][] map;
     /**
      * run() is the method that is called when a robot is instantiated in the Battlecode world.
      * It is like the main function for your robot. If this method returns, the robot dies!
@@ -59,6 +63,7 @@ public strictfp class RobotPlayer {
         MapLocation spawnLoc = new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
         int rand = rng.nextInt();
 
+        map = new MapInfo[rc.getMapHeight()][rc.getMapWidth()];
 
         MapLocation spawn = null;
         while (true) {
@@ -80,7 +85,10 @@ public strictfp class RobotPlayer {
                             rc.getMapWidth() - 2 * randomLoc.x > 0 ? 0 : rc.getMapWidth(),
                             rc.getMapHeight() - 2 * randomLoc.y > 0 ? 0 : rc.getMapHeight()
                     );
-                    rc.writeSharedArray(0, 1);
+                    mytype = 3;//rc.readSharedArray(0);
+
+                    rc.writeSharedArray(0, rc.readSharedArray(0) + 1);
+
                     continue;
 
                 }
@@ -88,13 +96,31 @@ public strictfp class RobotPlayer {
                 if (!rc.isSpawned())
                     continue;
 
-                if (rc.getRoundNum() < GameConstants.SETUP_ROUNDS) {
 
-                } else {
-
-
-
+                MapInfo[] nearbyMapInfo = rc.senseNearbyMapInfos();
+                for (MapInfo info : nearbyMapInfo) {
+                    MapLocation loc = info.getMapLocation();
+                    map[loc.y][loc.x] = info;
                 }
+
+
+                MapLocation target = new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
+
+                int before = Clock.getBytecodeNum();
+                if (mytype == 0) {
+                    //Pathfinding.simpleMoveTowards(rc, rc.getLocation(), target, false, true, 1);
+                } else if (mytype == 1 && false) {
+                    Pathfinding.moveTowards(rc, rc.getLocation(), target, false);
+                } else if (mytype == 2 && false) {
+                    Pathfinding.moveTowards(rc, rc.getLocation(), target, 2);
+                } else if (mytype == 3) {
+                    Pathfinding.moveTest(rc, rc.getLocation(), target, 20);
+                }
+                else {
+                    //Pathfinding.moveTowards(rc, rc.getLocation(), target, 4);
+                }
+                int after = Clock.getBytecodeNum();
+                rc.setIndicatorString("type: " + types[mytype] + " using: " + (after-before));
 
             } catch (GameActionException e) {
                 // Oh no! It looks like we did something illegal in the Battlecode world. You should
@@ -135,49 +161,6 @@ public strictfp class RobotPlayer {
         return false;
     }
 
-
-    public static void moveToClosest(RobotController rc, MapLocation target) {
-        MapLocation curLoc = rc.getLocation();
-        // TODO: THIS IS PROBABLY INEFFICIENT!!! FIND BETTER WAY OF CALCING CLOSEST POINT
-        MapLocation closestPointToTarget = rc.getLocation();
-        int closestPointDist = 999;
-        int dist;
-        Direction bestDir = Direction.CENTER;
-
-        for (Direction dir : directions) {
-            MapLocation newLoc = curLoc.add(dir);
-            dist = calculateDistance(newLoc, target);
-            if (dist < closestPointDist) {
-                bestDir = dir;
-                closestPointDist = dist;
-            }
-            if (dist == closestPointDist && rng.nextBoolean()) {
-                bestDir = dir;
-                closestPointDist = dist;
-            }
-        }
-
-        Direction rightDir = bestDir;
-
-        while (!rc.canMove(rightDir) || inPrevLocs(rc.getLocation().add(rightDir))) {
-            rightDir = rightDir.rotateRight();
-            if (rightDir.equals(bestDir)) {
-                prevLocs = new ArrayList<>();
-                break;
-            }
-        }
-
-        prevLocs.add(rc.getLocation());
-        if (prevLocs.size() > 7) {
-            prevLocs.remove(0);
-        }
-        try {
-            if (rc.canMove(rightDir))
-                rc.move(rightDir);
-        } catch (GameActionException e) {
-            return;
-        }
-    }
 
 }
 
