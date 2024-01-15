@@ -4,15 +4,19 @@ import battlecode.common.GameActionException;
 import battlecode.common.GameConstants;
 import battlecode.common.MapLocation;
 import battlecode.common.RobotController;
+import com.sun.tools.internal.jxc.ap.Const;
 import scala.collection.immutable.Stream;
 import v8.Constants;
 import v8.Pathfinding;
 import v8.Utils;
 
+import java.util.Arrays;
+
 public class CornerFinder extends AbstractRobot {
 
     public static int findingCornerTurns = 0;
     public static int findingCorner = -1;
+    public static boolean completed = false;
 
     private MapLocation[] corners;
 
@@ -20,9 +24,9 @@ public class CornerFinder extends AbstractRobot {
     public boolean setup(RobotController rc, MapLocation curLoc) throws GameActionException {
         corners = new MapLocation[] {
                 new MapLocation(0, 0),
-                new MapLocation(rc.getMapWidth(), 0),
-                new MapLocation(0, rc.getMapHeight()),
-                new MapLocation(rc.getMapWidth(), rc.getMapHeight())
+                new MapLocation(rc.getMapWidth()-1, 0),
+                new MapLocation(0, rc.getMapHeight()-1),
+                new MapLocation(rc.getMapWidth()-1, rc.getMapHeight()-1)
         };
 
         if (findingCorner == -1){
@@ -46,9 +50,12 @@ public class CornerFinder extends AbstractRobot {
                 Pathfinding.moveTowards(rc, curLoc, corners[findingCorner], 10);
             } else {
                 Utils.storeLocationInSharedArray(rc, Constants.SharedArray.cornerLocations[findingCorner], curLoc);
+                if (findingCorner != 0) {
+                    completed = true;
+                }
             }
 
-            if (findingCornerTurns >= 15 && findingCorner == 0){
+            if (findingCornerTurns > 31 && findingCorner == 0){
                 // have one of them orchestrate it
                 MapLocation[] locs = {Utils.getLocationInSharedArray(rc, Constants.SharedArray.cornerLocations[0]),
                         Utils.getLocationInSharedArray(rc, Constants.SharedArray.cornerLocations[1]),
@@ -56,18 +63,22 @@ public class CornerFinder extends AbstractRobot {
                         Utils.getLocationInSharedArray(rc, Constants.SharedArray.cornerLocations[3])};
 
                 int smallestDist = 99;
-                int smallestIdx = 0;
+                int smallestIdx = -1;
                 int dist;
 
                 for (int i = 0; i<4; i++){
                     dist = locs[i].distanceSquaredTo(corners[i]);
+                    System.out.println("i: " + i + " dist: " + dist);
                     if (dist < smallestDist){
+
                         smallestDist = dist;
                         smallestIdx = i;
                     }
                 }
                 System.out.println("Best corner: " + corners[smallestIdx]);
                 Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagCornerLoc, corners[smallestIdx]);
+                rc.writeSharedArray(Constants.SharedArray.numberCornerFinder, 100); // simply signify that the corner is located
+                completed = true;
             }
 
             findingCornerTurns++;
@@ -76,6 +87,6 @@ public class CornerFinder extends AbstractRobot {
 
     @Override
     public boolean completedTask() {
-        return false;
+        return completed;
     }
 }

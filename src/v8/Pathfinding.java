@@ -1,6 +1,7 @@
 package v8;
 
 import battlecode.common.*;
+import org.apache.commons.lang3.ObjectUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -27,10 +28,32 @@ public class Pathfinding {
         if (!rc.isMovementReady()) return;
         if (curLoc.equals(target)) return;
 
-        if (lastTarget == null || !lastTarget.equals(target)) {
-            cached.clear();
-            lastTarget = target;
-        }
+        try { // TODO: idk this sucks
+            if (curLoc.isAdjacentTo(target)) {
+                if (rc.canMove(curLoc.directionTo(target))) {
+                    rc.move(curLoc.directionTo(target));
+                    return;
+                }
+            }
+
+            // degrade maxdepth if its too close to target
+            int distToTarget = calculateDistance(curLoc, target);
+            if (distToTarget < 3) {
+                maxDepth = Math.min(1, maxDepth);
+                best = new ArrayList<>();
+            } else if (distToTarget < 5) {
+                maxDepth = Math.min(3, maxDepth);
+                best = new ArrayList<>();
+            }
+
+            if (lastTarget == null || !lastTarget.equals(target)) {
+                cached.clear();
+                lastTarget = target;
+            }
+        } catch (NullPointerException e) {
+            System.out.println("Failure to path find to " + target);
+            return;
+        };
 
 
         int x = Math.max(0, Math.min(rc.getMapWidth(), target.x));
@@ -55,6 +78,7 @@ public class Pathfinding {
         int depth;
         for (depth = 1; depth <= maxDepth; depth++) {
             if (Clock.getBytecodeNum() > 8000) break;
+            if (calculateDistance(curLoc, target) < 5 && depth > 2) break; //limit depth for shorter objectives
             best = moveTowardsDirect(rc, curLoc, target, maxDepth, 0, best, 8000);
         }
 //        System.out.println(Clock.getBytecodeNum() + " depth: " + depth);
@@ -113,8 +137,8 @@ public class Pathfinding {
         }
         current.add(bestMove);
 
-        rc.setIndicatorDot(bestMove, 255, 0,0);
-        rc.setIndicatorLine(curLoc, bestMove, 0, fromCache ? 0 : 255, fromCache ? 255 : 0);
+        //rc.setIndicatorDot(bestMove, 255, 0,0);
+        //rc.setIndicatorLine(curLoc, bestMove, 0, fromCache ? 0 : 255, fromCache ? 255 : 0);
 
         return moveTowardsDirect(rc, bestMove, target, depth, ply + 1, current, maxBytecode);
     }
