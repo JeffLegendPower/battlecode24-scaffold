@@ -6,8 +6,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import static v7.RobotPlayer.directions;
-import static v7.Util.Pair;
+import static v8.RobotPlayer.directions;
+import static v8.Utils.Pair;
 
 public class Pathfinding {
     private static List<MapLocation> best = new ArrayList<>();
@@ -25,6 +25,7 @@ public class Pathfinding {
 
         if (!rc.isSpawned()) return; // Prevent NPEs
         if (!rc.isMovementReady()) return;
+        if (curLoc.equals(target)) return;
 
         if (lastTarget == null || !lastTarget.equals(target)) {
             cached.clear();
@@ -32,8 +33,8 @@ public class Pathfinding {
         }
 
 
-        int x = Math.max(0, Math.min(rc.getMapWidth() - 1, target.x));
-        int y = Math.max(0, Math.min(rc.getMapHeight() - 1, target.y));
+        int x = Math.max(0, Math.min(rc.getMapWidth(), target.x));
+        int y = Math.max(0, Math.min(rc.getMapHeight(), target.y));
         target = new MapLocation(x, y);
 
         if (!best.isEmpty()) {
@@ -57,11 +58,14 @@ public class Pathfinding {
             best = moveTowardsDirect(rc, curLoc, target, maxDepth, 0, best, 8000);
         }
 //        System.out.println(Clock.getBytecodeNum() + " depth: " + depth);
-        if (best.isEmpty()) return;
+        if (best.isEmpty()) {
+            return;
+        }
         Pair<MapLocation, Integer> move = getLastAdjacent(curLoc, best);
 
-        if (move == null)
+        if (move == null) {
             return;
+        }
 
         for (int i = 0; i <= move.b; i++)
             best.remove(0);
@@ -104,7 +108,9 @@ public class Pathfinding {
                 }
             }
         }
-        if (bestMove == null) return current;
+        if (bestMove == null) {
+            return current;
+        }
         current.add(bestMove);
 
         rc.setIndicatorDot(bestMove, 255, 0,0);

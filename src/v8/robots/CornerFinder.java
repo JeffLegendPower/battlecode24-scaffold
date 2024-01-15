@@ -42,11 +42,9 @@ public class CornerFinder extends AbstractRobot {
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
         if (rc.getRoundNum() <= GameConstants.SETUP_ROUNDS) {
             // start: move flags to corner
-            if (findingCornerTurns < 15) {
-                System.out.println("a");
+            if (findingCornerTurns < 30) {
                 Pathfinding.moveTowards(rc, curLoc, corners[findingCorner], 10);
             } else {
-                System.out.println("b");
                 Utils.storeLocationInSharedArray(rc, Constants.SharedArray.cornerLocations[findingCorner], curLoc);
             }
 
@@ -68,11 +66,16 @@ public class CornerFinder extends AbstractRobot {
                         smallestIdx = i;
                     }
                 }
-                System.out.println("Best corner: " + locs[smallestIdx]);
-                Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagCornerLoc, locs[smallestIdx]);
+                System.out.println("Best corner: " + corners[smallestIdx]);
+                Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagCornerLoc, corners[smallestIdx]);
             }
 
             findingCornerTurns++;
         }
+    }
+
+    @Override
+    public boolean completedTask() {
+        return false;
     }
 }

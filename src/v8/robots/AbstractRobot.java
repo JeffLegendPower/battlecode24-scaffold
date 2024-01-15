@@ -10,4 +10,6 @@ public abstract class AbstractRobot {
     public abstract boolean setup(RobotController rc, MapLocation curLoc) throws GameActionException;
 
     public abstract void tick(RobotController rc, MapLocation curLoc) throws GameActionException;
+
+    public abstract boolean completedTask();
 }
