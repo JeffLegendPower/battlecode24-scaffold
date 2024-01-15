@@ -134,7 +134,7 @@ public strictfp class RobotPlayer {
                         MapLocation flagLoc = Util.getLocationInSharedArray(rc, 9+i);
                         if (rc.canSenseLocation(flagLoc) && !rc.canPickupFlag(flagLoc) && rc.senseMapInfo(flagLoc).isPassable()) {
                             // its no longer there
-                            System.out.println("WTF??????");
+                            //System.out.println("WTF??????");
                             MapLocation loc = allSpawnLocations[i * 9 + 4];
                             MapLocation opposite = new MapLocation(rc.getMapWidth() - loc.x - 1, rc.getMapHeight() - loc.y - 1);
                             Util.storeLocationInSharedArray(rc, 9+i, opposite);

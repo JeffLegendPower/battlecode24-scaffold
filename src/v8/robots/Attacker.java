@@ -33,7 +33,7 @@ public class Attacker extends AbstractRobot{
             timeSinceLastAttacked = rc.readSharedArray(Constants.SharedArray.timeSinceLastAttack);
             if (rc.readSharedArray(Constants.SharedArray.attackersHaveFlag) != 0) {
                 currentTarget = Utils.getClosest(rc.getAllySpawnLocations(), curLoc);
-                spawnLocsSearched += 1;
+                spawnLocsSearched++;
             } else if (timeSinceLastAttacked > 100){
                 if (spawnLocsSearched < 3) {
                     MapLocation myspawn = rc.getAllySpawnLocations()[spawnLocsSearched * 9 + 4];
@@ -43,8 +43,8 @@ public class Attacker extends AbstractRobot{
                 currentTarget = rc.getAllySpawnLocations()[rng.nextInt(3) * 9 + 4];
             }
             Utils.storeLocationInSharedArray(rc, Constants.SharedArray.currentAttackerTarget, currentTarget);
-            System.out.println("Attacker current: " + currentTarget + " sdf se " + timeSinceLastAttacked + " asdf " + attackerID);
-            timeSinceLastAttacked += 1;
+            System.out.println("Attacker current: " + currentTarget + " time since: " + timeSinceLastAttacked + " id: " + attackerID);
+            timeSinceLastAttacked++;
             if (timeSinceLastAttacked > 200) {
                 timeSinceLastAttacked = 0;
             }
@@ -52,35 +52,38 @@ public class Attacker extends AbstractRobot{
         }
         RobotInfo[] enemyRobots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
 
+        FlagInfo[] nearbyFlags = rc.senseNearbyFlags(-1, rc.getTeam().opponent());
+        if (nearbyFlags.length > 0) {
+            MapLocation flagLoc = Utils.getClosest(nearbyFlags, curLoc).getLocation();
+            //System.out.println("I found a flag!!! " + flagLoc+" i am at: " + curLoc);
+            rc.setIndicatorDot(flagLoc, 225, 0, 0);
+            if (rc.canPickupFlag(flagLoc)) {
+                rc.pickupFlag(flagLoc);
+                //System.out.println("I picked up flag " + flagLoc);
+            }
+            else {
+                System.out.println("Flag found but not picked up");
+            }
+        }
+
         if (rc.hasFlag()) {
-            System.out.println("I AHVE A FLAG!!" + attackerID);
+            System.out.println("Current attack target" + Utils.getLocationInSharedArray(rc, Constants.SharedArray.currentAttackerTarget));
             rc.writeSharedArray(Constants.SharedArray.attackersHaveFlag, attackerID);
-            moveTowards(rc, curLoc, currentTarget);
+            moveTowards(rc, curLoc, Utils.getLocationInSharedArray(rc, Constants.SharedArray.currentAttackerTarget));
             return;
         } else if (rc.readSharedArray(Constants.SharedArray.attackersHaveFlag) == attackerID) {
             // we no longer have the flag
             rc.writeSharedArray(Constants.SharedArray.attackersHaveFlag, 0);
         }
 
-        FlagInfo[] nearbyFlags = rc.senseNearbyFlags(-1, rc.getTeam().opponent());
-        if (nearbyFlags.length > 0) {
-            MapLocation flagLoc = nearbyFlags[0].getLocation();
-            System.out.println("I got a flag!!! " + flagLoc+" i am at: " + curLoc);
-            rc.setIndicatorDot(flagLoc, 225, 0, 0);
-            if (rc.canPickupFlag(flagLoc)) {
-                rc.pickupFlag(flagLoc);
-                System.out.println("I picke dup flag " + flagLoc);
-            }
-        }
-
-        if (enemyRobots.length > 0) {
+        if (!rc.hasFlag() && enemyRobots.length > 0) {
             // Enemies nearby, deal with this first
             // Find the nearest enemy robot
 
             RobotInfo nearestEnemy = Utils.getClosest(enemyRobots, curLoc);
 
             if (rc.getHealth() < 300)
-                moveTowards(rc, curLoc, curLoc.add(curLoc.directionTo(nearestEnemy.getLocation()).opposite()));
+                moveTowards(rc, curLoc, curLoc.subtract(curLoc.directionTo(nearestEnemy.getLocation())));
 
             int dist = curLoc.distanceSquaredTo(nearestEnemy.getLocation());
             if (dist < 9 || dist > 16) // If we move forward to attack they will get the first hit
@@ -94,13 +97,10 @@ public class Attacker extends AbstractRobot{
 
         // If we are not holding an enemy flag, let's go to the nearest one
         //flagInfo[] nearbyFlags = rc.senseNearbyFlags(-1, rc.getTeam().opponent());
-        if (nearbyFlags.length > 0) {
-            FlagInfo firstFlag = nearbyFlags[0];
-            MapLocation flagLoc = firstFlag.getLocation();
-            moveTowards(rc, curLoc, flagLoc);
-        } else {
+        if (!rc.hasFlag() && nearbyFlags.length > 0)
+            moveTowards(rc, curLoc, Utils.getClosest(nearbyFlags, curLoc).getLocation());
+        else
             moveTowards(rc, curLoc, Utils.getLocationInSharedArray(rc, Constants.SharedArray.currentAttackerTarget));
-        }
 
         RobotInfo[] allyRobots = rc.senseNearbyRobots(-1, rc.getTeam());
         RobotInfo flagHolder = null;

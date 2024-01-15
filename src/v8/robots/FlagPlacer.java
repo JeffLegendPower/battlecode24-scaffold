@@ -54,14 +54,13 @@ public class FlagPlacer extends AbstractRobot{
         }
         else if (!waterDug) {
             nearby = rc.senseNearbyMapInfos(2);
-            if (digIdx < nearby.length) {
-                if (rc.canDig(nearby[digIdx].getMapLocation())) {
-                    rc.dig(nearby[digIdx].getMapLocation());
+            if (digIdx < 2 * nearby.length) {
+                if (rc.canDig(nearby[digIdx % nearby.length].getMapLocation())) {
+                    rc.dig(nearby[digIdx % nearby.length].getMapLocation());
                     //System.out.println("diggin " + nearby[digIdx].getMapLocation().x + " " + nearby[digIdx].getMapLocation().y);
                 }
-                else if (rc.getCrumbs() < 20 || !nearby[digIdx].isWall() || !nearby[digIdx].isWater() || nearby[digIdx].isSpawnZone()) {
+                else if (rc.getCrumbs() < 20)
                     digIdx--;
-                }
                 digIdx++;
             }
             else
@@ -69,14 +68,13 @@ public class FlagPlacer extends AbstractRobot{
         }
         else if (!trapsPlaced) {
             nearby = rc.senseNearbyMapInfos(2);
-            if (trapIdx < nearby.length) {
-                if (rc.canBuild(TrapType.EXPLOSIVE, nearby[trapIdx].getMapLocation())) {
-                    rc.build(TrapType.EXPLOSIVE, nearby[trapIdx].getMapLocation());
+            if (trapIdx < 2 * nearby.length) {
+                if (rc.canBuild(TrapType.EXPLOSIVE, nearby[trapIdx % nearby.length].getMapLocation())) {
+                    rc.build(TrapType.EXPLOSIVE, nearby[trapIdx % nearby.length].getMapLocation());
                     //System.out.println("trappin " + nearby[trapIdx].getMapLocation().x + " " + nearby[trapIdx].getMapLocation().y);
                 }
-                else if (rc.getCrumbs() < 250 || nearby[trapIdx].getTrapType().equals(TrapType.NONE)) {
+                else if (rc.getCrumbs() < 250)
                     trapIdx--;
-                }
                 trapIdx++;
             }
             else

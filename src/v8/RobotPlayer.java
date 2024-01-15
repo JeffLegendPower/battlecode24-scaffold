@@ -37,11 +37,6 @@ public strictfp class RobotPlayer {
         while (true) {
 
             if (!rc.isSpawned()) {
-                if (type == RobotType.Attacker) {
-                    if (rc.readSharedArray(Constants.SharedArray.currentAttackLeader) == Attacker.attackerID) {
-                        rc.writeSharedArray(Constants.SharedArray.currentAttackLeader, rc.readSharedArray(Constants.SharedArray.currentAttackLeader)+1);
-                    }
-                }
                 spawn(rc);
 
             } else {
@@ -61,6 +56,8 @@ public strictfp class RobotPlayer {
                     if (!setupAfterSetup && type != RobotType.FlagPlacer) {
                         type = RobotType.Attacker;
                         type.getRobot().setup(rc, curLoc);
+                        if (rc.readSharedArray(Constants.SharedArray.currentAttackLeader) == 0)
+                            rc.writeSharedArray(Constants.SharedArray.currentAttackLeader, Attacker.attackerID);
                         setupAfterSetup = true;
                     }
                 }
