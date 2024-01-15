@@ -1,17 +1,18 @@
-package v7;
+package v8;
 
 import battlecode.common.*;
 
-public class Util {
+public class Utils {
 
     public static void storeLocationInSharedArray(RobotController rc, int index, MapLocation location) throws GameActionException {
         // TODO: more efficient bitpacking?
-        rc.writeSharedArray(index, location.x + location.y * 1000);
+        rc.writeSharedArray(index, (location.x << 6) | location.y);
     }
 
     public static MapLocation getLocationInSharedArray(RobotController rc, int index) throws GameActionException {
         int loc = rc.readSharedArray(index);
-        return new MapLocation(loc % 1000, loc / 1000);
+
+        return new MapLocation((loc >> 6) & 63, loc & 63);
     }
 
     public static MapLocation getClosest(MapLocation[] locs, MapLocation curLoc) {

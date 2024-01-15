@@ -400,8 +400,8 @@ public class Pathfinding {
     }
 
     public static int calculateDistance(MapLocation ml1, MapLocation ml2) {
-        // Use Manhatten distance for now
-        return (Math.abs(ml1.x-ml2.x) + Math.abs(ml1.y-ml2.y));
-
+//        return Math.max(Math.abs(ml1.x - ml2.x), Math.abs(ml1.y - ml2.y)); // Chebyshev distance
+        return ml1.distanceSquaredTo(ml2); // Euclidean distance squared
+//        return (Math.abs(ml1.x-ml2.x) + Math.abs(ml1.y-ml2.y)); // Manhatten distance
     }
 }
