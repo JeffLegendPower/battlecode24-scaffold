@@ -347,6 +347,7 @@ public class Pathfinding {
             rc.move(curLoc.directionTo(move.a));
         }
 
+        System.out.println("depth: " + depth + " time: " + (Clock.getBytecodeNum()));
     }
 
     public static List<MapLocation> moveTowardsDirect(RobotController rc, MapLocation curLoc, MapLocation target, int depth, int ply, List<MapLocation> current) throws GameActionException {

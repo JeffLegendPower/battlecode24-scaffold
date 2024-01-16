@@ -4,8 +4,8 @@ import battlecode.common.*;
 import com.sun.tools.internal.jxc.ap.Const;
 import scala.collection.immutable.Stream;
 
-import static v7.RobotPlayer.rng;
-import static v8.Pathfinding.moveTowards;
+import static v8.RobotPlayer.rng;
+import static v8.Pathfinding.*;
 import static v8.RobotPlayer.directions;
 import v8.RobotPlayer;
 import v8.Pathfinding;
@@ -14,105 +14,64 @@ import v8.Utils;
 import v8.Constants;
 
 public class Attacker extends AbstractRobot{
-    public static int attackerID = -1;
-    public static MapLocation currentTarget = null;
-    public static int spawnLocsSearched = 0;
-    public static int timeSinceLastAttacked = 0;
-    @Override
+
     public boolean setup(RobotController rc, MapLocation curLoc) throws GameActionException {
-        attackerID = rc.readSharedArray(Constants.SharedArray.numberAttackers);
-        rc.writeSharedArray(Constants.SharedArray.numberAttackers, rc.readSharedArray(Constants.SharedArray.numberAttackers) + 1);
+
         return true;
     }
 
     @Override
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
+        RobotInfo[] nearestEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+        RobotInfo[] nearestFriends = rc.senseNearbyRobots(-1, rc.getTeam());
 
-        if (attackerID == rc.readSharedArray(Constants.SharedArray.currentAttackLeader)) {
-            // orchestrate
-            timeSinceLastAttacked = rc.readSharedArray(Constants.SharedArray.timeSinceLastAttack);
-            if (rc.readSharedArray(Constants.SharedArray.attackersHaveFlag) != 0) {
-                currentTarget = Utils.getClosest(rc.getAllySpawnLocations(), curLoc);
-                spawnLocsSearched++;
-            } else if (timeSinceLastAttacked > 100){
-                if (spawnLocsSearched < 3) {
-                    MapLocation myspawn = rc.getAllySpawnLocations()[spawnLocsSearched * 9 + 4];
-                    currentTarget = new MapLocation(rc.getMapWidth() - myspawn.x, rc.getMapHeight() - myspawn.y);
-                }
-            } else {
-                currentTarget = rc.getAllySpawnLocations()[rng.nextInt(3) * 9 + 4];
-            }
-            Utils.storeLocationInSharedArray(rc, Constants.SharedArray.currentAttackerTarget, currentTarget);
-            System.out.println("Attacker current: " + currentTarget + " time since: " + timeSinceLastAttacked + " id: " + attackerID);
-            timeSinceLastAttacked++;
-            if (timeSinceLastAttacked > 200) {
-                timeSinceLastAttacked = 0;
-            }
-            rc.writeSharedArray(Constants.SharedArray.timeSinceLastAttack, timeSinceLastAttacked);
-        }
-        RobotInfo[] enemyRobots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-
-        FlagInfo[] nearbyFlags = rc.senseNearbyFlags(-1, rc.getTeam().opponent());
-        if (nearbyFlags.length > 0) {
-            MapLocation flagLoc = Utils.getClosest(nearbyFlags, curLoc).getLocation();
-            //System.out.println("I found a flag!!! " + flagLoc+" i am at: " + curLoc);
-            rc.setIndicatorDot(flagLoc, 225, 0, 0);
-            if (rc.canPickupFlag(flagLoc)) {
-                rc.pickupFlag(flagLoc);
-                //System.out.println("I picked up flag " + flagLoc);
-            }
-            else {
-                System.out.println("Flag found but not picked up");
+        MapLocation flagHolder = null;
+        for (RobotInfo ally : nearestFriends) {
+            if (ally.hasFlag()) {
+                flagHolder = ally.location;
             }
         }
+
+        FlagInfo[] nearestFlags = rc.senseNearbyFlags(-1, rc.getTeam().opponent());
 
         if (rc.hasFlag()) {
-            System.out.println("Current attack target" + Utils.getLocationInSharedArray(rc, Constants.SharedArray.currentAttackerTarget));
-            rc.writeSharedArray(Constants.SharedArray.attackersHaveFlag, attackerID);
-            moveTowards(rc, curLoc, Utils.getLocationInSharedArray(rc, Constants.SharedArray.currentAttackerTarget));
-            return;
-        } else if (rc.readSharedArray(Constants.SharedArray.attackersHaveFlag) == attackerID) {
-            // we no longer have the flag
-            rc.writeSharedArray(Constants.SharedArray.attackersHaveFlag, 0);
+            Utils.storeLocationInSharedArray(rc, 20, curLoc);
+            moveTowards(rc, curLoc, Utils.getClosest(rc.getAllySpawnLocations(), curLoc));
         }
 
-        if (!rc.hasFlag() && enemyRobots.length > 0) {
-            // Enemies nearby, deal with this first
-            // Find the nearest enemy robot
+        if (nearestFlags.length > 0) {
+            if (rc.canPickupFlag(nearestFlags[0].getLocation())) {
+                rc.pickupFlag(nearestFlags[0].getLocation());
+            }
 
-            RobotInfo nearestEnemy = Utils.getClosest(enemyRobots, curLoc);
-
-            if (rc.getHealth() < 300)
-                moveTowards(rc, curLoc, curLoc.subtract(curLoc.directionTo(nearestEnemy.getLocation())));
-
-            int dist = curLoc.distanceSquaredTo(nearestEnemy.getLocation());
-            if (dist < 9 || dist > 16) // If we move forward to attack they will get the first hit
-                moveTowards(rc, curLoc, nearestEnemy.getLocation()); // Try to move towards the nearest enemy
-
-            // Now attack the nearest enemy
-            if (rc.canAttack(nearestEnemy.getLocation())) {
-                rc.attack(nearestEnemy.getLocation());
+            moveTowards(rc, curLoc, nearestFlags[0].getLocation(), 10);
+        }
+        else if (nearestEnemies.length > 0) {
+            if (rc.canAttack(nearestEnemies[0].getLocation())) {
+                rc.attack(nearestEnemies[0].getLocation());
+                moveAway(rc, curLoc, nearestEnemies[0].getLocation());
+            } else {
+                moveTowards(rc, curLoc, nearestEnemies[0].getLocation(), 10);
+            }
+        } else {
+            MapLocation flagHolderLoc = Utils.getLocationInSharedArray(rc, 20);
+            if (flagHolderLoc.x != 0 && flagHolderLoc.y != 0) {
+                moveTowards(rc, curLoc, flagHolderLoc);
+            }
+            if (nearestFriends.length > 0) {
+                if (rc.canHeal(nearestFriends[0].getLocation()))
+                    rc.heal(nearestFriends[0].getLocation());
+            }
+            if (flagHolder != null) {
+                moveTowards(rc, curLoc, flagHolder, 10);
+            }
+            else if (nearestFriends.length > 0 && rng.nextInt(5) == 1) {
+                moveTowards(rc, curLoc, nearestFriends[0].getLocation(), 10);
+            } else {
+                MapLocation furthestSpawn = Utils.getFurthest(rc.getAllySpawnLocations(), curLoc);
+                moveTowards(rc, curLoc, new MapLocation(rc.getMapWidth() - furthestSpawn.x, rc.getMapHeight() - furthestSpawn.y), 10);
             }
         }
-
-        // If we are not holding an enemy flag, let's go to the nearest one
-        //flagInfo[] nearbyFlags = rc.senseNearbyFlags(-1, rc.getTeam().opponent());
-        if (!rc.hasFlag() && nearbyFlags.length > 0)
-            moveTowards(rc, curLoc, Utils.getClosest(nearbyFlags, curLoc).getLocation());
-        else
-            moveTowards(rc, curLoc, Utils.getLocationInSharedArray(rc, Constants.SharedArray.currentAttackerTarget));
-
-        RobotInfo[] allyRobots = rc.senseNearbyRobots(-1, rc.getTeam());
-        RobotInfo flagHolder = null;
-        for (RobotInfo ally : allyRobots) {
-            if (ally.hasFlag) {
-                flagHolder = ally;
-                moveTowards(rc, curLoc, flagHolder.getLocation().add(directions[rng.nextInt(8)]).add(directions[rng.nextInt(8)]));
-            }
-        }
-
-        if (flagHolder != null && rc.canHeal(flagHolder.getLocation()))
-            rc.heal(flagHolder.getLocation());
 
     }
 

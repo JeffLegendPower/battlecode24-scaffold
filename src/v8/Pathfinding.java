@@ -19,6 +19,10 @@ public class Pathfinding {
         moveTowards(rc, curLoc, target, 10);
     }
 
+    public static void moveAway(RobotController rc, MapLocation curLoc, MapLocation target) throws GameActionException {
+        moveTowards(rc, curLoc.add(curLoc.directionTo(target).opposite()), target);
+    }
+
     private static HashMap<MapLocation, Integer> cached = new HashMap<>();
     private static MapLocation lastTarget = null;
 

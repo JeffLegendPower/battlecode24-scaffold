@@ -44,7 +44,7 @@ public class FlagPlacer extends AbstractRobot{
                         target = target.translate((target.x == rc.getMapWidth() - 1) ? -10 : 10, 0);
                 }
                 //System.out.println("Im goin to flag: " + target + " cuz im id " + rc.getID() + " on team " + rc.getTeam());
-                if (curLoc.equals(target)){
+                if (curLoc.equals(target)) {
                     //System.out.println("Droppin flag: " + curLoc + " cuz im id " + rc.getID());
                     rc.dropFlag(curLoc);
                     flagPlaced = true;
@@ -54,24 +54,26 @@ public class FlagPlacer extends AbstractRobot{
         }
         else if (!waterDug) {
             nearby = rc.senseNearbyMapInfos(2);
-            if (digIdx < 2 * nearby.length) {
-                if (rc.canDig(nearby[digIdx % nearby.length].getMapLocation())) {
-                    rc.dig(nearby[digIdx % nearby.length].getMapLocation());
-                    //System.out.println("diggin " + nearby[digIdx].getMapLocation().x + " " + nearby[digIdx].getMapLocation().y);
+
+            boolean done = true;
+
+            for (MapInfo info : nearby) {
+                if (rc.canDig(info.getMapLocation())) {
+                    rc.dig(info.getMapLocation());
+                    break;
                 }
-                else if (rc.getCrumbs() < 20)
-                    digIdx--;
-                digIdx++;
             }
-            else
-                waterDug = true;
+
+            for (MapInfo info : nearby)
+                if (!info.isWater() && !info.isWall() && !info.getMapLocation().equals(curLoc)) done = false;
+
+            waterDug = done;
         }
         else if (!trapsPlaced) {
             nearby = rc.senseNearbyMapInfos(2);
             if (trapIdx < 2 * nearby.length) {
                 if (rc.canBuild(TrapType.EXPLOSIVE, nearby[trapIdx % nearby.length].getMapLocation())) {
                     rc.build(TrapType.EXPLOSIVE, nearby[trapIdx % nearby.length].getMapLocation());
-                    //System.out.println("trappin " + nearby[trapIdx].getMapLocation().x + " " + nearby[trapIdx].getMapLocation().y);
                 }
                 else if (rc.getCrumbs() < 250)
                     trapIdx--;

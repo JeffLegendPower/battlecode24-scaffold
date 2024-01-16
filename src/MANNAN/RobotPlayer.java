@@ -74,6 +74,10 @@ public strictfp class RobotPlayer {
                 // Make sure you spawn your robot in before you attempt to take any actions!
                 // Robots not spawned in do not have vision of any tiles and cannot perform any actions.
                 if (!rc.isSpawned()) {
+                    mytype = rc.readSharedArray(0);
+
+                    if (mytype > 3) continue;
+                    rc.writeSharedArray(0, rc.readSharedArray(0) + 1);
                     MapLocation[] spawnLocs = rc.getAllySpawnLocations();
                     // Pick a random spawn location to attempt spawning in.
                     MapLocation randomLoc = spawnLocs[rng.nextInt(spawnLocs.length)];
@@ -85,9 +89,7 @@ public strictfp class RobotPlayer {
                             rc.getMapWidth() - 2 * randomLoc.x > 0 ? 0 : rc.getMapWidth(),
                             rc.getMapHeight() - 2 * randomLoc.y > 0 ? 0 : rc.getMapHeight()
                     );
-                    mytype = 3;//rc.readSharedArray(0);
-
-                    rc.writeSharedArray(0, rc.readSharedArray(0) + 1);
+//                    mytype = 3;
 
                     continue;
 
@@ -120,7 +122,8 @@ public strictfp class RobotPlayer {
                     //Pathfinding.moveTowards(rc, rc.getLocation(), target, 4);
                 }
                 int after = Clock.getBytecodeNum();
-                rc.setIndicatorString("type: " + types[mytype] + " using: " + (after-before));
+//                if (mytype <= 3)
+//                    rc.setIndicatorString("type: " + types[mytype] + " using: " + (after-before));
 
             } catch (GameActionException e) {
                 // Oh no! It looks like we did something illegal in the Battlecode world. You should

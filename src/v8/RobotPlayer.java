@@ -5,6 +5,9 @@ import v8.robots.*;
 
 import java.util.Random;
 
+import static v8.RobotPlayer.rng;
+import static v8.Pathfinding.moveTowards;
+
 
 /* 1) move all flags to nearest corner
  * 2) Bombard the guys will our huge army
@@ -54,25 +57,34 @@ public strictfp class RobotPlayer {
                     }
                 } else {
                     if (!setupAfterSetup && type != RobotType.FlagPlacer) {
-                        type = RobotType.Attacker;
-                        type.getRobot().setup(rc, curLoc);
-                        if (rc.readSharedArray(Constants.SharedArray.currentAttackLeader) == 0)
-                            rc.writeSharedArray(Constants.SharedArray.currentAttackLeader, Attacker.attackerID);
-                        setupAfterSetup = true;
+                        if (rng.nextInt(10) == 998){
+                            type = RobotType.Defender;
+                        } else {
+                            type = RobotType.Attacker;
+                            type.getRobot().setup(rc, curLoc);
+                            setupAfterSetup = true;
+                        }
                     }
                 }
 
-
-
-                if (type != null) {
-                    rc.setIndicatorString(type.name());
-                    //System.out.println(" I AM A: " + type.name());
-                    type.getRobot().tick(rc, curLoc);
-                } else {
-                    //type = RobotType.Attacker;
-                    Pathfinding.moveTowards(rc, curLoc, new MapLocation(0, 30));
+                if (rc.getRoundNum() % 20 == 0) {
+                    Utils.storeLocationInSharedArray(rc, 20, new MapLocation(0, 0));
                 }
 
+                if (type != null) {
+                    type.getRobot().tick(rc, curLoc);
+                    rc.setIndicatorString(type.name());
+                } else if (rc.getRoundNum() > GameConstants.SETUP_ROUNDS) {
+                    if (rng.nextInt(10) == 999){
+                        type = RobotType.Defender;
+                    } else {
+                        type = RobotType.Attacker;
+                        type.getRobot().setup(rc, curLoc);
+                        setupAfterSetup = true;
+                    }
+                } else {
+                    moveTowards(rc, curLoc, curLoc.add(directions[rng.nextInt(8)]), 10);
+                }
             }
 
             if (rc.isSpawned()) {
@@ -95,12 +107,12 @@ public strictfp class RobotPlayer {
             if (rc.canSpawn(spawnLoc)) {
                 rc.spawn(spawnLoc);
 
-                    type = RobotType.FlagPlacer;
-                    if (!type.getRobot().setup(rc, rc.getLocation())) {
-                        type = null;
-                    } else {
-                        setupBeforeSetup = true;
-                    }
+                type = RobotType.FlagPlacer;
+                if (!type.getRobot().setup(rc, rc.getLocation())) {
+                    type = null;
+                } else {
+                    setupBeforeSetup = true;
+                }
 
             }
             i += 1;
