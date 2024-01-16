@@ -13,8 +13,6 @@ import static v8.Utils.Pair;
 public class Pathfinding {
     private static List<MapLocation> best = new ArrayList<>();
 
-
-
     public static void moveTowards(RobotController rc, MapLocation curLoc, MapLocation target) throws GameActionException {
         moveTowards(rc, curLoc, target, 10);
     }
@@ -22,9 +20,6 @@ public class Pathfinding {
     public static void moveAway(RobotController rc, MapLocation curLoc, MapLocation target) throws GameActionException {
         moveTowards(rc, curLoc.add(curLoc.directionTo(target).opposite()), target);
     }
-
-    private static HashMap<MapLocation, Integer> cached = new HashMap<>();
-    private static MapLocation lastTarget = null;
 
     public static void moveTowards(RobotController rc, MapLocation curLoc, MapLocation target, int maxDepth) throws GameActionException {
 
@@ -48,11 +43,6 @@ public class Pathfinding {
             } else if (distToTarget < 5) {
                 maxDepth = Math.min(3, maxDepth);
                 best = new ArrayList<>();
-            }
-
-            if (lastTarget == null || !lastTarget.equals(target)) {
-                cached.clear();
-                lastTarget = target;
             }
         } catch (NullPointerException e) {
             System.out.println("Failure to path find to " + target);
@@ -82,11 +72,8 @@ public class Pathfinding {
         int depth;
         for (depth = 1; depth <= maxDepth; depth++) {
             if (Clock.getBytecodeNum() > 8000) break;
-//            if (calculateDistance(curLoc, target) < 5 && depth > 2) break; //limit depth for shorter objectives
             best = moveTowardsDirect(rc, curLoc, target, best);
         }
-        System.out.println(depth);
-//        System.out.println(Clock.getBytecodeNum() + " depth: " + depth);
         if (best.isEmpty()) {
             return;
         }
@@ -129,10 +116,8 @@ public class Pathfinding {
         if (bestMove == null) return current;
         current.add(bestMove);
 
-        if (rc.getRoundNum() == 5)
-            System.out.println(bestMove);
-        rc.setIndicatorDot(bestMove, 255, 0, 0);
-        rc.setIndicatorLine(curLoc, bestMove, 0, 255, 0);
+//        rc.setIndicatorDot(bestMove, 255, 0, 0);
+//        rc.setIndicatorLine(curLoc, bestMove, 0, 255, 0);
 
         return current;
     }
