@@ -294,21 +294,17 @@ public class Pathfinding {
     }
 
 
-    private static List<MapLocation> best = new ArrayList<>();
+    private static LinkedList<MapLocation> best = new LinkedList<>();
 
-    private static HashMap<MapLocation, Integer> cached = new HashMap<>();
-    private static MapLocation lastTarget = null;
+    private static String lastmsg = "";
+    private static int cycles = 0;
 
     public static void moveTest(RobotController rc, MapLocation curLoc, MapLocation target, int maxDepth) throws GameActionException {
+        cycles = 0;
+        rc.setIndicatorString(lastmsg);
 
         if (!rc.isSpawned()) return; // Prevent NPEs
         if (!rc.isMovementReady()) return;
-
-        if (lastTarget == null || !lastTarget.equals(target)) {
-            cached = new HashMap<>();
-            lastTarget = target;
-        }
-
 
         int x = Math.max(1, Math.min(rc.getMapWidth() - 1, target.x));
         int y = Math.max(1, Math.min(rc.getMapHeight() - 1, target.y));
@@ -332,7 +328,7 @@ public class Pathfinding {
         int depth;
         for (depth = 1; depth <= maxDepth; depth++) {
             if (Clock.getBytecodeNum() > 10000) break;
-            best = moveTowardsDirect(rc, curLoc, target, depth, 0, best);
+            best = moveTowardsDirect(rc, curLoc, best.isEmpty() ? curLoc : best.getLast(), target, best);
         }
         if (best.isEmpty()) return;
         Pair<MapLocation, Integer> move = getLastAdjacent(curLoc, best);
@@ -347,18 +343,16 @@ public class Pathfinding {
             rc.move(curLoc.directionTo(move.a));
         }
 
-        System.out.println("depth: " + depth + " time: " + (Clock.getBytecodeNum()));
+        rc.setIndicatorString("depth: " + depth + " time: " + (Clock.getBytecodeNum()) + " cycles: " + cycles);
+        lastmsg = "depth: " + depth + " time: " + (Clock.getBytecodeNum()) + " cycles: " + cycles;
     }
 
-    public static List<MapLocation> moveTowardsDirect(RobotController rc, MapLocation curLoc, MapLocation target, int depth, int ply, List<MapLocation> current) throws GameActionException {
+    public static LinkedList<MapLocation> moveTowardsDirect(RobotController rc, MapLocation origLoc, MapLocation curLoc, MapLocation target, LinkedList<MapLocation> current) throws GameActionException {
+        cycles++;
         if (curLoc.equals(target)) return current;
-        if (ply >= depth) return current;
 
         int bestDist = 999999;
         MapLocation bestMove = null;
-
-        // Debug
-        boolean fromCache = true;
 
         for (Direction dir : directions) {
             MapLocation newLoc = curLoc.add(dir);
@@ -368,14 +362,10 @@ public class Pathfinding {
             if (rc.canSenseRobotAtLocation(newLoc)) continue;
             if (RobotPlayer.map[newLoc.y][newLoc.x] != null &&
                     RobotPlayer.map[newLoc.y][newLoc.x].isPassable() &&
-                    !current.contains(newLoc)) {
+                    !current.contains(newLoc) &&
+                    !origLoc.equals(newLoc) && !curLoc.equals(newLoc)) {
 
-                int newDist = cached.getOrDefault(newLoc, -1);
-                if (newDist == -1) {
-                    fromCache = false;
-                    newDist = calculateDistance(newLoc, target);
-                    cached.put(newLoc, newDist);
-                }
+                int newDist = calculateDistance(newLoc, target);
                 if (newDist < bestDist) {
                     bestDist = newDist;
                     bestMove = newLoc;
@@ -385,10 +375,12 @@ public class Pathfinding {
         if (bestMove == null) return current;
         current.add(bestMove);
 
-        rc.setIndicatorDot(bestMove, 255, 0,0);
-        rc.setIndicatorLine(curLoc, bestMove, 0, fromCache ? 0 : 255, fromCache ? 255 : 0);
+        if (rc.getRoundNum() == 5)
+            System.out.println(bestMove);
+        rc.setIndicatorDot(bestMove, 255, 0, 0);
+        rc.setIndicatorLine(curLoc, bestMove, 0, 255, 0);
 
-        return moveTowardsDirect(rc, bestMove, target, depth, ply + 1, current);
+        return current;
     }
 
     private static Pair<MapLocation, Integer> getLastAdjacent(MapLocation curLoc, List<MapLocation> moves) {

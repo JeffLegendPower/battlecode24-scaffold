@@ -5,12 +5,11 @@ import v8.robots.*;
 
 import java.util.Random;
 
-import static v8.RobotPlayer.rng;
 import static v8.Pathfinding.moveTowards;
 
 
 /* 1) move all flags to nearest corner
- * 2) Bombard the guys will our huge army
+ * 2) Bombard the guys with our huge army
  *
  */
 public strictfp class RobotPlayer {
@@ -68,7 +67,7 @@ public strictfp class RobotPlayer {
                 }
 
                 if (rc.getRoundNum() % 20 == 0) {
-                    Utils.storeLocationInSharedArray(rc, 20, new MapLocation(0, 0));
+                    Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagHolderLoc, new MapLocation(0, 0));
                 }
 
                 if (type != null) {

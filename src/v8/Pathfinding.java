@@ -1,13 +1,13 @@
 package v8;
 
 import battlecode.common.*;
-import org.apache.commons.lang3.ObjectUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
 import static v8.RobotPlayer.directions;
+import static v8.RobotPlayer.map;
 import static v8.Utils.Pair;
 
 public class Pathfinding {
@@ -82,9 +82,10 @@ public class Pathfinding {
         int depth;
         for (depth = 1; depth <= maxDepth; depth++) {
             if (Clock.getBytecodeNum() > 8000) break;
-            if (calculateDistance(curLoc, target) < 5 && depth > 2) break; //limit depth for shorter objectives
-            best = moveTowardsDirect(rc, curLoc, target, maxDepth, 0, best, 8000);
+//            if (calculateDistance(curLoc, target) < 5 && depth > 2) break; //limit depth for shorter objectives
+            best = moveTowardsDirect(rc, curLoc, target, best);
         }
+        System.out.println(depth);
 //        System.out.println(Clock.getBytecodeNum() + " depth: " + depth);
         if (best.isEmpty()) {
             return;
@@ -103,48 +104,37 @@ public class Pathfinding {
         }
     }
 
-    public static List<MapLocation> moveTowardsDirect(RobotController rc, MapLocation curLoc, MapLocation target, int depth, int ply, List<MapLocation> current, int maxBytecode) throws GameActionException {
+    public static List<MapLocation> moveTowardsDirect(RobotController rc, MapLocation curLoc, MapLocation target, List<MapLocation> current) throws GameActionException {
         if (curLoc.equals(target)) return current;
-        if (ply >= depth) return current;
 
         int bestDist = 999999;
         MapLocation bestMove = null;
 
-        // Debug
-        boolean fromCache = true;
-
         for (Direction dir : directions) {
-            if (Clock.getBytecodeNum() > maxBytecode) return current;
             MapLocation newLoc = curLoc.add(dir);
             int x = Math.max(1, Math.min(rc.getMapWidth() - 1, newLoc.x));
             int y = Math.max(1, Math.min(rc.getMapHeight() - 1, newLoc.y));
             newLoc = new MapLocation(x, y);
             if (rc.canSenseRobotAtLocation(newLoc)) continue;
-            if (RobotPlayer.map[newLoc.y][newLoc.x] != null &&
-                    RobotPlayer.map[newLoc.y][newLoc.x].isPassable() &&
-                    !current.contains(newLoc)) {
+            if (map[newLoc.y][newLoc.x] != null &&
+                    map[newLoc.y][newLoc.x].isPassable()) {
 
-                int newDist = cached.getOrDefault(newLoc, -1);
-                if (newDist == -1) {
-                    fromCache = false;
-                    newDist = calculateDistance(newLoc, target);
-                    cached.put(newLoc, newDist);
-                }
+                int newDist = calculateDistance(newLoc, target);
                 if (newDist < bestDist) {
                     bestDist = newDist;
                     bestMove = newLoc;
                 }
             }
         }
-        if (bestMove == null) {
-            return current;
-        }
+        if (bestMove == null) return current;
         current.add(bestMove);
 
-        //rc.setIndicatorDot(bestMove, 255, 0,0);
-        //rc.setIndicatorLine(curLoc, bestMove, 0, fromCache ? 0 : 255, fromCache ? 255 : 0);
+        if (rc.getRoundNum() == 5)
+            System.out.println(bestMove);
+        rc.setIndicatorDot(bestMove, 255, 0, 0);
+        rc.setIndicatorLine(curLoc, bestMove, 0, 255, 0);
 
-        return moveTowardsDirect(rc, bestMove, target, depth, ply + 1, current, maxBytecode);
+        return current;
     }
 
     private static Pair<MapLocation, Integer> getLastAdjacent(MapLocation curLoc, List<MapLocation> moves) {

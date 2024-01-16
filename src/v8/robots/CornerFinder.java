@@ -62,7 +62,7 @@ public class CornerFinder extends AbstractRobot {
                         Utils.getLocationInSharedArray(rc, Constants.SharedArray.cornerLocations[2]),
                         Utils.getLocationInSharedArray(rc, Constants.SharedArray.cornerLocations[3])};
 
-                int smallestDist = 99;
+                int smallestDist = 999;
                 int smallestIdx = -1;
                 int dist;
 

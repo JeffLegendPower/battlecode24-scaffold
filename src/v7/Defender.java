@@ -79,10 +79,10 @@ public class Defender {
             for(MapLocation spawnLoc : rc.getAllySpawnLocations()) {
                 if(curLoc.distanceSquaredTo(spawnLoc) < 4) {
                     if (rc.canBuild(TrapType.EXPLOSIVE, curLoc) && rc.canBuild(TrapType.STUN, curLoc)) {
-//                        if ((rc.getRoundNum() < GameConstants.SETUP_ROUNDS ? rng.nextInt(25) >= numTraps : rng.nextInt(10) >= 6))
-//                            rc.build(TrapType.EXPLOSIVE, curLoc);
-//                        else
-//                            rc.build(TrapType.STUN, curLoc);
+                        if ((rc.getRoundNum() < GameConstants.SETUP_ROUNDS ? rng.nextInt(25) >= numTraps : rng.nextInt(10) >= 6))
+                            rc.build(TrapType.EXPLOSIVE, curLoc);
+                        else
+                            rc.build(TrapType.STUN, curLoc);
                         trapBuilt = true;
                     }
 //                    else if (rc.canBuild(TrapType.EXPLOSIVE, curLoc)) {
