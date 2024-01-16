@@ -1,12 +1,12 @@
 package MANNAN;
 
 import battlecode.common.*;
-import MANNAN.Utils;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Random;
 
 import static MANNAN.Pathfinding.moveTowards;
-
+import static MANNAN.Pathfinding.moveAway;
 
 /**
  * RobotPlayer is the class that describes your main robot strategy.
@@ -113,28 +113,42 @@ public strictfp class RobotPlayer {
 
                 RobotInfo[] nearestEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
                 RobotInfo[] nearestFriends = rc.senseNearbyRobots(-1, rc.getTeam());
+
+
                 RobotInfo nearestEnemy = Utils.getClosest(nearestEnemies, curLoc);
+                RobotInfo nearestAlly = Utils.getClosest(nearestFriends, curLoc);
+                RobotInfo weakestAlly = null;
+
+                for (RobotInfo ally : nearestFriends) {
+                    if (weakestAlly == null) weakestAlly = ally;
+                    else if (ally.getHealth() < weakestAlly.getHealth()) {
+                        weakestAlly = ally;
+                    }
+                }
+
                 FlagInfo[] nearestFlags = rc.senseNearbyFlags(-1, rc.getTeam().opponent());
 
                 if (nearestEnemies.length > 0) {
                     if (rc.canAttack(nearestEnemy.getLocation())) {
                         rc.attack(nearestEnemy.getLocation());
-                        //moveAway(rc, curLoc, nearestEnemy.getLocation(), true);
-                    } else {
+                        // Micro 1: Run in to attack and then run away right after
+                        moveAway(rc, curLoc, nearestEnemy.getLocation(), true);
+                    } else if (rc.getHealth() >= 600 || nearestAlly == null) { // Micro 2: Only run in if you have enough health
                         int dist = curLoc.distanceSquaredTo(nearestEnemy.getLocation());
-                        if (dist < 9 || dist > 16) // If we move forward to attack we will get the first hit
-                            moveTowards(rc, curLoc, nearestEnemy.getLocation(), true);
+                        moveTowards(rc, curLoc, nearestEnemy.getLocation(), true);
+                    } else {
+                        moveTowards(rc, curLoc, nearestAlly.getLocation(), true); // Micro 3: Run towards nearest ally if low
                     }
                 } else {
                     if (nearestFriends.length > 0) {
-                        if (rc.canHeal(nearestFriends[0].getLocation()))
-                            rc.heal(nearestFriends[0].getLocation());
+                        if (rc.canHeal(weakestAlly.getLocation()))
+                            rc.heal(weakestAlly.getLocation());
                     }
                     MapLocation furthestSpawn = Utils.getFurthest(rc.getAllySpawnLocations(), curLoc);
 
 //            if (nearestFriends.length > 0 && rng.nextInt(5) == 1) {
 //                moveTowards(rc, curLoc, nearestFriends[0].getLocation(), true);
-                    if (rc.getRoundNum() < 200) { // TODO this fails so fix
+                    if (rc.getRoundNum() < 200) {
                         moveTowards(rc, curLoc, new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2), true);
                     } else {
                         moveTowards(rc, curLoc, target, true);
@@ -166,55 +180,5 @@ public strictfp class RobotPlayer {
 
 
         // Your code should never reach here (unless it's intentional)! Self-destruction imminent...
-    }
-
-    public static int calculateDistance(MapLocation ml1, MapLocation ml2) {
-        // Use Manhatten distance for now
-        return (Math.abs(ml1.x-ml2.x) + Math.abs(ml1.y-ml2.y));
-    }
-
-    public static boolean inPrevLocs(MapLocation loc) {
-        for (MapLocation prevLoc : prevLocs) {
-            if (loc.equals(prevLoc))
-                return true;
-        }
-        return false;
-    }
-
-
-}
-
-class DJNode implements Comparator<DJNode> {
-
-    // Member variables of this class
-    public int node;
-    public int cost;
-
-    // Constructors of this class
-
-    // Constructor 1
-    public DJNode() {}
-
-    // Constructor 2
-    public DJNode(int node, int cost)
-    {
-
-        // This keyword refers to current instance itself
-        this.node = node;
-        this.cost = cost;
-    }
-
-
-    // Method 1
-    @Override public int compare(DJNode node1, DJNode node2)
-    {
-
-        if (node1.cost < node2.cost)
-            return -1;
-
-        if (node1.cost > node2.cost)
-            return 1;
-
-        return 0;
     }
 }
