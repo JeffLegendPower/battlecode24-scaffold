@@ -70,10 +70,14 @@ public class Defender {
 
         boolean trapBuilt = false;
         int numTraps = 0;
+
         for (int i = -2; i <= 2; i++)
-            for (int j = -2; j <= 2; j++)
-                if (map[spawn.y + j][spawn.x + i].getTrapType() != TrapType.NONE)
+            for (int j = -2; j <= 2; j++) {
+                int x = Math.max(0, Math.min(rc.getMapWidth() - 1, spawn.x + i));
+                int y = Math.max(0, Math.min(rc.getMapHeight() - 1, spawn.y + j));
+                if (map[y][x].getTrapType() != TrapType.NONE)
                     numTraps++;
+            }
 
         if (turnsSinceLastTrap > 5) {
             for(MapLocation spawnLoc : rc.getAllySpawnLocations()) {

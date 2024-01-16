@@ -1,4 +1,4 @@
-package MANNAN;
+package MANNAN2;
 
 import battlecode.common.*;
 
@@ -6,9 +6,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import static MANNAN.RobotPlayer.directions;
-import static MANNAN.RobotPlayer.map;
-import static MANNAN.Utils.Pair;
+import static MANNAN2.RobotPlayer.directions;
+import static MANNAN2.RobotPlayer.map;
+import static MANNAN2.Utils.Pair;
 
 public class Pathfinding {
     private static List<MapLocation> best = new ArrayList<>();

@@ -14,5 +14,7 @@ public class Constants {
         public static final int numberDefenders = 7;
         public static final int lastFlagTrapPlaced = 8;
         public static final int flagHolderLoc = 9;
+        public static final int globalAttackTarget = 10;
+
     }
 }

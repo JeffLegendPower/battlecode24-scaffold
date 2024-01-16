@@ -41,12 +41,12 @@ public class FlagPlacer extends AbstractRobot{
                         target = target.translate((target.x == rc.getMapWidth() - 1) ? -10 : 10, 0);
                 }
                 //System.out.println("Im goin to flag: " + target + " cuz im id " + rc.getID() + " on team " + rc.getTeam());
-                if (curLoc.equals(target)) {
+                if (curLoc.equals(target) && rc.hasFlag()) {
                     //System.out.println("Droppin flag: " + curLoc + " cuz im id " + rc.getID());
                     rc.dropFlag(curLoc);
                     flagPlaced = true;
                 }
-                Pathfinding.moveTowards(rc, curLoc, target, true);
+                Pathfinding.moveTowards(rc, curLoc, target, false);
             }
         }
         else {

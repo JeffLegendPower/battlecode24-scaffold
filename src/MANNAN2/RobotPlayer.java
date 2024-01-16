@@ -1,12 +1,13 @@
-package MANNAN;
+package MANNAN2;
 
 import battlecode.common.*;
-import MANNAN.Utils;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Random;
 
-import static MANNAN.Pathfinding.moveTowards;
-
+import static MANNAN2.Pathfinding.moveTowards;
+import static MANNAN2.Pathfinding.moveAway;
 
 /**
  * RobotPlayer is the class that describes your main robot strategy.
@@ -119,11 +120,10 @@ public strictfp class RobotPlayer {
                 if (nearestEnemies.length > 0) {
                     if (rc.canAttack(nearestEnemy.getLocation())) {
                         rc.attack(nearestEnemy.getLocation());
-                        //moveAway(rc, curLoc, nearestEnemy.getLocation(), true);
+                        moveAway(rc, curLoc, nearestEnemy.getLocation(), true);
                     } else {
                         int dist = curLoc.distanceSquaredTo(nearestEnemy.getLocation());
-                        if (dist < 9 || dist > 16) // If we move forward to attack we will get the first hit
-                            moveTowards(rc, curLoc, nearestEnemy.getLocation(), true);
+                        moveTowards(rc, curLoc, nearestEnemy.getLocation(), true);
                     }
                 } else {
                     if (nearestFriends.length > 0) {

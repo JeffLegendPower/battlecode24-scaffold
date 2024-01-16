@@ -1,6 +1,7 @@
 package v8;
 
 import battlecode.common.*;
+import v8.robots.RobotType;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -14,51 +15,59 @@ public class Pathfinding {
     private static List<MapLocation> best = new ArrayList<>();
 
     public static void moveTowards(RobotController rc, MapLocation curLoc, MapLocation target, boolean fillWater) throws GameActionException {
-        moveTowards(rc, curLoc, target, 10, fillWater);
+        IterativeGreedy(rc, curLoc, target, 10, fillWater);
     }
 
     public static void moveAway(RobotController rc, MapLocation curLoc, MapLocation target, boolean fillWater) throws GameActionException {
-        moveTowards(rc, curLoc.translate(curLoc.x - target.x, curLoc.y - target.y), curLoc, 10, fillWater);
+        IterativeGreedy(rc, curLoc.translate(curLoc.x - target.x, curLoc.y - target.y), curLoc, 10, fillWater);
     }
 
-    public static void moveTowards(RobotController rc, MapLocation curLoc, MapLocation target, int maxDepth, boolean fillWater) throws GameActionException {
+    private static HashMap<MapLocation, Double> cachedScores = new HashMap<>();
+    private static MapLocation lastTarget = null;
+    private static HashMap<MapLocation, Integer> visited = new HashMap<>();
+
+    public static void IterativeGreedy(RobotController rc, MapLocation curLoc, MapLocation target, int maxDepth, boolean fillWater) throws GameActionException {
 
         if (!rc.isSpawned()) return; // Prevent NPEs
         if (!rc.isMovementReady()) return;
         if (curLoc.equals(target)) return;
 
-        try { // TODO: idk this sucks
-            if (curLoc.isAdjacentTo(target)) {
-                if (rc.canMove(curLoc.directionTo(target))) {
-                    rc.move(curLoc.directionTo(target));
-                    return;
-                }
-            }
-
-        } catch (NullPointerException e) {
-            System.out.println("Failure to path find to " + target);
-            return;
+        if (lastTarget == null || !lastTarget.equals(target)) {
+            cachedScores.clear();
+            lastTarget = target;
+            visited.clear();
+            best.clear();
         }
 
+        if (curLoc.isAdjacentTo(target)) {
+            if (rc.canFill(target) && Utils.canBeFilled(rc, target))
+                rc.fill(target);
 
-        int x = Math.max(0, Math.min(rc.getMapWidth(), target.x));
-        int y = Math.max(0, Math.min(rc.getMapHeight(), target.y));
-        target = new MapLocation(x, y);
+            if (rc.canMove(curLoc.directionTo(target))) {
+                rc.move(curLoc.directionTo(target));
+                visited.put(curLoc, visited.getOrDefault(curLoc, 0) + 1);
+                return;
+            } else {
+                best.clear();
+            }
+        }
+
+        target = clamp(target, rc);
 
         if (!best.isEmpty()) {
             Pair<MapLocation, Integer> move = getLastAdjacent(curLoc, best);
 
-            if (move == null) {
-            } else {
-                for (int i = 0; i <= move.b; i++)
-                    best.remove(0);
+            if (move != null) {
+                if (move.b >= 0)
+                    best.subList(0, move.b + 1).clear();
 
                 if (rc.canFill(move.a) && Utils.canBeFilled(rc, move.a))
                     rc.fill(move.a);
-
                 if (rc.canMove(curLoc.directionTo(move.a))) {
                     rc.move(curLoc.directionTo(move.a));
-                }
+                    visited.put(curLoc, visited.getOrDefault(curLoc, 0) + 1);
+                } else
+                    best.clear();
                 return;
             }
         }
@@ -66,55 +75,74 @@ public class Pathfinding {
         int depth;
         for (depth = 1; depth <= maxDepth; depth++) {
             if (Clock.getBytecodeNum() > 8000) break;
-            best = moveTowardsDirect(rc, curLoc, target, best, fillWater);
+            best = moveTowardsDirect(rc, best.isEmpty() ? curLoc : best.get(best.size() - 1), target, best, fillWater);
+
         }
-        if (best.isEmpty()) {
+        if (best.isEmpty())
             return;
-        }
+
         Pair<MapLocation, Integer> move = getLastAdjacent(curLoc, best);
 
         if (move == null) {
+            best.clear();
             return;
         }
 
-        for (int i = 0; i <= move.b; i++)
-            best.remove(0);
+        if (move.b >= 0)
+            best.subList(0, move.b + 1).clear();
 
         if (rc.canFill(move.a) && Utils.canBeFilled(rc, move.a))
             rc.fill(move.a);
 
         if (rc.canMove(curLoc.directionTo(move.a))) {
             rc.move(curLoc.directionTo(move.a));
-        }
+            visited.put(curLoc, visited.getOrDefault(curLoc, 0) + 1);
+        } else
+            best.clear();
     }
+
+    private static Direction lastDir = Direction.CENTER;
 
     public static List<MapLocation> moveTowardsDirect(RobotController rc, MapLocation curLoc, MapLocation target, List<MapLocation> current, boolean fillWater) throws GameActionException {
         if (curLoc.equals(target)) return current;
 
-        int bestDist = 999999;
+        double minScore = 999999;
         MapLocation bestMove = null;
+        Direction bestDir = Direction.CENTER;
 
         for (Direction dir : directions) {
             MapLocation newLoc = curLoc.add(dir);
-            int x = Math.max(1, Math.min(rc.getMapWidth() - 1, newLoc.x));
-            int y = Math.max(1, Math.min(rc.getMapHeight() - 1, newLoc.y));
-            newLoc = new MapLocation(x, y);
+            newLoc = clamp(newLoc, rc);
             if (rc.canSenseRobotAtLocation(newLoc)) continue;
             MapInfo info = map[newLoc.y][newLoc.x];
             if (info != null &&
-                    (fillWater ? (!info.isWall() && !info.isDam() && !(info.isWater() && Utils.canBeFilled(rc, newLoc))) : info.isPassable())) {
-                int newDist = calculateDistance(newLoc, target) + (info.isWater() ? 2 : 0);
-                if (newDist < bestDist) {
-                    bestDist = newDist;
+                    info.isPassable() &&
+                    !current.contains(newLoc) &&
+                (fillWater ? (!info.isWall() && !info.isDam() && !(info.isWater() && !Utils.canBeFilled(rc, newLoc))) : info.isPassable())) {
+                double score = cachedScores.getOrDefault(newLoc, -1d);
+                if (score == -1) {
+                    score = calculateDistance(newLoc, target);
+                    cachedScores.put(newLoc, score);
+                }
+                int thisVisited = visited.getOrDefault(newLoc, 0);
+                score *= (info.isWater() ? 1.1 : 1)
+//                        * (isOnWall(rc, newLoc) ? 1 : 1.1)
+                        * ((thisVisited == 0) ? 1 : thisVisited * 1.1)
+                        * (dir == lastDir.opposite() ? 1.2 : 1);
+                if (score < minScore) {
+                    minScore = score;
                     bestMove = newLoc;
+                    bestDir = dir;
                 }
             }
         }
+        lastDir = bestDir;
+
         if (bestMove == null) return current;
-        current.add(bestMove);
 
         rc.setIndicatorDot(bestMove, 255, 0, 0);
         rc.setIndicatorLine(curLoc, bestMove, 0, 255, 0);
+        current.add(bestMove);
 
         return current;
     }
@@ -128,7 +156,24 @@ public class Pathfinding {
         return null;
     }
 
+    private static boolean isOnWall(RobotController rc, MapLocation loc) {
+        boolean isWallHugging = false;
+        for (Direction dir : directions) {
+            MapLocation newLoc = clamp(loc.add(dir), rc);
+            MapInfo info = map[newLoc.y][newLoc.x];
+            if (info != null && info.isWall()) {
+                isWallHugging = true;
+                break;
+            }
+        }
+        return isWallHugging;
+    }
+
     public static int calculateDistance(MapLocation ml1, MapLocation ml2) {
         return ml1.distanceSquaredTo(ml2); // Euclidean distance squared
+    }
+
+    private static MapLocation clamp(MapLocation loc, RobotController rc) {
+        return new MapLocation(Math.max(1, Math.min(rc.getMapWidth() - 1, loc.x)), Math.max(1, Math.min(rc.getMapHeight() - 1, loc.y)));
     }
 }

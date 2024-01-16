@@ -61,7 +61,7 @@ public strictfp class RobotPlayer {
                     if (type != null && type.getRobot().completedTask())
                         type = null;
                 } else {
-                    if (!setupAfterSetup && type != RobotType.FlagPlacer && type != RobotType.Defender) {
+                    if (!setupAfterSetup && (type == RobotType.Default || type == RobotType.CornerFinder)) {
                        type = RobotType.Attacker;
                        type.getRobot().setup(rc, curLoc);
                        setupAfterSetup = true;
@@ -69,18 +69,23 @@ public strictfp class RobotPlayer {
                 }
 
                 if (rc.getRoundNum() % 20 == 0) {
-                    Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagHolderLoc, new MapLocation(0, 0));
+                    Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagHolderLoc, null);
                 }
 
                 if (type != null) {
                     type.getRobot().tick(rc, curLoc);
                     rc.setIndicatorString(type.name());
-                } else if (rc.getRoundNum() > GameConstants.SETUP_ROUNDS) {
+//                    if (type == RobotType.CornerFinder) System.out.println(rc.getLocation());
+                } else if (rc.getRoundNum() >= GameConstants.SETUP_ROUNDS - 50) {
                      type = RobotType.Attacker;
                      type.getRobot().setup(rc, curLoc);
                      setupAfterSetup = true;
                 } else {
-                    moveTowards(rc, curLoc, curLoc.add(directions[rng.nextInt(8)]), true);
+                    MapLocation[] nearbyCrumbs = rc.senseNearbyCrumbs(-1);
+                    if (nearbyCrumbs.length > 0)
+                        moveTowards(rc, curLoc, nearbyCrumbs[0], true);
+                    else
+                        moveTowards(rc, curLoc, curLoc.add(directions[rng.nextInt(8)]), true);
                 }
             }
 
@@ -92,29 +97,31 @@ public strictfp class RobotPlayer {
     private static boolean assigned = false;
 
     private static void spawn(RobotController rc) throws GameActionException {
-        int i = 0;
-        for (MapLocation spawnLoc : rc.getAllySpawnLocations()) {
-            if (rc.canSpawn(spawnLoc)) {
-                rc.spawn(spawnLoc);
 
-                if (!assigned) {
-                    type = RobotType.FlagPlacer;
-                    if (!type.getRobot().setup(rc, rc.getLocation()))
-                        type = null;
-                    else
-                        setupBeforeSetup = true;
-                    if (type == null) {
-                        type = RobotType.Defender;
-                        if (!type.getRobot().setup(rc, rc.getLocation()))
-                            type = null;
-                        else
-                            setupBeforeSetup = true;
+        if (!assigned) {
+            type = RobotType.FlagPlacer;
+            type.getRobot().spawn(rc);
+            if (!type.getRobot().setup(rc, rc.getLocation()))
+                type = RobotType.Default;
+            else
+                setupBeforeSetup = true;
+            if (type == RobotType.Default) {
+                type = RobotType.Defender;
+                if (!type.getRobot().setup(rc, rc.getLocation()))
+                    type = RobotType.Default;
+                else
+                    setupBeforeSetup = true;
 
-                    }
-                    assigned = true;
-                }
             }
-            i++;
+            assigned = true;
         }
+
+        type.getRobot().spawn(rc);
+
+//        for (MapLocation spawnLoc : rc.getAllySpawnLocations()) {
+//            if (rc.canSpawn(spawnLoc)) {
+//                rc.spawn(spawnLoc);
+//            }
+//        }
     }
 }

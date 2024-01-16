@@ -1,6 +1,7 @@
-package v8;
+package MANNAN2;
 
 import battlecode.common.*;
+
 import java.util.ArrayList;
 
 public class Utils {
@@ -162,11 +163,12 @@ public class Utils {
     }
 
     public static boolean canBeFilled(RobotController rc, MapLocation loc) throws GameActionException {
-        MapLocation flag = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLoc);
-        if (flag == null) return false;
-        return loc.distanceSquaredTo(flag) > 2
-                && loc.distanceSquaredTo(flag.translate(0, (flag.y == rc.getMapHeight() - 1) ? -10 : 10)) > 2
-                && loc.distanceSquaredTo(flag.translate((flag.x == rc.getMapWidth() - 1) ? -10 : 10, 0)) > 2;
+//        MapLocation flag = Utils.getLocationInSharedArray(rc, 10);
+//        if (flag == null) return false;
+//        return loc.distanceSquaredTo(flag) > 2
+//                && loc.distanceSquaredTo(flag.translate(0, (flag.y == rc.getMapHeight() - 1) ? -10 : 10)) > 2
+//                && loc.distanceSquaredTo(flag.translate((flag.x == rc.getMapWidth() - 1) ? -10 : 10, 0)) > 2;
+        return true;
     }
 
     // Pair

@@ -11,5 +11,15 @@ public abstract class AbstractRobot {
 
     public abstract void tick(RobotController rc, MapLocation curLoc) throws GameActionException;
 
+    public void spawn(RobotController rc) throws GameActionException {
+        if (rc.isSpawned()) return;
+        for (MapLocation spawnLoc : rc.getAllySpawnLocations()) {
+            if (rc.canSpawn(spawnLoc)) {
+                rc.spawn(spawnLoc);
+                break;
+            }
+        }
+    }
+
     public abstract boolean completedTask();
 }

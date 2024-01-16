@@ -2,7 +2,11 @@ package v8.robots;
 import v8.robots.FlagPlacer;
 
 public enum RobotType {
-    CornerFinder(new CornerFinder()), FlagPlacer(new FlagPlacer()), Attacker(new Attacker()), Defender(new Defender());
+    CornerFinder(new CornerFinder()),
+    FlagPlacer(new FlagPlacer()),
+    Attacker(new Attacker()),
+    Defender(new Defender()),
+    Default(new Default());
 //    BorderBuilder,
 
     private final AbstractRobot robot;
