@@ -63,7 +63,7 @@ public class Attacker extends AbstractRobot{
                 moveTowards(rc, curLoc, nearestFriends[0].getLocation(), true);
             } else {
                 MapLocation furthestSpawn = Utils.getFurthest(rc.getAllySpawnLocations(), curLoc);
-                moveTowards(rc, curLoc, new MapLocation(rc.getMapWidth() - furthestSpawn.x, rc.getMapHeight() - furthestSpawn.y), false);
+                moveTowards(rc, curLoc, new MapLocation(rc.getMapWidth() - furthestSpawn.x, rc.getMapHeight() - furthestSpawn.y), true);
             }
         }
 

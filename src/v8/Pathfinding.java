@@ -38,7 +38,7 @@ public class Pathfinding {
         } catch (NullPointerException e) {
             System.out.println("Failure to path find to " + target);
             return;
-        };
+        }
 
 
         int x = Math.max(0, Math.min(rc.getMapWidth(), target.x));
@@ -102,7 +102,7 @@ public class Pathfinding {
             if (rc.canSenseRobotAtLocation(newLoc)) continue;
             MapInfo info = map[newLoc.y][newLoc.x];
             if (info != null &&
-                    (fillWater ? (!info.isWall() && !info.isDam()) : info.isPassable())) {
+                    (fillWater ? (!info.isWall() && !info.isDam() && !(info.isWater() && Utils.canBeFilled(rc, newLoc))) : info.isPassable())) {
                 int newDist = calculateDistance(newLoc, target) + (info.isWater() ? 2 : 0);
                 if (newDist < bestDist) {
                     bestDist = newDist;
@@ -127,13 +127,6 @@ public class Pathfinding {
         }
         return null;
     }
-
-//    private static boolean locInBlacklist(MapLocation loc, ) {
-//        for (MapLocation bl : blacklist) {
-//            if (bl.equals(loc)) return true;
-//        }
-//        return false;
-//    }
 
     public static int calculateDistance(MapLocation ml1, MapLocation ml2) {
         return ml1.distanceSquaredTo(ml2); // Euclidean distance squared
