@@ -42,6 +42,13 @@ public strictfp class RobotPlayer {
                 spawn(rc);
 
             } else {
+
+                MapInfo[] nearbyMapInfo = rc.senseNearbyMapInfos();
+                for (MapInfo info : nearbyMapInfo) {
+                    MapLocation loc = info.getMapLocation();
+                    map[loc.y][loc.x] = info;
+                }
+
                 MapLocation curLoc = rc.getLocation();
 
                 if (rc.getRoundNum() < GameConstants.SETUP_ROUNDS) {
@@ -51,18 +58,13 @@ public strictfp class RobotPlayer {
                             type = null;
                         setupBeforeSetup = true;
                     }
-                    if (type != null && type.getRobot().completedTask()){
+                    if (type != null && type.getRobot().completedTask())
                         type = null;
-                    }
                 } else {
-                    if (!setupAfterSetup && type != RobotType.FlagPlacer) {
-                        if (rng.nextInt(10) == 998){
-                            type = RobotType.Defender;
-                        } else {
-                            type = RobotType.Attacker;
-                            type.getRobot().setup(rc, curLoc);
-                            setupAfterSetup = true;
-                        }
+                    if (!setupAfterSetup && type != RobotType.FlagPlacer && type != RobotType.Defender) {
+                       type = RobotType.Attacker;
+                       type.getRobot().setup(rc, curLoc);
+                       setupAfterSetup = true;
                     }
                 }
 
@@ -74,23 +76,11 @@ public strictfp class RobotPlayer {
                     type.getRobot().tick(rc, curLoc);
                     rc.setIndicatorString(type.name());
                 } else if (rc.getRoundNum() > GameConstants.SETUP_ROUNDS) {
-                    if (rng.nextInt(10) == 999){
-                        type = RobotType.Defender;
-                    } else {
-                        type = RobotType.Attacker;
-                        type.getRobot().setup(rc, curLoc);
-                        setupAfterSetup = true;
-                    }
+                     type = RobotType.Attacker;
+                     type.getRobot().setup(rc, curLoc);
+                     setupAfterSetup = true;
                 } else {
-                    moveTowards(rc, curLoc, curLoc.add(directions[rng.nextInt(8)]), 10);
-                }
-            }
-
-            if (rc.isSpawned()) {
-                MapInfo[] nearbyMapInfo = rc.senseNearbyMapInfos();
-                for (MapInfo info : nearbyMapInfo) {
-                    MapLocation loc = info.getMapLocation();
-                    map[loc.y][loc.x] = info;
+                    moveTowards(rc, curLoc, curLoc.add(directions[rng.nextInt(8)]), false);
                 }
             }
 
@@ -99,6 +89,7 @@ public strictfp class RobotPlayer {
     }
 
 
+    private static boolean assigned = false;
 
     private static void spawn(RobotController rc) throws GameActionException {
         int i = 0;
@@ -106,15 +97,24 @@ public strictfp class RobotPlayer {
             if (rc.canSpawn(spawnLoc)) {
                 rc.spawn(spawnLoc);
 
-                type = RobotType.FlagPlacer;
-                if (!type.getRobot().setup(rc, rc.getLocation())) {
-                    type = null;
-                } else {
-                    setupBeforeSetup = true;
-                }
+                if (!assigned) {
+                    type = RobotType.FlagPlacer;
+                    if (!type.getRobot().setup(rc, rc.getLocation()))
+                        type = null;
+                    else
+                        setupBeforeSetup = true;
+                    if (type == null) {
+                        type = RobotType.Defender;
+                        if (!type.getRobot().setup(rc, rc.getLocation()))
+                            type = null;
+                        else
+                            setupBeforeSetup = true;
 
+                    }
+                    assigned = true;
+                }
             }
-            i += 1;
+            i++;
         }
     }
 }

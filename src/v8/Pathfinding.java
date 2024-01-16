@@ -13,15 +13,15 @@ import static v8.Utils.Pair;
 public class Pathfinding {
     private static List<MapLocation> best = new ArrayList<>();
 
-    public static void moveTowards(RobotController rc, MapLocation curLoc, MapLocation target) throws GameActionException {
-        moveTowards(rc, curLoc, target, 10);
+    public static void moveTowards(RobotController rc, MapLocation curLoc, MapLocation target, boolean fillWater) throws GameActionException {
+        moveTowards(rc, curLoc, target, 10, fillWater);
     }
 
-    public static void moveAway(RobotController rc, MapLocation curLoc, MapLocation target) throws GameActionException {
-        moveTowards(rc, curLoc.add(curLoc.directionTo(target).opposite()), target);
+    public static void moveAway(RobotController rc, MapLocation curLoc, MapLocation target, boolean fillWater) throws GameActionException {
+        moveTowards(rc, curLoc.translate(curLoc.x - target.x, curLoc.y - target.y), curLoc, 10, fillWater);
     }
 
-    public static void moveTowards(RobotController rc, MapLocation curLoc, MapLocation target, int maxDepth) throws GameActionException {
+    public static void moveTowards(RobotController rc, MapLocation curLoc, MapLocation target, int maxDepth, boolean fillWater) throws GameActionException {
 
         if (!rc.isSpawned()) return; // Prevent NPEs
         if (!rc.isMovementReady()) return;
@@ -35,15 +35,6 @@ public class Pathfinding {
                 }
             }
 
-            // degrade maxdepth if its too close to target
-            int distToTarget = calculateDistance(curLoc, target);
-            if (distToTarget < 3) {
-                maxDepth = Math.min(1, maxDepth);
-                best = new ArrayList<>();
-            } else if (distToTarget < 5) {
-                maxDepth = Math.min(3, maxDepth);
-                best = new ArrayList<>();
-            }
         } catch (NullPointerException e) {
             System.out.println("Failure to path find to " + target);
             return;
@@ -62,6 +53,9 @@ public class Pathfinding {
                 for (int i = 0; i <= move.b; i++)
                     best.remove(0);
 
+                if (rc.canFill(move.a) && Utils.canBeFilled(rc, move.a))
+                    rc.fill(move.a);
+
                 if (rc.canMove(curLoc.directionTo(move.a))) {
                     rc.move(curLoc.directionTo(move.a));
                 }
@@ -72,7 +66,7 @@ public class Pathfinding {
         int depth;
         for (depth = 1; depth <= maxDepth; depth++) {
             if (Clock.getBytecodeNum() > 8000) break;
-            best = moveTowardsDirect(rc, curLoc, target, best);
+            best = moveTowardsDirect(rc, curLoc, target, best, fillWater);
         }
         if (best.isEmpty()) {
             return;
@@ -86,12 +80,15 @@ public class Pathfinding {
         for (int i = 0; i <= move.b; i++)
             best.remove(0);
 
+        if (rc.canFill(move.a))
+            rc.fill(move.a);
+
         if (rc.canMove(curLoc.directionTo(move.a))) {
             rc.move(curLoc.directionTo(move.a));
         }
     }
 
-    public static List<MapLocation> moveTowardsDirect(RobotController rc, MapLocation curLoc, MapLocation target, List<MapLocation> current) throws GameActionException {
+    public static List<MapLocation> moveTowardsDirect(RobotController rc, MapLocation curLoc, MapLocation target, List<MapLocation> current, boolean fillWater) throws GameActionException {
         if (curLoc.equals(target)) return current;
 
         int bestDist = 999999;
@@ -103,10 +100,10 @@ public class Pathfinding {
             int y = Math.max(1, Math.min(rc.getMapHeight() - 1, newLoc.y));
             newLoc = new MapLocation(x, y);
             if (rc.canSenseRobotAtLocation(newLoc)) continue;
-            if (map[newLoc.y][newLoc.x] != null &&
-                    map[newLoc.y][newLoc.x].isPassable()) {
-
-                int newDist = calculateDistance(newLoc, target);
+            MapInfo info = map[newLoc.y][newLoc.x];
+            if (info != null &&
+                    (fillWater ? (!info.isWall() && !info.isDam()) : info.isPassable())) {
+                int newDist = calculateDistance(newLoc, target) + (info.isWater() ? 2 : 0);
                 if (newDist < bestDist) {
                     bestDist = newDist;
                     bestMove = newLoc;
@@ -116,8 +113,8 @@ public class Pathfinding {
         if (bestMove == null) return current;
         current.add(bestMove);
 
-//        rc.setIndicatorDot(bestMove, 255, 0, 0);
-//        rc.setIndicatorLine(curLoc, bestMove, 0, 255, 0);
+        rc.setIndicatorDot(bestMove, 255, 0, 0);
+        rc.setIndicatorLine(curLoc, bestMove, 0, 255, 0);
 
         return current;
     }
@@ -130,6 +127,13 @@ public class Pathfinding {
         }
         return null;
     }
+
+//    private static boolean locInBlacklist(MapLocation loc, ) {
+//        for (MapLocation bl : blacklist) {
+//            if (bl.equals(loc)) return true;
+//        }
+//        return false;
+//    }
 
     public static int calculateDistance(MapLocation ml1, MapLocation ml2) {
         return ml1.distanceSquaredTo(ml2); // Euclidean distance squared

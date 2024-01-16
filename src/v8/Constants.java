@@ -12,6 +12,7 @@ public class Constants {
         public static final int flagCornerLoc = 5;
         public static final int numberFlagPlacer = 6;
         public static final int numberDefenders = 7;
-        public static final int flagHolderLoc = 8;
+        public static final int lastFlagTrapPlaced = 8;
+        public static final int flagHolderLoc = 9;
     }
 }

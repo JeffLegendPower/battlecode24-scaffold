@@ -360,8 +360,9 @@ public class Pathfinding {
             int y = Math.max(1, Math.min(rc.getMapHeight() - 1, newLoc.y));
             newLoc = new MapLocation(x, y);
             if (rc.canSenseRobotAtLocation(newLoc)) continue;
-            if (RobotPlayer.map[newLoc.y][newLoc.x] != null &&
-                    RobotPlayer.map[newLoc.y][newLoc.x].isPassable() &&
+            MapInfo info = RobotPlayer.map[newLoc.y][newLoc.x];
+            if (info != null &&
+                    info.isPassable() &&
                     !current.contains(newLoc) &&
                     !origLoc.equals(newLoc) && !curLoc.equals(newLoc)) {
 

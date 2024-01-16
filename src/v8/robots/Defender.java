@@ -31,29 +31,36 @@ public class Defender extends AbstractRobot {
                 target = target.translate(0, (target.y == rc.getMapHeight() - 1) ? -10 : 10);
             else if (flagNumber == 2)
                 target = target.translate((target.x == rc.getMapWidth() - 1) ? -10 : 10, 0);
+            System.out.println("Flag number " + flagNumber + " at " + target);
         }
         if (!rc.canSenseLocation(target)) {
-            Pathfinding.moveTowards(rc, curLoc, target);
+            Pathfinding.moveTowards(rc, curLoc, target, false);
         }
         else {
             RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-            for (RobotInfo enemy : enemies) {
-                if (rc.canAttack(enemy.getLocation())) {
-                    rc.attack(enemy.getLocation());
-                    break;
-                }
-            }
-            if (turnsSinceLastTrap > 10) {
+            RobotInfo lowest = Utils.lowestHealth(enemies);
+            RobotInfo closest = Utils.getClosest(enemies, curLoc);
+            if (lowest == null)
+                if (closest != null && rc.canAttack(closest.getLocation()))
+                    rc.attack(closest.getLocation());
+            else
+                if (lowest != null && rc.canAttack(lowest.getLocation()))
+                    rc.attack(lowest.getLocation());
+            if (rc.readSharedArray(Constants.SharedArray.lastFlagTrapPlaced) != flagNumber && turnsSinceLastTrap > 5) {
                 if (rng.nextInt(10) >= 7) {
                     if (rc.canBuild(TrapType.EXPLOSIVE, curLoc)) {
                         rc.build(TrapType.EXPLOSIVE, curLoc);
+                        rc.writeSharedArray(Constants.SharedArray.lastFlagTrapPlaced, flagNumber);
                         turnsSinceLastTrap = 0;
+                        System.out.println("Trap placed for flag " + flagNumber);
                     }
                 }
                 else {
                     if (rc.canBuild(TrapType.STUN, curLoc)) {
                         rc.build(TrapType.STUN, curLoc);
+                        rc.writeSharedArray(Constants.SharedArray.lastFlagTrapPlaced, flagNumber);
                         turnsSinceLastTrap = 0;
+                        System.out.println("Trap placed for flag " + flagNumber);
                     }
                 }
             }

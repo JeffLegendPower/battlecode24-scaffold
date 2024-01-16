@@ -15,7 +15,7 @@ public class Utils {
     }
 
     public static MapLocation getClosest(MapLocation[] locs, MapLocation curLoc) {
-        MapLocation closest = locs[0];
+        MapLocation closest = null;
         int closestDist = 999999;
         int dist;
         for (MapLocation loc : locs) {
@@ -29,7 +29,7 @@ public class Utils {
     }
 
     public static MapLocation getFurthest(MapLocation[] locs, MapLocation curLoc) {
-        MapLocation furthest = locs[0];
+        MapLocation furthest = null;
         int furthestDist = 0;
         int dist;
         for (MapLocation loc : locs) {
@@ -43,7 +43,7 @@ public class Utils {
     }
 
     public static RobotInfo getClosest(RobotInfo[] robots, MapLocation curLoc) {
-        RobotInfo closest = robots[0];
+        RobotInfo closest = null;
         int closestDist = 999999;
         int dist;
         for (RobotInfo robot : robots) {
@@ -57,7 +57,7 @@ public class Utils {
     }
 
     public static RobotInfo getFurthest(RobotInfo[] robots, MapLocation curLoc) {
-        RobotInfo furthest = robots[0];
+        RobotInfo furthest = null;
         int furthestDist = 0;
         int dist;
         for (RobotInfo robot : robots) {
@@ -71,7 +71,7 @@ public class Utils {
     }
 
     public static MapInfo getClosest(MapInfo[] maps, MapLocation curLoc) {
-        MapInfo closest = maps[0];
+        MapInfo closest = null;
         int closestDist = 999999;
         int dist;
         for (MapInfo map : maps) {
@@ -85,7 +85,7 @@ public class Utils {
     }
 
     public static MapInfo getFurthest(MapInfo[] maps, MapLocation curLoc) {
-        MapInfo furthest = maps[0];
+        MapInfo furthest = null;
         int furthestDist = 0;
         int dist;
         for (MapInfo map : maps) {
@@ -99,7 +99,7 @@ public class Utils {
     }
 
     public static FlagInfo getClosest(FlagInfo[] flags, MapLocation curLoc) {
-        FlagInfo closest = flags[0];
+        FlagInfo closest = null;
         int closestDist = 999999;
         int dist;
         for (FlagInfo flag : flags) {
@@ -113,7 +113,7 @@ public class Utils {
     }
 
     public static FlagInfo getFurthest(FlagInfo[] flags, MapLocation curLoc) {
-        FlagInfo furthest = flags[0];
+        FlagInfo furthest = null;
         int furthestDist = 0;
         int dist;
         for (FlagInfo flag : flags) {
@@ -132,6 +132,28 @@ public class Utils {
                 return dir;
         }
         return Direction.CENTER;
+    }
+
+    public static RobotInfo lowestHealth(RobotInfo[] robots) {
+        int min = 1000;
+        RobotInfo minRobot = null;
+        for (RobotInfo robot : robots) {
+            if (robot.getHealth() < min) {
+                min = robot.getHealth();
+                minRobot = robot;
+            }
+        }
+        return minRobot;
+    }
+
+    public static boolean canBeFilled(RobotController rc, MapLocation loc) throws GameActionException {
+        MapLocation flag = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLoc);
+        if (loc.distanceSquaredTo(flag) <= 2
+                || loc.distanceSquaredTo(flag.translate(0, (flag.y == rc.getMapHeight() - 1) ? -10 : 10)) <= 2
+                || loc.distanceSquaredTo(flag.translate((flag.x == rc.getMapWidth() - 1) ? -10 : 10, 0)) <= 2) {
+            return false;
+        }
+        return true;
     }
 
     // Pair

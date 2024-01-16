@@ -29,12 +29,12 @@ public class Attacker extends AbstractRobot{
 
         if (rc.hasFlag()) {
             Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagHolderLoc, curLoc);
-            moveTowards(rc, curLoc, Utils.getClosest(rc.getAllySpawnLocations(), curLoc));
+            moveTowards(rc, curLoc, Utils.getClosest(rc.getAllySpawnLocations(), curLoc), false);
         }
 
         MapLocation flagHolderLoc = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagHolderLoc);
         if (flagHolderLoc.x != 0 && flagHolderLoc.y != 0) {
-            moveTowards(rc, curLoc, flagHolderLoc);
+            moveTowards(rc, curLoc, flagHolderLoc.add(flagHolderLoc.directionTo(curLoc)).add(flagHolderLoc.directionTo(curLoc)), false);
             if (rc.canHeal(flagHolderLoc))
                 rc.heal(flagHolderLoc);
         }
@@ -43,15 +43,15 @@ public class Attacker extends AbstractRobot{
             if (rc.canPickupFlag(nearestFlags[0].getLocation())) {
                 rc.pickupFlag(nearestFlags[0].getLocation());
             }
-
-            moveTowards(rc, curLoc, nearestFlags[0].getLocation(), 10);
+            boolean fillWater = false;
+            moveTowards(rc, curLoc, nearestFlags[0].getLocation(), true);
         }
         else if (nearestEnemies.length > 0) {
             if (rc.canAttack(nearestEnemies[0].getLocation())) {
                 rc.attack(nearestEnemies[0].getLocation());
-                moveAway(rc, curLoc, nearestEnemies[0].getLocation());
+                moveAway(rc, curLoc, nearestEnemies[0].getLocation(), false);
             } else {
-                moveTowards(rc, curLoc, nearestEnemies[0].getLocation(), 10);
+                moveTowards(rc, curLoc, nearestEnemies[0].getLocation(), false);
             }
         } else {
             if (nearestFriends.length > 0) {
@@ -59,10 +59,10 @@ public class Attacker extends AbstractRobot{
                     rc.heal(nearestFriends[0].getLocation());
             }
             if (nearestFriends.length > 0 && rng.nextInt(5) == 1) {
-                moveTowards(rc, curLoc, nearestFriends[0].getLocation(), 10);
+                moveTowards(rc, curLoc, nearestFriends[0].getLocation(), false);
             } else {
                 MapLocation furthestSpawn = Utils.getFurthest(rc.getAllySpawnLocations(), curLoc);
-                moveTowards(rc, curLoc, new MapLocation(rc.getMapWidth() - furthestSpawn.x, rc.getMapHeight() - furthestSpawn.y), 10);
+                moveTowards(rc, curLoc, new MapLocation(rc.getMapWidth() - furthestSpawn.x, rc.getMapHeight() - furthestSpawn.y), false);
             }
         }
 
