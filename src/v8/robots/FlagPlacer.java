@@ -46,7 +46,7 @@ public class FlagPlacer extends AbstractRobot{
                     rc.dropFlag(curLoc);
                     flagPlaced = true;
                 }
-                Pathfinding.moveTowards(rc, curLoc, target, false);
+                Pathfinding.moveTowards(rc, curLoc, target, true);
             }
         }
         else {
@@ -54,21 +54,22 @@ public class FlagPlacer extends AbstractRobot{
                 Pathfinding.moveTowards(rc, curLoc, target, true);
             }
             else {
+                RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+                RobotInfo closest = Utils.getClosest(enemies, curLoc);
+                if (closest != null && rc.canAttack(closest.getLocation()))
+                    rc.attack(closest.getLocation());
+
                 nearby = rc.senseNearbyMapInfos(2);
                 for (MapInfo info : nearby) {
                     if (rc.canDig(info.getMapLocation())) {
                         rc.dig(info.getMapLocation());
                         break;
                     }
-                    else if (rc.canBuild(TrapType.EXPLOSIVE, info.getMapLocation())) {
+                    else if (rc.canBuild(TrapType.EXPLOSIVE, info.getMapLocation()) && rc.senseMapInfo(info.getMapLocation()).isWater()) {
                         rc.build(TrapType.EXPLOSIVE, info.getMapLocation());
                         break;
                     }
                 }
-                RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-                RobotInfo closest = Utils.getClosest(enemies, curLoc);
-                if (closest != null && rc.canAttack(closest.getLocation()))
-                    rc.attack(closest.getLocation());
             }
         }
     }

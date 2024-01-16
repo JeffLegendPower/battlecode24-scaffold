@@ -5,13 +5,13 @@ import battlecode.common.*;
 public class Utils {
 
     public static void storeLocationInSharedArray(RobotController rc, int index, MapLocation location) throws GameActionException {
-        // TODO: more efficient bitpacking?
-        rc.writeSharedArray(index, location.x + location.y * 1000);
+        // 13th bit to 1 to indicate that it's a location and not a default value (0)
+        rc.writeSharedArray(index, (1 << 12) | (location.x << 6) | location.y);
     }
 
     public static MapLocation getLocationInSharedArray(RobotController rc, int index) throws GameActionException {
         int loc = rc.readSharedArray(index);
-        return new MapLocation(loc % 1000, loc / 1000);
+        return (loc & (1 << 12)) == 0 ? null : new MapLocation((loc >> 6) & 63, loc & 63);
     }
 
     public static MapLocation getClosest(MapLocation[] locs, MapLocation curLoc) {
@@ -148,12 +148,10 @@ public class Utils {
 
     public static boolean canBeFilled(RobotController rc, MapLocation loc) throws GameActionException {
         MapLocation flag = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLoc);
-        if (loc.distanceSquaredTo(flag) <= 2
-                || loc.distanceSquaredTo(flag.translate(0, (flag.y == rc.getMapHeight() - 1) ? -10 : 10)) <= 2
-                || loc.distanceSquaredTo(flag.translate((flag.x == rc.getMapWidth() - 1) ? -10 : 10, 0)) <= 2) {
-            return false;
-        }
-        return true;
+        if (flag == null) return false;
+        return loc.distanceSquaredTo(flag) > 2
+                && loc.distanceSquaredTo(flag.translate(0, (flag.y == rc.getMapHeight() - 1) ? -10 : 10)) > 2
+                && loc.distanceSquaredTo(flag.translate((flag.x == rc.getMapWidth() - 1) ? -10 : 10, 0)) > 2;
     }
 
     // Pair

@@ -80,7 +80,7 @@ public class Pathfinding {
         for (int i = 0; i <= move.b; i++)
             best.remove(0);
 
-        if (rc.canFill(move.a))
+        if (rc.canFill(move.a) && Utils.canBeFilled(rc, move.a))
             rc.fill(move.a);
 
         if (rc.canMove(curLoc.directionTo(move.a))) {

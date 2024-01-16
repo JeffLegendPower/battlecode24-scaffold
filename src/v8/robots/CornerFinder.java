@@ -47,7 +47,7 @@ public class CornerFinder extends AbstractRobot {
         if (rc.getRoundNum() <= GameConstants.SETUP_ROUNDS) {
             // start: move flags to corner
             if (findingCornerTurns < 30) {
-                Pathfinding.moveTowards(rc, curLoc, corners[findingCorner], false);
+                Pathfinding.moveTowards(rc, curLoc, corners[findingCorner], true);
             } else {
                 Utils.storeLocationInSharedArray(rc, Constants.SharedArray.cornerLocations[findingCorner], curLoc);
                 if (findingCorner != 0) {

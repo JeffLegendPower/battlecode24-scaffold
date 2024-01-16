@@ -80,7 +80,7 @@ public strictfp class RobotPlayer {
                      type.getRobot().setup(rc, curLoc);
                      setupAfterSetup = true;
                 } else {
-                    moveTowards(rc, curLoc, curLoc.add(directions[rng.nextInt(8)]), false);
+                    moveTowards(rc, curLoc, curLoc.add(directions[rng.nextInt(8)]), true);
                 }
             }
 

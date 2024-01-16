@@ -27,6 +27,13 @@ public class Defender extends AbstractRobot {
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
         if (target == null) {
             target = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLoc);
+            if (target == null) {
+                // move randomly
+                Direction dir = directions[rng.nextInt(8)];
+                if (rc.canMove(dir))
+                    rc.move(dir);
+                return;
+            }
             if (flagNumber == 1)
                 target = target.translate(0, (target.y == rc.getMapHeight() - 1) ? -10 : 10);
             else if (flagNumber == 2)
@@ -34,7 +41,7 @@ public class Defender extends AbstractRobot {
             System.out.println("Flag number " + flagNumber + " at " + target);
         }
         if (!rc.canSenseLocation(target)) {
-            Pathfinding.moveTowards(rc, curLoc, target, false);
+            Pathfinding.moveTowards(rc, curLoc, target, true);
         }
         else {
             RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
@@ -43,27 +50,37 @@ public class Defender extends AbstractRobot {
             if (lowest == null)
                 if (closest != null && rc.canAttack(closest.getLocation()))
                     rc.attack(closest.getLocation());
-            else
-                if (lowest != null && rc.canAttack(lowest.getLocation()))
-                    rc.attack(lowest.getLocation());
+
             if (rc.readSharedArray(Constants.SharedArray.lastFlagTrapPlaced) != flagNumber && turnsSinceLastTrap > 5) {
-                if (rng.nextInt(10) >= 7) {
+                int rand = rng.nextInt(40);
+                if (rand >= 32) {
                     if (rc.canBuild(TrapType.EXPLOSIVE, curLoc)) {
                         rc.build(TrapType.EXPLOSIVE, curLoc);
                         rc.writeSharedArray(Constants.SharedArray.lastFlagTrapPlaced, flagNumber);
                         turnsSinceLastTrap = 0;
-                        System.out.println("Trap placed for flag " + flagNumber);
+//                        System.out.println("Trap placed for flag " + flagNumber);
                     }
-                }
-                else {
+                } else if (rand >= 15) {
                     if (rc.canBuild(TrapType.STUN, curLoc)) {
                         rc.build(TrapType.STUN, curLoc);
                         rc.writeSharedArray(Constants.SharedArray.lastFlagTrapPlaced, flagNumber);
                         turnsSinceLastTrap = 0;
-                        System.out.println("Trap placed for flag " + flagNumber);
+//                        System.out.println("Trap placed for flag " + flagNumber);
+                    }
+                } else if (rand == 14) {
+                    if (rc.canBuild(TrapType.WATER, curLoc)) {
+                        rc.build(TrapType.WATER, curLoc);
+                        rc.writeSharedArray(Constants.SharedArray.lastFlagTrapPlaced, flagNumber);
+                        turnsSinceLastTrap = 0;
+                    }
+                } else {
+                    if (rc.canDig(curLoc)) {
+                        rc.dig(curLoc);
+                        turnsSinceLastTrap = 0;
                     }
                 }
             }
+
             Direction dir = directions[rng.nextInt(8)];
             if (rc.canMove(dir))
                 rc.move(dir);
