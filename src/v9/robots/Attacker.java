@@ -6,6 +6,7 @@ import v9.Constants;
 import v9.RobotPlayer;
 import v9.Utils;
 
+import java.awt.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -19,6 +20,7 @@ public class Attacker extends AbstractRobot {
     public static boolean hasRetrievedFlag = false;
     private static ArrayList<Integer> enemyFlagIDs = new ArrayList<>(3);
     private static int currentFlagID = -1;
+    private static boolean isHealer = false;
 
     public boolean setup(RobotController rc, MapLocation curLoc) throws GameActionException {
         MapLocation corner = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[0]);
@@ -40,6 +42,10 @@ public class Attacker extends AbstractRobot {
         };
 
         Arrays.sort(attackerTargets, Comparator.comparingInt(a -> a.distanceSquaredTo(corner)));
+
+        if (RobotPlayer.rng.nextInt(2) == 0) {
+            isHealer = true;
+        }
 
         return true;
     }
@@ -147,37 +153,41 @@ public class Attacker extends AbstractRobot {
             rc.writeSharedArray(Constants.SharedArray.numAtGlobalAttackTarget, 0);
         }
 
-        if (flagHolderLoc != null) {
+        if (flagHolderLoc != null && isHealer) {
             Direction dir = flagHolderLoc.directionTo(curLoc);
-            moveTowards(rc, curLoc, flagHolderLoc.add(dir).add(dir), true);
+            moveTowards(rc, curLoc, flagHolderLoc.add(dir), true);
             if (rc.canHeal(flagHolderLoc))
                 rc.heal(flagHolderLoc);
+            else if (rc.canHeal(weakestAlly.getLocation()))
+                rc.heal(weakestAlly.getLocation());
             else if (nearestEnemy != null && rc.canAttack(nearestEnemy.getLocation()))
                 rc.attack(nearestEnemy.getLocation());
-        }
-
-        if (nearestFlags.length > 0) {
+        } else if (nearestFlags.length > 0) {
             if (rc.canPickupFlag(nearestFlags[0].getLocation())) {
                 currentFlagID = nearestFlags[0].getID();
                 rc.pickupFlag(nearestFlags[0].getLocation());
             }
             moveTowards(rc, curLoc, nearestFlags[0].getLocation(), true);
-        } else if (nearestEnemies.length > 0) {
+        } else if (!isHealer && nearestEnemies.length > 0) {
 
             if (rc.canAttack(nearestEnemy.getLocation())) {
                 rc.attack(nearestEnemy.getLocation());
                 // Micro 1: Run in to attack and then run away right after
                 moveAway(rc, curLoc, nearestEnemy.getLocation(), true);
-            } else if (rc.getHealth() >= 600 || nearestAlly == null) { // Micro 2: Only run in if you have enough health
+            } else if (rc.getHealth() >= 800 || nearestAlly == null) { // Micro 2: Only run in if you have enough health
                 moveTowards(rc, curLoc, nearestEnemy.getLocation(), true);
             } else {
                 moveTowards(rc, curLoc, nearestAlly.getLocation(), true); // Micro 3: Run towards nearest ally if low
-                if (RobotPlayer.rng.nextInt(3) == 0) {
+                if (RobotPlayer.rng.nextInt(4) == 0) {
                     int random = RobotPlayer.rng.nextInt(10);
-                    if (random >= 8) {
+                    if (random == 9) {
                         if (rc.canBuild(TrapType.EXPLOSIVE, curLoc))
                             rc.build(TrapType.EXPLOSIVE, curLoc);
-                        else if (rc.canBuild(TrapType.STUN, curLoc))
+                    } else if (random >= 6) {
+                        if (rc.canBuild(TrapType.WATER, curLoc))
+                            rc.build(TrapType.WATER, curLoc);
+                    } else {
+                        if (rc.canBuild(TrapType.STUN, curLoc))
                             rc.build(TrapType.STUN, curLoc);
                     }
                 }
