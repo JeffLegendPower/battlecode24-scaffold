@@ -49,7 +49,7 @@ public class Attacker extends AbstractRobot{
             Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagHolderLoc, curLoc);
             for (MapLocation spawn : rc.getAllySpawnLocations()) {
                 if (curLoc.isAdjacentTo(spawn) && !hasRetrievedFlag) {
-                    rc.writeSharedArray(Constants.SharedArray.globalAttackTarget, Math.min(2, rc.readSharedArray(Constants.SharedArray.globalAttackTarget) + 1));
+                    rc.writeSharedArray(Constants.SharedArray.globalAttackTarget, rc.readSharedArray(Constants.SharedArray.globalAttackTarget) + 1);
                     System.out.println("I retrieved a flag! " + rc.getID());
                     hasRetrievedFlag = true;
                 }

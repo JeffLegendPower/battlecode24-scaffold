@@ -44,6 +44,10 @@ public class Utils {
         return furthest;
     }
 
+    public static void incrementSharedArray(RobotController rc, int index) throws GameActionException {
+        rc.writeSharedArray(index, rc.readSharedArray(index) + 1);
+    }
+
     public static RobotInfo getClosest(RobotInfo[] robots, MapLocation curLoc) {
         RobotInfo closest = null;
         int closestDist = 999999;

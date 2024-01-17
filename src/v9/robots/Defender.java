@@ -56,12 +56,17 @@ public class Defender extends AbstractRobot {
                 if (rc.canAttack(lowest.getLocation()))
                     rc.attack(lowest.getLocation());
             }
-            Direction dir = directions[rng.nextInt(4) * 2 + 1];
-            if (rc.getRoundNum() < 300) {
-                if (rc.getCrumbs() > 1000 && rc.canDig(curLoc.add(dir)))
-                    rc.dig(curLoc.add(dir));
-                dir = directions[rng.nextInt(4) * 2 + 1];
+            for (int i = 0; i < 4; i++) {
+                Direction dir = directions[i * 2];
+                MapLocation digTarget = curLoc.add(dir);
+                if ((digTarget.x + digTarget.y) % 2 == 0 && rc.getCrumbs() > 1400 && rc.canDig(digTarget)) {
+                    rc.dig(digTarget);
+                    break;
+                }
             }
+
+
+            Direction dir = directions[rng.nextInt(4) * 2 + ((curLoc.x + curLoc.y) % 2 == 0 ? 0 : 1)];
             if (rc.canMove(dir))
                 rc.move(dir);
         } else {
@@ -93,7 +98,7 @@ public class Defender extends AbstractRobot {
             else {
                 if ((curLoc.x + curLoc.y) % 2 == 1
                         && (turnsSinceLastTrap > 15 || (rc.readSharedArray(Constants.SharedArray.lastFlagTrapPlaced) != flagNumber && turnsSinceLastTrap > 5))
-                        && rc.getCrumbs() > 1000) {
+                        && rc.getCrumbs() > 1500) {
                     int rand = rng.nextInt(10);
                     if (rand >= 7) {
                         if (rc.canBuild(TrapType.EXPLOSIVE, curLoc)) {

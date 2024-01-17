@@ -110,13 +110,11 @@ public class Pathfinding {
             newLoc = clamp(newLoc, rc);
             if (rc.canSenseRobotAtLocation(newLoc)) continue;
             MapInfo info = map[newLoc.y][newLoc.x];
-            if (info != null &&
-                    info.isPassable() &&
-                    !current.contains(newLoc) &&
+            if (info != null && !current.contains(newLoc) &&
                 (fillWater ? (!info.isWall() && !info.isDam() && !(info.isWater() && !Utils.canBeFilled(rc, newLoc))) : info.isPassable())) {
                 double score = calculateDistance(newLoc, target);
                 int thisVisited = visited.getOrDefault(newLoc, 0);
-                score *= (info.isWater() ? 1.1 : 1)
+                score *= (info.isWater() ? 1.25 : 1)
 //                        * (isOnWall(rc, newLoc) ? 1 : 1.1)
                         * ((thisVisited == 0) ? 1 : thisVisited * 1.1)
                         * (dir == lastDir.opposite() ? 1.2 : 1);

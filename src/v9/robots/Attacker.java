@@ -44,6 +44,45 @@ public class Attacker extends AbstractRobot {
         return true;
     }
 
+    public MapLocation getCurrentTarget(RobotController rc) throws GameActionException {
+        /* Figure out what the most optimal target should be */
+        MapLocation currentTarget = new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
+        if (rc.readSharedArray(Constants.SharedArray.globalAttackTarget) < 2) {
+            currentTarget = attackerTargets[rc.readSharedArray(Constants.SharedArray.globalAttackTarget)];
+        } else {
+            MapLocation flag = null;
+            int i;
+            for (i = 0; i < 3; i ++) {
+                flag = Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]);
+                if (flag != null) {
+                    break;
+                }
+            }
+            if (flag != null)
+                currentTarget = flag;
+            else {
+
+                MapLocation corner = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[0]);
+                int height = rc.getMapHeight();
+                int width = rc.getMapWidth();
+
+                boolean yzero = corner.y < height / 2;
+                boolean xzero = corner.x < width / 2;
+
+                for (int y = yzero ? height - 1 : 0; yzero ? y >= 0 : y < height; y += yzero ? -3 : 3) {
+                    for (int x = xzero ? width - 1 : 0; xzero ? x >= 0 : x < width; x += xzero ? -3 : 3) {
+                        MapInfo info = RobotPlayer.map[y][x];
+                        if (info == null) {
+                            return new MapLocation(x, y);
+                        }
+                    }
+                }
+            }
+        }
+
+        return currentTarget;
+    }
+
     @Override
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
         RobotInfo[] nearestEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
@@ -77,7 +116,7 @@ public class Attacker extends AbstractRobot {
             Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagHolderLoc, curLoc);
             for (MapLocation spawn : rc.getAllySpawnLocations()) {
                 if (curLoc.isAdjacentTo(spawn) && !hasRetrievedFlag) {
-                    rc.writeSharedArray(Constants.SharedArray.globalAttackTarget, Math.min(2, rc.readSharedArray(Constants.SharedArray.globalAttackTarget) + 1));
+                    rc.writeSharedArray(Constants.SharedArray.globalAttackTarget, rc.readSharedArray(Constants.SharedArray.globalAttackTarget) + 1);
                     System.out.println("I retrieved a flag! " + rc.getID());
                     int flagIdx = enemyFlagIDs.indexOf(currentFlagID);
                     Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[flagIdx], null);
@@ -86,8 +125,20 @@ public class Attacker extends AbstractRobot {
                 }
             }
             moveTowards(rc, curLoc, Utils.getClosest(rc.getAllySpawnLocations(), curLoc), true);
+            return;
         } else {
             hasRetrievedFlag = false;
+        }
+
+
+        // I have reached the target
+        if (curLoc.equals(currentTarget)) {
+            Utils.incrementSharedArray(rc, Constants.SharedArray.numAtGlobalAttackTarget);
+            if (rc.readSharedArray(Constants.SharedArray.numAtGlobalAttackTarget) > 25) {
+                // we've been here for a while but nothing is here
+                rc.writeSharedArray(Constants.SharedArray.globalAttackTarget, rc.readSharedArray(Constants.SharedArray.globalAttackTarget) + 1);
+                rc.writeSharedArray(Constants.SharedArray.numAtGlobalAttackTarget, 0);
+            }
         }
 
         MapLocation flagHolderLoc = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagHolderLoc);
@@ -135,19 +186,29 @@ public class Attacker extends AbstractRobot {
 //            if (nearestFriends.length > 0 && rng.nextInt(5) == 1) {
 //                moveTowards(rc, curLoc, nearestFriends[0].getLocation(), true);
             if (rc.getRoundNum() < 200) {
+                if (rc.getRoundNum() > 180 && RobotPlayer.rng.nextInt(10) >= 6 && rc.canBuild(TrapType.EXPLOSIVE, curLoc)) {
+                    System.out.println("jk");
+                    rc.build(TrapType.EXPLOSIVE, curLoc);
+                }
                 moveTowards(rc, curLoc, new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2), true);
             } else {
                 moveTowards(rc, curLoc, currentTarget, true);
-                lastAttackerTarget = currentTarget;
             }
         }
+
+        // Micro 4: Heal the weakest ally first
+        if (nearestAllies.length > 0) {
+            if (rc.canHeal(weakestAlly.getLocation()))
+                rc.heal(weakestAlly.getLocation());
+        }
+        lastAttackerTarget = currentTarget;
     }
 
     @Override
     public void spawn(RobotController rc) throws GameActionException {
         if (rc.isSpawned()) return;
         MapLocation[] spawnLocs = rc.getAllySpawnLocations();
-        MapLocation target = attackerTargets[rc.readSharedArray(Constants.SharedArray.globalAttackTarget)];
+        MapLocation target = getCurrentTarget(rc);
         if (target == null) {
             //System.out.println("USING DEFAULT SPAWN");
             super.spawn(rc);
