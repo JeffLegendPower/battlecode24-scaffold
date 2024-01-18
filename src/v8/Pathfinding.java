@@ -8,20 +8,20 @@ import java.util.List;
 
 import static v8.RobotPlayer.directions;
 import static v8.RobotPlayer.map;
-import static v8.Utils.Pair;
+import static v8.Utils.*;
 
 public class Pathfinding {
     private static List<MapLocation> best = new ArrayList<>();
+    public static MapLocation currentTarget = null;
 
     public static void moveTowards(RobotController rc, MapLocation curLoc, MapLocation target, boolean fillWater) throws GameActionException {
         IterativeGreedy(rc, curLoc, target, 10, fillWater);
+//        rc.setIndicatorString("Target: " + target);
     }
 
     public static void moveAway(RobotController rc, MapLocation curLoc, MapLocation target, boolean fillWater) throws GameActionException {
         IterativeGreedy(rc, curLoc.translate(curLoc.x - target.x, curLoc.y - target.y), curLoc, 10, fillWater);
     }
-
-    private static HashMap<MapLocation, Double> cachedScores = new HashMap<>();
     private static MapLocation lastTarget = null;
     private static HashMap<MapLocation, Integer> visited = new HashMap<>();
 
@@ -31,11 +31,11 @@ public class Pathfinding {
         if (!rc.isMovementReady()) return;
         if (curLoc.equals(target)) return;
 
+        currentTarget = target;
+
         if (lastTarget == null || !lastTarget.equals(target)) {
-            cachedScores.clear();
-            lastTarget = target;
-            visited.clear();
             best.clear();
+            visited.clear();
         }
 
         if (curLoc.isAdjacentTo(target)) {
@@ -114,17 +114,11 @@ public class Pathfinding {
             newLoc = clamp(newLoc, rc);
             if (rc.canSenseRobotAtLocation(newLoc)) continue;
             MapInfo info = map[newLoc.y][newLoc.x];
-            if (info != null &&
-                    info.isPassable() &&
-                    !current.contains(newLoc) &&
-                (fillWater ? (!info.isWall() && !info.isDam() && !(info.isWater() && !Utils.canBeFilled(rc, newLoc))) : info.isPassable())) {
-                double score = cachedScores.getOrDefault(newLoc, -1d);
-                if (score == -1) {
-                    score = calculateDistance(newLoc, target);
-                    cachedScores.put(newLoc, score);
-                }
+            if (info != null && !current.contains(newLoc) &&
+                    (fillWater ? (!info.isWall() && !info.isDam() && !(info.isWater() && !Utils.canBeFilled(rc, newLoc))) : info.isPassable())) {
+                double score = calculateDistance(newLoc, target);
                 int thisVisited = visited.getOrDefault(newLoc, 0);
-                score *= (info.isWater() ? 1.1 : 1)
+                score *= (info.isWater() ? 1.25 : 1)
 //                        * (isOnWall(rc, newLoc) ? 1 : 1.1)
                         * ((thisVisited == 0) ? 1 : thisVisited * 1.1)
                         * (dir == lastDir.opposite() ? 1.2 : 1);
@@ -139,8 +133,8 @@ public class Pathfinding {
 
         if (bestMove == null) return current;
 
-        rc.setIndicatorDot(bestMove, 255, 0, 0);
-        rc.setIndicatorLine(curLoc, bestMove, 0, 255, 0);
+//        rc.setIndicatorDot(bestMove, 255, 0, 0);
+//        rc.setIndicatorLine(curLoc, bestMove, 0, 255, 0);
         current.add(bestMove);
 
         return current;
@@ -170,9 +164,5 @@ public class Pathfinding {
 
     public static int calculateDistance(MapLocation ml1, MapLocation ml2) {
         return ml1.distanceSquaredTo(ml2); // Euclidean distance squared
-    }
-
-    private static MapLocation clamp(MapLocation loc, RobotController rc) {
-        return new MapLocation(Math.max(1, Math.min(rc.getMapWidth() - 1, loc.x)), Math.max(1, Math.min(rc.getMapHeight() - 1, loc.y)));
     }
 }

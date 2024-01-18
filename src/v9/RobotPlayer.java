@@ -89,9 +89,9 @@ public strictfp class RobotPlayer {
                     }
                 }
 
-                if (rc.getRoundNum() % 20 == 0) {
-                    Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagHolderLoc, null);
-                }
+//                if (rc.getRoundNum() % 20 == 0) {
+//                    Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagHolderLoc, null);
+//                }
 
                 if (type != null) {
                     rc.setIndicatorString(type.name() + " " + (numMapped * 100) / (rc.getMapWidth() * rc.getMapHeight()) + "% mapped");

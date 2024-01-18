@@ -1,8 +1,8 @@
 package v9.robots;
 
 import battlecode.common.*;
-import scala.collection.immutable.Stream;
 import v9.Constants;
+import v9.Pathfinding;
 import v9.RobotPlayer;
 import v9.Utils;
 
@@ -26,6 +26,8 @@ public class Attacker extends AbstractRobot {
     // so it says that they picked up the flag twice, this should fix that
     private static boolean aboutToRetrieveFlag = false;
     private static MapLocation flagOrigninalLocation = null;
+
+    private static MapLocation corner = null;
 
     public boolean setup(RobotController rc, MapLocation curLoc) throws GameActionException {
         MapLocation corner = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[0]);
@@ -65,9 +67,6 @@ public class Attacker extends AbstractRobot {
 //            currentTarget = attackerTargets[rc.readSharedArray(Constants.SharedArray.globalAttackTarget)];
         MapLocation globalTarget = Utils.getLocationInSharedArray(rc, Constants.SharedArray.globalAttackTarget);
         if (globalTarget != null) {
-
-//            if (new Random().nextInt(10) == 0)
-//                System.out.println(globalTarget);
             int idx = -1;
             for (MapLocation attackerTarget : attackerTargets)
                 if (attackerTarget.equals(globalTarget))
@@ -75,21 +74,23 @@ public class Attacker extends AbstractRobot {
             if (idx != -1)
                 curAttackerTargetIndex = idx;
             currentTarget = globalTarget;
+
         } else {
             MapLocation flag = null;
+            MapLocation badLocation = new MapLocation(63, 63);
             int i;
             for (i = 0; i < 3; i ++) {
                 flag = Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]);
-                if (flag != null) {
+                if (flag != null && !flag.equals(badLocation)) {
                     break;
                 }
             }
             if (flag != null) {
                 Utils.storeLocationInSharedArray(rc, Constants.SharedArray.globalAttackTarget, flag);
                 currentTarget = flag;
-            else {
-
-                MapLocation corner = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[0]);
+            }
+            else if (rc.getRoundNum() > 250) {
+               // Utils.getClosest(rc.senseBroadcastFlagLocations(), rc.getLocation());
                 int height = rc.getMapHeight();
                 int width = rc.getMapWidth();
 
@@ -112,11 +113,23 @@ public class Attacker extends AbstractRobot {
 
     @Override
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
+        // Setting corner location for future searching
+        if (corner == null) {
+            corner = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[0]);
+        }
+
+        // Get surrounding information
         RobotInfo[] nearestEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
         RobotInfo[] nearestAllies = rc.senseNearbyRobots(-1, rc.getTeam());
         RobotInfo nearestEnemy = Utils.getClosest(nearestEnemies, curLoc);
+
         RobotInfo nearestAlly = Utils.getClosest(nearestAllies, curLoc);
         FlagInfo[] nearestFlags = rc.senseNearbyFlags(-1, rc.getTeam().opponent());
+        ArrayList<FlagInfo> nearestFlagsNotPickedUp = new ArrayList<>();
+        for (FlagInfo flag : nearestFlags) {
+            if (!flag.isPickedUp())
+                nearestFlagsNotPickedUp.add(flag);
+        }
 
         /*for (int i = 0; i < 3; i++) {
             System.out.println("flag " + i + " at " + Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]));
@@ -128,14 +141,18 @@ public class Attacker extends AbstractRobot {
         // This block will run once the attacker succesfully retrieves a flag
         if (rc.isSpawned() && aboutToRetrieveFlag && !rc.hasFlag()) {
             System.out.println("v9 retrieved a flag! " + rc.getID());
+
+            // find the index of said flag, and make sure to reset the global array since the flag no longer exists
             int flagIdx = enemyFlagIDs.indexOf(currentFlagID);
             Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[flagIdx], null);
-            Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagHolderLoc, null);
+//            Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagHolderLoc, null);
+
+            // reset original location
+            flagOrigninalLocation = null;
 
             // First try to set the next target to an enemy flag if we detected one
             boolean foundFlag = false;
             for (int i = 0; i < 3; i++) {
-                if (i == currentFlagID) continue;
                 MapLocation loc = Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]);
                 if (loc != null && enemyFlagIDs.get(i) != -1) {
                     Utils.storeLocationInSharedArray(rc, Constants.SharedArray.globalAttackTarget, loc);
@@ -156,6 +173,7 @@ public class Attacker extends AbstractRobot {
         for (int i = 0; i < 3; i++)
             enemyFlagIDs.set(i, rc.readSharedArray(Constants.SharedArray.enemyFlagIDs[i]) - 1);
 
+        // find flags around it; if it sees one update its location in the array
         for (FlagInfo info : nearestFlags) {
             int index = enemyFlagIDs.indexOf(info.getID());
             int lastNotSeenFlag = enemyFlagIDs.indexOf(-1);
@@ -171,8 +189,11 @@ public class Attacker extends AbstractRobot {
 
         MapLocation currentTarget = getCurrentTarget(rc);
 
+//        if (!currentTarget.equals(lastAttackerTarget))
+//            System.out.println("Last: " + lastAttackerTarget + " ct: " + currentTarget);
+;
         if (rc.hasFlag()) {
-            Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagHolderLoc, curLoc);
+//            Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagHolderLoc, curLoc);
             for (MapLocation spawn : rc.getAllySpawnLocations()) {
                 if (curLoc.isAdjacentTo(spawn) && !hasRetrievedFlag) {
                     aboutToRetrieveFlag = true;
@@ -201,10 +222,10 @@ public class Attacker extends AbstractRobot {
             }
         }
 
-        MapLocation flagHolderLoc = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagHolderLoc);
+//        MapLocation flagHolderLoc = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagHolderLoc);
 
 
-        if ((lastAttackerTarget != null && !lastAttackerTarget.equals(currentTarget)) || flagHolderLoc != null) {
+        if ((lastAttackerTarget != null && !lastAttackerTarget.equals(currentTarget))) { //|| flagHolderLoc != null) {
 //            System.out.println("e " + (lastAttackerTarget != null && !lastAttackerTarget.equals(currentTarget)) + " " + (flagHolderLoc != null));
             rc.writeSharedArray(Constants.SharedArray.numAtGlobalAttackTarget, 0);
         }
@@ -217,7 +238,7 @@ public class Attacker extends AbstractRobot {
 
 
         // Healer logic if there's a flagholder that needs protecting
-        if (flagHolderLoc != null && isHealer) {
+        /*if (flagHolderLoc != null && isHealer) {
             Direction dir = flagHolderLoc.directionTo(curLoc);
             moveTowards(rc, curLoc, flagHolderLoc.add(dir), true);
             if (rc.canHeal(flagHolderLoc)) // Focus on healing the flagholder first
@@ -226,10 +247,16 @@ public class Attacker extends AbstractRobot {
                 rc.heal(weakestAlly.getLocation());
             else if (nearestEnemy != null && rc.canAttack(nearestEnemy.getLocation())) // If everyone around is full, then attack the nearest enemy
                 rc.attack(nearestEnemy.getLocation()); // TODO it might be better not to attack to save cooldown ?
-        } else if (nearestFlags.length > 0) { // Attacker pickup logic
+        } else */
+
+        if (!nearestFlagsNotPickedUp.isEmpty()) { // Attacker pickup logic
             if (rc.canPickupFlag(nearestFlags[0].getLocation())) {
                 currentFlagID = nearestFlags[0].getID();
                 rc.pickupFlag(nearestFlags[0].getLocation());
+
+                flagOrigninalLocation = nearestFlags[0].getLocation();
+                // Setting to an impossible coordinate to indicate that it's been picked up
+                Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[enemyFlagIDs.indexOf(currentFlagID)], new MapLocation(63, 63));
             }
             moveTowards(rc, curLoc, nearestFlags[0].getLocation(), true);
         } else if (!isHealer && nearestEnemies.length > 0) {
@@ -287,6 +314,10 @@ public class Attacker extends AbstractRobot {
 
     @Override
     public void spawn(RobotController rc) throws GameActionException {
+        if (flagOrigninalLocation != null) {
+            Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[enemyFlagIDs.indexOf(currentFlagID)], flagOrigninalLocation);
+            flagOrigninalLocation = null;
+        }
         if (rc.isSpawned()) return;
         MapLocation[] spawnLocs = rc.getAllySpawnLocations();
         MapLocation target = getCurrentTarget(rc);

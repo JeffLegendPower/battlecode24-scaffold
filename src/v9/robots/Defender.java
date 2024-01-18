@@ -6,6 +6,7 @@ import v9.Pathfinding;
 import v9.Utils;
 
 import java.util.ArrayList;
+import java.util.Random;
 
 import static v9.RobotPlayer.*;
 
@@ -16,6 +17,7 @@ public class Defender extends AbstractRobot {
     public static int turnsSinceLastTrap = 0;
     public static boolean builder = false;
     public static MapLocation buildTarget = null;
+    public static MapLocation spamTarget = null;
 
     @Override
     public boolean setup(RobotController rc, MapLocation curLoc) throws GameActionException {
@@ -35,8 +37,16 @@ public class Defender extends AbstractRobot {
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
         if (target == null) {
             target = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[flagNumber]);
-            if (target == null) {
-                // move randomly
+            if (rc.getRoundNum() > 200 && target == null) {
+                //retarget
+                Random rng = new Random();
+                int rand = rng.nextInt(3);
+                while (rand == flagNumber)
+                    rand = rng.nextInt(3);
+                target = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[rand]);
+                flagNumber = rand;
+            } else if (target == null) {
+                //move randomly
                 Direction dir = directions[rng.nextInt(8)];
                 if (rc.canMove(dir))
                     rc.move(dir);
@@ -69,6 +79,20 @@ public class Defender extends AbstractRobot {
             Direction dir = directions[rng.nextInt(4) * 2 + ((curLoc.x + curLoc.y) % 2 == 0 ? 0 : 1)];
             if (rc.canMove(dir))
                 rc.move(dir);
+        } else if (rc.getRoundNum() < 150) {
+            if (spamTarget == null) {
+                for(Direction dir : directions) {
+                    if (rc.canDig(curLoc.add(dir))) {
+                        spamTarget = curLoc.add(dir);
+                        break;
+                    }
+                }
+            } else {
+                if (rc.canDig(spamTarget))
+                    rc.dig(spamTarget);
+                else if (rc.canFill(spamTarget))
+                    rc.fill(spamTarget);
+            }
         } else {
             if (rc.senseMapInfo(curLoc).getTrapType() != TrapType.NONE) {
                 if (buildTarget == null) {

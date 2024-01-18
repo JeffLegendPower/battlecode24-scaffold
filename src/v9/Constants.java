@@ -11,7 +11,7 @@ public class Constants {
         public static final int numberFlagPlacer = 8;
         public static final int numberDefenders = 9;
         public static final int lastFlagTrapPlaced = 10;
-        public static final int flagHolderLoc = 11;
+//        public static final int flagHolderLoc = 11;
         public static final int globalAttackTarget = 12;
         public static final int numAtGlobalAttackTarget = 13;
         public static final int[] enemyFlagIDs = {14, 15, 16};

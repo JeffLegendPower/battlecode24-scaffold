@@ -12,6 +12,7 @@ import static v9.Utils.*;
 
 public class Pathfinding {
     private static List<MapLocation> best = new ArrayList<>();
+    public static MapLocation currentTarget = null;
 
     public static void moveTowards(RobotController rc, MapLocation curLoc, MapLocation target, boolean fillWater) throws GameActionException {
         IterativeGreedy(rc, curLoc, target, 10, fillWater);
@@ -29,6 +30,8 @@ public class Pathfinding {
         if (!rc.isSpawned()) return; // Prevent NPEs
         if (!rc.isMovementReady()) return;
         if (curLoc.equals(target)) return;
+
+        currentTarget = target;
 
         if (lastTarget == null || !lastTarget.equals(target)) {
             best.clear();

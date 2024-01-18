@@ -14,6 +14,9 @@ public class Scouter extends AbstractRobot {
     private ArrayList<Integer> enemyFlagIDs = new ArrayList<>();
     private MapLocation currentTarget = null;
     int scoutNum = -1;
+
+    MapLocation corner = null;
+
     @Override
     public boolean setup(RobotController rc, MapLocation curLoc) throws GameActionException {
         int numScouts = rc.readSharedArray(Constants.SharedArray.numberScouts);
@@ -32,6 +35,11 @@ public class Scouter extends AbstractRobot {
 
     @Override
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
+        // Set up corner for future searching
+        if (corner == null) {
+            corner = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[0]);
+        }
+
         FlagInfo[] enemyFlags = rc.senseNearbyFlags(-1, rc.getTeam().opponent());
         MapLocation[] nearbyCrumbs = rc.senseNearbyCrumbs(-1);
         RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
@@ -76,7 +84,6 @@ public class Scouter extends AbstractRobot {
             Pathfinding.moveTowards(rc, curLoc, curLoc.add(RobotPlayer.directions[RobotPlayer.rng.nextInt(8)]), true);
         } else {
             // Run around unexplored areas of the map
-            MapLocation corner = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[0]);
             int height = rc.getMapHeight();
             int width = rc.getMapWidth();
 

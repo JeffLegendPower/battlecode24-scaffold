@@ -4,6 +4,7 @@ import battlecode.common.*;
 import v9.Constants;
 import static v9.Pathfinding.*;
 import v9.Utils;
+import java.util.Random;
 
 public class FlagPlacer extends AbstractRobot {
 
@@ -11,6 +12,7 @@ public class FlagPlacer extends AbstractRobot {
     public static int flagPlacerNum = 0;
     public static MapInfo[] nearby;
     public static MapLocation target = null;
+    public static boolean flagGone = false;
 
     @Override
     public boolean setup(RobotController rc, MapLocation curLoc) throws GameActionException {
@@ -55,15 +57,28 @@ public class FlagPlacer extends AbstractRobot {
                     Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[flagPlacerNum], curLoc);
                 }
                 if (rc.getRoundNum() >= 150 && !rc.hasFlag() && closestDistance < 36)
-                    moveAway(rc, curLoc, closestFlag, false);
+                    moveAway(rc, curLoc, closestFlag, true);
 
-                moveTowards(rc, curLoc, target, false);
+                moveTowards(rc, curLoc, target, true);
             }
         }
-        else {
-            if (!curLoc.equals(target)) {
+        else if (target != null) {
+            if (!flagGone && !curLoc.equals(target)) {
                 moveTowards(rc, curLoc, target, true);
+            } else if (flagGone && !rc.canSenseLocation(target)) {
+                moveTowards(rc, curLoc, target, false);
             } else {
+                FlagInfo[] nearbyFlags = rc.senseNearbyFlags(1);
+                if (nearbyFlags.length == 0) {
+                    flagGone = true;
+                    Random rng = new Random();
+                    int rand = rng.nextInt(3);
+                    while (rand == flagPlacerNum)
+                        rand = rng.nextInt(3);
+                    Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[flagPlacerNum], null);
+                    target = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[rand]);
+                    flagPlacerNum = rand;
+                }
                 RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
                 RobotInfo closest = Utils.getClosest(enemies, curLoc);
                 if (closest != null && rc.canAttack(closest.getLocation()))

@@ -179,4 +179,8 @@ public class Utils {
             this.b = b;
         }
     }
+
+    public static MapLocation clamp(MapLocation loc, RobotController rc) {
+        return new MapLocation(Math.max(1, Math.min(rc.getMapWidth() - 1, loc.x)), Math.max(1, Math.min(rc.getMapHeight() - 1, loc.y)));
+    }
 }
