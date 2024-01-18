@@ -104,7 +104,7 @@ public class Attacker extends AbstractRobot {
     @Override
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
 
-        System.out.println(Utils.getLocationInSharedArray(rc, Constants.SharedArray.globalAttackTarget));
+//        System.out.println(Utils.getLocationInSharedArray(rc, Constants.SharedArray.globalAttackTarget));
         RobotInfo[] nearestEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
         RobotInfo[] nearestAllies = rc.senseNearbyRobots(-1, rc.getTeam());
         RobotInfo nearestEnemy = Utils.getClosest(nearestEnemies, curLoc);
@@ -114,27 +114,26 @@ public class Attacker extends AbstractRobot {
         RobotInfo weakestAlly = Utils.lowestHealth(nearestAllies);
 
         if (rc.isSpawned() && aboutToRetriveFlag) {
-            // First check if we detected any enemy flags
+            System.out.println("I retrieved a flag! " + rc.getID());
+            int flagIdx = enemyFlagIDs.indexOf(currentFlagID);
+            Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[flagIdx], null);
+            Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagHolderLoc, null);
+
+            // First try to set the next target to an enemy flag if we detected one
             boolean foundFlag = false;
             for (int i = 0; i < 3; i++) {
+                if (i == currentFlagID) continue;
                 MapLocation loc = Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]);
                 if (loc != null && enemyFlagIDs.get(i) != -1) {
-                    System.out.println("a");
                     Utils.storeLocationInSharedArray(rc, Constants.SharedArray.globalAttackTarget, loc);
                     foundFlag = true;
                     break;
                 }
             }
-            // If not then look to the next spawn location
+            // If not then look to the next enemy spawn location
             if (!foundFlag && curAttackerTargetIndex < 3) {
-                System.out.println("b");
                 Utils.storeLocationInSharedArray(rc, Constants.SharedArray.globalAttackTarget, attackerTargets[++curAttackerTargetIndex]);
             }
-//                    Utils.storeLocationInSharedArray(rc, Constants.SharedArray.globalAttackTarget, attackerTargets[++curAttackerTargetIndex]);
-            System.out.println("I retrieved a flag! " + rc.getID());
-            int flagIdx = enemyFlagIDs.indexOf(currentFlagID);
-            Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[flagIdx], null);
-            Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagHolderLoc, null);
             currentFlagID = -1;
             hasRetrievedFlag = true;
         }
