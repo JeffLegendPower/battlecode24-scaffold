@@ -7,13 +7,47 @@ import java.util.ArrayList;
 public class Utils {
 
     public static void storeLocationInSharedArray(RobotController rc, int index, MapLocation location) throws GameActionException {
-        // 13th bit to 1 to indicate that it's a location and not a default value (0)
-        rc.writeSharedArray(index, location == null ? 0 : (1 << 12) | (location.x << 6) | location.y);
+        rc.writeSharedArray(index, location == null ? 0 : (1 << 15) // 16th bit to 1 to indicate that it's a location and not a default value (0)
+                | (location.x << 6) // Bits 7-12 to x
+                | location.y); // Bits 1-6 to y
     }
 
     public static MapLocation getLocationInSharedArray(RobotController rc, int index) throws GameActionException {
         int loc = rc.readSharedArray(index);
-        return (loc & (1 << 12)) == 0 ? null : new MapLocation((loc >> 6) & 63, loc & 63);
+        return (loc & (1 << 15)) == 0 ? null : new MapLocation((loc >> 6) & 63, loc & 63);
+    }
+
+    public static void storeInfoInSharedArray(RobotController rc, int index, MapInfo info) throws GameActionException {
+        if (info == null) {
+            rc.writeSharedArray(index, 0);
+            return;
+        }
+
+        rc.writeSharedArray(index, (1 << 15) // 16th bit to 1 to indicate that it's a location and not a default value (0)
+                | (1 << 14) // 15th bit to 1 to indicate that it's a map info and not a map location (0)
+                | (info.getTeamTerritory().isPlayer() ? 1 << 13 : 0) // 14th bit to 1 if it's our territory
+                | (info.isWall() || info.isDam() ? 1 << 12 : 0) // 13th bit to 1 if it's a wall or dam
+                | (info.getMapLocation().x << 6) // Bits 7-12 to x
+                | info.getMapLocation().y); // Bits 1-6 to y
+    }
+
+    public static MapInfo getInfoInSharedArray(RobotController rc, int index) throws GameActionException {
+        int info = rc.readSharedArray(index);
+        MapLocation loc = (info & (1 << 15)) == 0 ? null : new MapLocation((info >> 6) & 63, info & 63);
+        if (loc == null || (info & (1 << 14)) == 0) return null;
+        boolean isWallOrDam = (info & (1 << 12)) != 0;
+        boolean isOurTerritory = (info & (1 << 13)) != 0;
+        return new MapInfo(
+                loc,
+                isWallOrDam,
+                isWallOrDam,
+                false,
+                0,
+                false,
+                0,
+                TrapType.NONE,
+                isOurTerritory ? rc.getTeam() : rc.getTeam().opponent()
+        );
     }
 
     public static MapLocation getClosest(MapLocation[] locs, MapLocation curLoc) {
@@ -182,6 +216,10 @@ public class Utils {
 //        return loc.distanceSquaredTo(flag) > 2
 //                && loc.distanceSquaredTo(flag.translate(0, (flag.y == rc.getMapHeight() - 1) ? -10 : 10)) > 2
 //                && loc.distanceSquaredTo(flag.translate((flag.x == rc.getMapWidth() - 1) ? -10 : 10, 0)) > 2;
+    }
+
+    public static MapLocation clamp(MapLocation loc, RobotController rc) {
+        return new MapLocation(Math.max(1, Math.min(rc.getMapWidth() - 1, loc.x)), Math.max(1, Math.min(rc.getMapHeight() - 1, loc.y)));
     }
 
     // Pair

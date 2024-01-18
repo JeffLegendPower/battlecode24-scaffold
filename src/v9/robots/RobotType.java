@@ -5,6 +5,7 @@ public enum RobotType {
     FlagPlacer(new FlagPlacer()),
     Attacker(new Attacker()),
     Defender(new Defender()),
+    Scouter(new Scouter()),
     Default(new Default());
 //    BorderBuilder,
 

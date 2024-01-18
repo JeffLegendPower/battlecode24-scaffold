@@ -14,7 +14,6 @@ public class FlagPlacer extends AbstractRobot {
 
     @Override
     public boolean setup(RobotController rc, MapLocation curLoc) throws GameActionException {
-        //System.out.println("Loc: " + curLoc);
         if (rc.readSharedArray(Constants.SharedArray.numberFlagPlacer) < 3 && rc.canPickupFlag(curLoc)) {
             rc.pickupFlag(curLoc);
             flagPlacerNum = rc.readSharedArray(Constants.SharedArray.numberFlagPlacer);
@@ -77,7 +76,9 @@ public class FlagPlacer extends AbstractRobot {
                         break;
                     }
                     else if (rc.canBuild(TrapType.EXPLOSIVE, info.getMapLocation()) && rc.senseMapInfo(info.getMapLocation()).isWater()) {
-                        rc.build(TrapType.EXPLOSIVE, info.getMapLocation());
+
+//                        rc.build(TrapType.EXPLOSIVE, info.getMapLocation());
+//                        rc.build(TrapType.STUN, info.getMapLocation());
                         break;
                     }
                 }

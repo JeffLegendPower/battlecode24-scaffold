@@ -19,7 +19,7 @@ public class Defender extends AbstractRobot {
 
     @Override
     public boolean setup(RobotController rc, MapLocation curLoc) throws GameActionException {
-        if(rc.readSharedArray(Constants.SharedArray.numberDefenders) < 6) {
+        if (rc.readSharedArray(Constants.SharedArray.numberDefenders) < 6) {
             flagNumber = rc.readSharedArray(Constants.SharedArray.numberDefenders);
             if (flagNumber < 3) {
                 builder = true;

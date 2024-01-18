@@ -17,10 +17,14 @@ public class Attacker extends AbstractRobot {
 
     public static MapLocation lastAttackerTarget = null;
     public static MapLocation[] attackerTargets;
+    private static int curAttackerTargetIndex = 0;
     public static boolean hasRetrievedFlag = false;
     private static ArrayList<Integer> enemyFlagIDs = new ArrayList<>(3);
     private static int currentFlagID = -1;
     private static boolean isHealer = false;
+    // There's an edge case where the flagholder is next to the spawn location but dies right there and then another robot picks it up
+    // so it says that they picked up the flag twice, this should fix that
+    private static boolean aboutToRetriveFlag = false;
 
     public boolean setup(RobotController rc, MapLocation curLoc) throws GameActionException {
         MapLocation corner = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[0]);
@@ -43,9 +47,8 @@ public class Attacker extends AbstractRobot {
 
         Arrays.sort(attackerTargets, Comparator.comparingInt(a -> a.distanceSquaredTo(corner)));
 
-        if (RobotPlayer.rng.nextInt(2) == 0) {
+        if (RobotPlayer.rng.nextInt(4) == 0)
             isHealer = true;
-        }
 
         return true;
     }
@@ -53,8 +56,17 @@ public class Attacker extends AbstractRobot {
     public MapLocation getCurrentTarget(RobotController rc) throws GameActionException {
         /* Figure out what the most optimal target should be */
         MapLocation currentTarget = new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
-        if (rc.readSharedArray(Constants.SharedArray.globalAttackTarget) < 2) {
-            currentTarget = attackerTargets[rc.readSharedArray(Constants.SharedArray.globalAttackTarget)];
+//        if (rc.readSharedArray(Constants.SharedArray.globalAttackTarget) < 2) {
+//            currentTarget = attackerTargets[rc.readSharedArray(Constants.SharedArray.globalAttackTarget)];
+        MapLocation globalTarget = Utils.getLocationInSharedArray(rc, Constants.SharedArray.globalAttackTarget);
+        if (globalTarget != null) {
+            int idx = -1;
+            for (MapLocation attackerTarget : attackerTargets)
+                if (attackerTarget.equals(globalTarget))
+                    idx = Arrays.asList(attackerTargets).indexOf(attackerTarget);
+            if (idx != -1)
+                curAttackerTargetIndex = idx;
+            currentTarget = globalTarget;
         } else {
             MapLocation flag = null;
             int i;
@@ -99,6 +111,33 @@ public class Attacker extends AbstractRobot {
 
         RobotInfo weakestAlly = Utils.lowestHealth(nearestAllies);
 
+        if (rc.isSpawned() && aboutToRetriveFlag) {
+            // First check if we detected any enemy flags
+            boolean foundFlag = false;
+            for (int i = 0; i < 3; i++) {
+                MapLocation loc = Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]);
+                if (loc != null && enemyFlagIDs.get(i) != -1) {
+                    System.out.println("a");
+                    Utils.storeLocationInSharedArray(rc, Constants.SharedArray.globalAttackTarget, loc);
+                    foundFlag = true;
+                    break;
+                }
+            }
+            // If not then look to the next spawn location
+            if (!foundFlag && curAttackerTargetIndex < 3) {
+                System.out.println("b");
+                Utils.storeLocationInSharedArray(rc, Constants.SharedArray.globalAttackTarget, attackerTargets[++curAttackerTargetIndex]);
+            }
+//                    Utils.storeLocationInSharedArray(rc, Constants.SharedArray.globalAttackTarget, attackerTargets[++curAttackerTargetIndex]);
+            System.out.println("I retrieved a flag! " + rc.getID());
+            int flagIdx = enemyFlagIDs.indexOf(currentFlagID);
+            Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[flagIdx], null);
+            Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagHolderLoc, null);
+            currentFlagID = -1;
+            hasRetrievedFlag = true;
+        }
+        aboutToRetriveFlag = false;
+
         for (int i = 0; i < 3; i++)
             enemyFlagIDs.set(i, rc.readSharedArray(Constants.SharedArray.enemyFlagIDs[i]) - 1);
 
@@ -110,8 +149,7 @@ public class Attacker extends AbstractRobot {
                 rc.writeSharedArray(Constants.SharedArray.enemyFlagIDs[lastNotSeenFlag], info.getID() + 1);
                 index = lastNotSeenFlag;
 
-            }
-            if (Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[index]) != null) {
+            } else { //if (Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[index]) != null) {
                 Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[index], info.getLocation());
             }
         }
@@ -122,12 +160,8 @@ public class Attacker extends AbstractRobot {
             Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagHolderLoc, curLoc);
             for (MapLocation spawn : rc.getAllySpawnLocations()) {
                 if (curLoc.isAdjacentTo(spawn) && !hasRetrievedFlag) {
-                    rc.writeSharedArray(Constants.SharedArray.globalAttackTarget, rc.readSharedArray(Constants.SharedArray.globalAttackTarget) + 1);
-                    System.out.println("I retrieved a flag! " + rc.getID());
-                    int flagIdx = enemyFlagIDs.indexOf(currentFlagID);
-                    Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[flagIdx], null);
-                    currentFlagID = -1;
-                    hasRetrievedFlag = true;
+                    aboutToRetriveFlag = true;
+                    break;
                 }
             }
             moveTowards(rc, curLoc, Utils.getClosest(rc.getAllySpawnLocations(), curLoc), true);
@@ -138,11 +172,12 @@ public class Attacker extends AbstractRobot {
 
 
         // I have reached the target
-        if (curLoc.equals(currentTarget)) {
+        if (curLoc.isWithinDistanceSquared(currentTarget, 25)) {
             Utils.incrementSharedArray(rc, Constants.SharedArray.numAtGlobalAttackTarget);
-            if (rc.readSharedArray(Constants.SharedArray.numAtGlobalAttackTarget) > 25) {
+            if (rc.readSharedArray(Constants.SharedArray.numAtGlobalAttackTarget) > 10 && curAttackerTargetIndex < 3) {
                 // we've been here for a while but nothing is here
-                rc.writeSharedArray(Constants.SharedArray.globalAttackTarget, rc.readSharedArray(Constants.SharedArray.globalAttackTarget) + 1);
+//                rc.writeSharedArray(Constants.SharedArray.globalAttackTarget, rc.readSharedArray(Constants.SharedArray.globalAttackTarget) + 1);
+                Utils.storeLocationInSharedArray(rc, Constants.SharedArray.globalAttackTarget, attackerTargets[++curAttackerTargetIndex]);
                 rc.writeSharedArray(Constants.SharedArray.numAtGlobalAttackTarget, 0);
             }
         }
@@ -153,12 +188,17 @@ public class Attacker extends AbstractRobot {
             rc.writeSharedArray(Constants.SharedArray.numAtGlobalAttackTarget, 0);
         }
 
+//        if (isHealer)
+//            rc.setIndicatorDot(curLoc, 0, 255, 0);
+//        else
+//            rc.setIndicatorDot(curLoc, 255, 0, 0);
+
         if (flagHolderLoc != null && isHealer) {
             Direction dir = flagHolderLoc.directionTo(curLoc);
             moveTowards(rc, curLoc, flagHolderLoc.add(dir), true);
             if (rc.canHeal(flagHolderLoc))
                 rc.heal(flagHolderLoc);
-            else if (rc.canHeal(weakestAlly.getLocation()))
+            else if (weakestAlly != null && rc.canHeal(weakestAlly.getLocation()))
                 rc.heal(weakestAlly.getLocation());
             else if (nearestEnemy != null && rc.canAttack(nearestEnemy.getLocation()))
                 rc.attack(nearestEnemy.getLocation());
@@ -180,12 +220,9 @@ public class Attacker extends AbstractRobot {
                 moveTowards(rc, curLoc, nearestAlly.getLocation(), true); // Micro 3: Run towards nearest ally if low
                 if (RobotPlayer.rng.nextInt(4) == 0) {
                     int random = RobotPlayer.rng.nextInt(10);
-                    if (random == 9) {
+                    if (random >= 7) {
                         if (rc.canBuild(TrapType.EXPLOSIVE, curLoc))
                             rc.build(TrapType.EXPLOSIVE, curLoc);
-                    } else if (random >= 6) {
-                        if (rc.canBuild(TrapType.WATER, curLoc))
-                            rc.build(TrapType.WATER, curLoc);
                     } else {
                         if (rc.canBuild(TrapType.STUN, curLoc))
                             rc.build(TrapType.STUN, curLoc);
@@ -196,8 +233,7 @@ public class Attacker extends AbstractRobot {
 //            if (nearestFriends.length > 0 && rng.nextInt(5) == 1) {
 //                moveTowards(rc, curLoc, nearestFriends[0].getLocation(), true);
             if (rc.getRoundNum() < 200) {
-                if (rc.getRoundNum() > 180 && RobotPlayer.rng.nextInt(10) >= 6 && rc.canBuild(TrapType.EXPLOSIVE, curLoc)) {
-                    System.out.println("jk");
+                if (rc.getRoundNum() > 180 && RobotPlayer.rng.nextInt(10) >= 2 && rc.canBuild(TrapType.EXPLOSIVE, curLoc)) {
                     rc.build(TrapType.EXPLOSIVE, curLoc);
                 }
                 moveTowards(rc, curLoc, new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2), true);

@@ -8,14 +8,14 @@ import java.util.List;
 
 import static v9.RobotPlayer.directions;
 import static v9.RobotPlayer.map;
-import static v9.Utils.Pair;
+import static v9.Utils.*;
 
 public class Pathfinding {
     private static List<MapLocation> best = new ArrayList<>();
 
     public static void moveTowards(RobotController rc, MapLocation curLoc, MapLocation target, boolean fillWater) throws GameActionException {
         IterativeGreedy(rc, curLoc, target, 10, fillWater);
-//        rc.setIndicatorString("Target: " + target);
+        rc.setIndicatorString("Target: " + target);
     }
 
     public static void moveAway(RobotController rc, MapLocation curLoc, MapLocation target, boolean fillWater) throws GameActionException {
@@ -32,6 +32,7 @@ public class Pathfinding {
 
         if (lastTarget == null || !lastTarget.equals(target)) {
             best.clear();
+            visited.clear();
         }
 
         if (curLoc.isAdjacentTo(target)) {
@@ -160,9 +161,5 @@ public class Pathfinding {
 
     public static int calculateDistance(MapLocation ml1, MapLocation ml2) {
         return ml1.distanceSquaredTo(ml2); // Euclidean distance squared
-    }
-
-    private static MapLocation clamp(MapLocation loc, RobotController rc) {
-        return new MapLocation(Math.max(1, Math.min(rc.getMapWidth() - 1, loc.x)), Math.max(1, Math.min(rc.getMapHeight() - 1, loc.y)));
     }
 }

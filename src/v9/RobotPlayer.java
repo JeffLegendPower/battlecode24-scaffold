@@ -54,17 +54,26 @@ public strictfp class RobotPlayer {
                     map[loc.y][loc.x] = info;
                 }
 
+                for (int i = 0; i < 12; i++) {
+                    MapInfo info = Utils.getInfoInSharedArray(rc, Constants.SharedArray.scoutInfoChannels[i]);
+                    if (info != null) {
+                        MapLocation loc = info.getMapLocation();
+                        if (map[loc.y][loc.x] == null)
+                            map[loc.y][loc.x] = info;
+                    }
+                }
+
                 MapLocation curLoc = rc.getLocation();
 
-                if (rc.getRoundNum() < GameConstants.SETUP_ROUNDS) {
+                if (rc.getRoundNum() < GameConstants.SETUP_ROUNDS - 20) {
                     if (!setupBeforeSetup) {
                         type = RobotType.CornerFinder;
                         if (!type.getRobot().setup(rc, rc.getLocation()))
-                            type = null;
+                            type = RobotType.Default;
                         setupBeforeSetup = true;
                     }
-                    if (type != null && type.getRobot().completedTask())
-                        type = null;
+                    if (type != RobotType.Default && type.getRobot().completedTask())
+                        type = RobotType.Default;
                 } else {
                     if (!setupAfterSetup && (type == RobotType.Default || type == RobotType.CornerFinder)) {
                        type = RobotType.Attacker;
@@ -79,7 +88,7 @@ public strictfp class RobotPlayer {
 
                 if (type != null) {
                     type.getRobot().tick(rc, curLoc);
-                    rc.setIndicatorString(type.name());
+//                    rc.setIndicatorString(type.name());
 //                    if (type == RobotType.CornerFinder) System.out.println(rc.getLocation());
                 } else if (rc.getRoundNum() >= GameConstants.SETUP_ROUNDS - 50) {
                      type = RobotType.Attacker;
@@ -102,7 +111,6 @@ public strictfp class RobotPlayer {
     private static boolean assigned = false;
 
     private static void spawn(RobotController rc) throws GameActionException {
-
         if (!assigned) {
             type = RobotType.FlagPlacer;
             type.getRobot().spawn(rc);
@@ -110,13 +118,15 @@ public strictfp class RobotPlayer {
                 type = RobotType.Default;
             else
                 setupBeforeSetup = true;
+
             if (type == RobotType.Default) {
                 type = RobotType.Defender;
-                if (!type.getRobot().setup(rc, rc.getLocation()))
-                    type = RobotType.Default;
-                else
-                    setupBeforeSetup = true;
-
+                if (!type.getRobot().setup(rc, rc.getLocation())) {
+                    type = RobotType.Scouter;
+                    if (!type.getRobot().setup(rc, rc.getLocation()))
+                        type = RobotType.Default;
+                }
+                setupBeforeSetup = type != RobotType.Default;
             }
             assigned = true;
         }
