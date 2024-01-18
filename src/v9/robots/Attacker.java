@@ -103,6 +103,8 @@ public class Attacker extends AbstractRobot {
 
     @Override
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
+
+        System.out.println(Utils.getLocationInSharedArray(rc, Constants.SharedArray.globalAttackTarget));
         RobotInfo[] nearestEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
         RobotInfo[] nearestAllies = rc.senseNearbyRobots(-1, rc.getTeam());
         RobotInfo nearestEnemy = Utils.getClosest(nearestEnemies, curLoc);
@@ -218,24 +220,24 @@ public class Attacker extends AbstractRobot {
                 moveTowards(rc, curLoc, nearestEnemy.getLocation(), true);
             } else {
                 moveTowards(rc, curLoc, nearestAlly.getLocation(), true); // Micro 3: Run towards nearest ally if low
-                if (RobotPlayer.rng.nextInt(4) == 0) {
-                    int random = RobotPlayer.rng.nextInt(10);
-                    if (random >= 7) {
-                        if (rc.canBuild(TrapType.EXPLOSIVE, curLoc))
-                            rc.build(TrapType.EXPLOSIVE, curLoc);
-                    } else {
-                        if (rc.canBuild(TrapType.STUN, curLoc))
-                            rc.build(TrapType.STUN, curLoc);
-                    }
-                }
+//                if (RobotPlayer.rng.nextInt(4) == 0) {
+//                    int random = RobotPlayer.rng.nextInt(10);
+//                    if (random >= 7) {
+//                        if (rc.canBuild(TrapType.EXPLOSIVE, curLoc))
+//                            rc.build(TrapType.EXPLOSIVE, curLoc);
+//                    } else {
+//                        if (rc.canBuild(TrapType.STUN, curLoc))
+//                            rc.build(TrapType.STUN, curLoc);
+//                    }
+//                }
             }
         } else {
 //            if (nearestFriends.length > 0 && rng.nextInt(5) == 1) {
 //                moveTowards(rc, curLoc, nearestFriends[0].getLocation(), true);
             if (rc.getRoundNum() < 200) {
-                if (rc.getRoundNum() > 180 && RobotPlayer.rng.nextInt(10) >= 2 && rc.canBuild(TrapType.EXPLOSIVE, curLoc)) {
-                    rc.build(TrapType.EXPLOSIVE, curLoc);
-                }
+//                if (rc.getRoundNum() > 180 && RobotPlayer.rng.nextInt(10) >= 2 && rc.canBuild(TrapType.EXPLOSIVE, curLoc)) {
+//                    rc.build(TrapType.EXPLOSIVE, curLoc);
+//                }
                 moveTowards(rc, curLoc, new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2), true);
             } else {
                 moveTowards(rc, curLoc, currentTarget, true);
