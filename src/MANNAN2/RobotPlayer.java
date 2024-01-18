@@ -137,7 +137,10 @@ public strictfp class RobotPlayer {
                         moveAway(rc, curLoc, nearestEnemy.getLocation(), true);
                     } else if (rc.getHealth() >= 600 || nearestAlly == null) { // Micro 2: Only run in if you have enough health
                         int dist = curLoc.distanceSquaredTo(nearestEnemy.getLocation());
-                        moveTowards(rc, curLoc, nearestEnemy.getLocation(), true);
+                        if (dist <= 10 || dist >= 18)
+                            moveTowards(rc, curLoc, nearestEnemy.getLocation(), true);
+                        else
+                            moveAway(rc, curLoc, nearestEnemy.getLocation(), true);
                     } else {
                         moveTowards(rc, curLoc, nearestAlly.getLocation(), true); // Micro 3: Run towards nearest ally if low
                     }

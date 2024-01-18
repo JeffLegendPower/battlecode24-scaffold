@@ -15,7 +15,7 @@ public class Pathfinding {
 
     public static void moveTowards(RobotController rc, MapLocation curLoc, MapLocation target, boolean fillWater) throws GameActionException {
         IterativeGreedy(rc, curLoc, target, 10, fillWater);
-        rc.setIndicatorString("Target: " + target);
+//        rc.setIndicatorString("Target: " + target);
     }
 
     public static void moveAway(RobotController rc, MapLocation curLoc, MapLocation target, boolean fillWater) throws GameActionException {
@@ -130,8 +130,8 @@ public class Pathfinding {
 
         if (bestMove == null) return current;
 
-        rc.setIndicatorDot(bestMove, 255, 0, 0);
-        rc.setIndicatorLine(curLoc, bestMove, 0, 255, 0);
+//        rc.setIndicatorDot(bestMove, 255, 0, 0);
+//        rc.setIndicatorLine(curLoc, bestMove, 0, 255, 0);
         current.add(bestMove);
 
         return current;

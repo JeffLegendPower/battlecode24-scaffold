@@ -61,6 +61,7 @@ public class Scouter extends AbstractRobot {
         }
 
         if (currentTarget != null) {
+//            rc.setIndicatorString("Moving towards " + currentTarget);
             Pathfinding.moveTowards(rc, curLoc, currentTarget, true);
         } else if (nearbyEnemies.length > 0) {
             MapLocation nearestEnemy = Utils.getClosest(nearbyEnemies, curLoc).getLocation();
@@ -84,21 +85,37 @@ public class Scouter extends AbstractRobot {
 
             MapLocation target = null;
 
-            unexplored_search:
-            for (int y = yzero ? height - 1 : 0; yzero ? y >= 0 : y < height; y += yzero ? -3 : 3) {
-                for (int x = xzero ? width - 1 : 0; xzero ? x >= 0 : x < width; x += xzero ? -3 : 3) {
-                    MapInfo info = RobotPlayer.map[y][x];
-                    if (info == null) {
-                        target = new MapLocation(x, y);
-                        break unexplored_search;
-                    }
+            int giveUp = 0;
+            while (giveUp < 1000) {
+                int x = RobotPlayer.rng.nextInt(width);
+                int y = RobotPlayer.rng.nextInt(height);
+                MapInfo info = RobotPlayer.map[y][x];
+                if (info == null) {
+                    target = new MapLocation(x, y);
+                    break;
                 }
+                giveUp++;
             }
 
-            if (target != null)
+//            unexplored_search:
+//            for (int y = yzero ? height - 1 : 0; yzero ? y >= 0 : y < height; y += yzero ? -3 : 3) {
+//                for (int x = xzero ? width - 1 : 0; xzero ? x >= 0 : x < width; x += xzero ? -3 : 3) {
+//                    MapInfo info = RobotPlayer.map[y][x];
+//                    if (info == null) {
+//                        target = new MapLocation(x, y);
+//                        break unexplored_search;
+//                    }
+//                }
+//            }
+
+            if (target != null) {
                 Pathfinding.moveTowards(rc, curLoc, target, true);
-            else
+//                rc.setIndicatorString("Moving towards " + target);
+            }
+            else {
                 Pathfinding.moveTowards(rc, curLoc, curLoc.add(RobotPlayer.directions[RobotPlayer.rng.nextInt(8)]), true);
+//                rc.setIndicatorString("Moving randomly");
+            }
         }
 
         // side job
@@ -121,6 +138,12 @@ public class Scouter extends AbstractRobot {
                 i++;
             }
         }
+    }
+
+    @Override
+    public void spawn(RobotController rc) throws GameActionException {
+        currentTarget = null;
+        super.spawn(rc);
     }
 
     @Override

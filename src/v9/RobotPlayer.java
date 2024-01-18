@@ -31,6 +31,8 @@ public strictfp class RobotPlayer {
     private static boolean setupAfterSetup = false;
     public static Random rng = new Random();
 
+    public static int numMapped = 0;
+
     @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
 
@@ -53,6 +55,7 @@ public strictfp class RobotPlayer {
                 MapInfo[] nearbyMapInfo = rc.senseNearbyMapInfos();
                 for (MapInfo info : nearbyMapInfo) {
                     MapLocation loc = info.getMapLocation();
+                    if (map[loc.y][loc.x] == null) numMapped++;
                     map[loc.y][loc.x] = info;
                 }
 
@@ -60,8 +63,10 @@ public strictfp class RobotPlayer {
                     MapInfo info = Utils.getInfoInSharedArray(rc, Constants.SharedArray.scoutInfoChannels[i]);
                     if (info != null) {
                         MapLocation loc = info.getMapLocation();
-                        if (map[loc.y][loc.x] == null)
+                        if (map[loc.y][loc.x] == null) {
                             map[loc.y][loc.x] = info;
+                            numMapped++;
+                        }
                     }
                 }
 
@@ -89,8 +94,11 @@ public strictfp class RobotPlayer {
                 }
 
                 if (type != null) {
+                    rc.setIndicatorString(type.name() + " " + (numMapped * 100) / (rc.getMapWidth() * rc.getMapHeight()) + "% mapped");
                     type.getRobot().tick(rc, curLoc);
-//                    rc.setIndicatorString(type.name());
+                    if (type == RobotType.Scouter) {
+                        rc.setIndicatorDot(curLoc, 0, 0, 255);
+                    }
 //                    if (type == RobotType.CornerFinder) System.out.println(rc.getLocation());
                 } else if (rc.getRoundNum() >= GameConstants.SETUP_ROUNDS - 50) {
                      type = RobotType.Attacker;
