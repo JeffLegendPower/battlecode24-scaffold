@@ -126,23 +126,9 @@ public class Attacker extends AbstractRobot {
         RobotInfo nearestAlly = Utils.getClosest(nearestAllies, curLoc);
         FlagInfo[] nearestFlags = rc.senseNearbyFlags(-1, rc.getTeam().opponent());
         ArrayList<FlagInfo> nearestFlagsNotPickedUp = new ArrayList<>();
-        MapLocation[] nearestCapturedFlags = new MapLocation[3];
         for (FlagInfo flag : nearestFlags) {
             if (!flag.isPickedUp())
                 nearestFlagsNotPickedUp.add(flag);
-        }
-
-        for (int i = 0; i < 3; i++) {
-            nearestCapturedFlags[i] = Utils.getLocationInSharedArray(rc, Constants.SharedArray.capturedFlagLocs[i]);
-        }
-
-        MapLocation nearestCapturedFlag = Utils.getClosest(nearestCapturedFlags, curLoc);
-
-        if (!isHealer && !rc.hasFlag() && rc.canSenseLocation(nearestCapturedFlag)) {
-            moveTowards(rc, curLoc, nearestCapturedFlag, true);
-            if (rc.canAttack(nearestCapturedFlag))
-                rc.attack(nearestCapturedFlag);
-            return;
         }
 
         /*for (int i = 0; i < 3; i++) {
@@ -263,7 +249,7 @@ public class Attacker extends AbstractRobot {
                 rc.attack(nearestEnemy.getLocation()); // TODO it might be better not to attack to save cooldown ?
         } else */
 
-        if (!nearestFlagsNotPickedUp.isEmpty()) { // Attacker pickup logic
+        if (!nearestFlagsNotPickedUp.isEmpty() && rc.canPickupFlag(nearestFlags[0].getLocation()) && nearestEnemies.length < 3) { // Attacker pickup logic
             if (rc.canPickupFlag(nearestFlags[0].getLocation())) {
                 currentFlagID = nearestFlags[0].getID();
                 rc.pickupFlag(nearestFlags[0].getLocation());
@@ -308,7 +294,7 @@ public class Attacker extends AbstractRobot {
 //            if (nearestFriends.length > 0 && rng.nextInt(5) == 1) {
 //                moveTowards(rc, curLoc, nearestFriends[0].getLocation(), true);
             if (rc.getRoundNum() < 200) {
-                if (rc.getRoundNum() > 180 && RobotPlayer.rng.nextInt(10) >= 2 && rc.canBuild(TrapType.EXPLOSIVE, curLoc)) {
+                if (rc.getRoundNum() > 150 && RobotPlayer.rng.nextInt(10) >= 2 && rc.canBuild(TrapType.EXPLOSIVE, curLoc)) {
                     // Place some explosives a few rounds before wall drop
                     rc.build(TrapType.EXPLOSIVE, curLoc);
                 }

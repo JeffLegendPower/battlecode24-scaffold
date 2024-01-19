@@ -2,7 +2,8 @@ package v9;
 
 import battlecode.common.*;
 
-import java.util.ArrayList;
+import java.util.*;
+import java.util.function.Function;
 
 public class Utils {
 
@@ -222,6 +223,21 @@ public class Utils {
 
     public static MapLocation clamp(MapLocation loc, RobotController rc) {
         return new MapLocation(Math.max(1, Math.min(rc.getMapWidth() - 1, loc.x)), Math.max(1, Math.min(rc.getMapHeight() - 1, loc.y)));
+    }
+
+    public static <T> List<T> sortArray(T[] array, Function<T, Integer> scoringFunction) {
+        // Create a new array and manually copy elements from the original array
+        ArrayList<T> copy = new ArrayList<>();
+        for (int i = 0; i < array.length; i++) {
+            copy.add(array[i]);
+        }
+
+        Map<T, Integer> scoreMap = new HashMap<>();
+        for (T item : array) {
+            scoreMap.put(item, scoringFunction.apply(item));
+        }
+        copy.sort(Comparator.comparing(scoreMap::get));
+        return copy;
     }
 
     // Pair

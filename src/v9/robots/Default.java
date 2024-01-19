@@ -19,9 +19,9 @@ public class Default extends AbstractRobot {
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
         MapLocation[] nearbyCrumbs = rc.senseNearbyCrumbs(-1);
         if (nearbyCrumbs.length > 0)
-            moveTowards(rc, curLoc, nearbyCrumbs[0], true);
+            moveTowards(rc, curLoc, nearbyCrumbs[0], false);
         else
-            moveTowards(rc, curLoc, curLoc.add(directions[rng.nextInt(8)]), true);
+            moveTowards(rc, curLoc, curLoc.add(directions[rng.nextInt(8)]), false);
     }
 
     @Override
