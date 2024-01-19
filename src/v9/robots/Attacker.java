@@ -2,7 +2,6 @@ package v9.robots;
 
 import battlecode.common.*;
 import v9.Constants;
-import v9.Pathfinding;
 import v9.RobotPlayer;
 import v9.Utils;
 
@@ -10,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Map;
+import java.util.Random;
 
 import static v9.Pathfinding.*;
 
@@ -238,16 +238,23 @@ public class Attacker extends AbstractRobot {
 
 
         // Healer logic if there's a flagholder that needs protecting
-        /*if (flagHolderLoc != null && isHealer) {
-            Direction dir = flagHolderLoc.directionTo(curLoc);
-            moveTowards(rc, curLoc, flagHolderLoc.add(dir), true);
-            if (rc.canHeal(flagHolderLoc)) // Focus on healing the flagholder first
-                rc.heal(flagHolderLoc);
-            else if (weakestAlly != null && rc.canHeal(weakestAlly.getLocation())) // Otherwise heal the weakest ally
-                rc.heal(weakestAlly.getLocation());
-            else if (nearestEnemy != null && rc.canAttack(nearestEnemy.getLocation())) // If everyone around is full, then attack the nearest enemy
-                rc.attack(nearestEnemy.getLocation()); // TODO it might be better not to attack to save cooldown ?
-        } else */
+        if (isHealer) {
+            for (RobotInfo ally : nearestAllies) {
+                if (ally.hasFlag()) {
+                    Direction dir = ally.getLocation().directionTo(curLoc);
+                    int rand = new Random().nextInt(3) + 1;
+                    MapLocation flagholderTarget = ally.getLocation();
+                    for (int i = 0; i < rand; i++)
+                        flagholderTarget = flagholderTarget.add(dir);
+                    moveTowards(rc, curLoc, flagholderTarget, true);
+                    flagholderTarget = ally.getLocation();
+                    if (ally.health <= 750 && rc.canHeal(flagholderTarget))
+                        rc.heal(flagholderTarget);
+                    else if (rc.canHeal(weakestAlly.getLocation()))
+                        rc.heal(weakestAlly.getLocation());
+                }
+            }
+        }
 
         if (!nearestFlagsNotPickedUp.isEmpty() && rc.canPickupFlag(nearestFlags[0].getLocation()) && nearestEnemies.length < 3) { // Attacker pickup logic
             if (rc.canPickupFlag(nearestFlags[0].getLocation())) {
