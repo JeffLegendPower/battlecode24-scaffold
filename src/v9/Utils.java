@@ -55,6 +55,8 @@ public class Utils {
         int closestDist = 999999;
         int dist;
         for (MapLocation loc : locs) {
+            if (loc == null)
+                continue;
             dist = curLoc.distanceSquaredTo(loc);
             if (dist < closestDist) {
                 closest = loc;

@@ -18,6 +18,7 @@ public class Constants {
         public static final int[] enemyFlagLocs = {17, 18, 19};
         public static final int numberScouts = 20;
         public static final int[] scoutInfoChannels = {21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32};
+        public static final int[] capturedFlagLocs = {33, 34, 35};
         public static final int flagHolderNextDirection = 0;
 
     }

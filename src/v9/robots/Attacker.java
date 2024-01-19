@@ -126,9 +126,23 @@ public class Attacker extends AbstractRobot {
         RobotInfo nearestAlly = Utils.getClosest(nearestAllies, curLoc);
         FlagInfo[] nearestFlags = rc.senseNearbyFlags(-1, rc.getTeam().opponent());
         ArrayList<FlagInfo> nearestFlagsNotPickedUp = new ArrayList<>();
+        MapLocation[] nearestCapturedFlags = new MapLocation[3];
         for (FlagInfo flag : nearestFlags) {
             if (!flag.isPickedUp())
                 nearestFlagsNotPickedUp.add(flag);
+        }
+
+        for (int i = 0; i < 3; i++) {
+            nearestCapturedFlags[i] = Utils.getLocationInSharedArray(rc, Constants.SharedArray.capturedFlagLocs[i]);
+        }
+
+        MapLocation nearestCapturedFlag = Utils.getClosest(nearestCapturedFlags, curLoc);
+
+        if (!isHealer && !rc.hasFlag() && rc.canSenseLocation(nearestCapturedFlag)) {
+            moveTowards(rc, curLoc, nearestCapturedFlag, true);
+            if (rc.canAttack(nearestCapturedFlag))
+                rc.attack(nearestCapturedFlag);
+            return;
         }
 
         /*for (int i = 0; i < 3; i++) {

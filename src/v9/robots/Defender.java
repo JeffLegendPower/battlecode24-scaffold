@@ -35,6 +35,8 @@ public class Defender extends AbstractRobot {
 
     @Override
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
+        target = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[flagNumber]);
+        RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
         if (target == null) {
             target = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[flagNumber]);
             if (rc.getRoundNum() > 200 && target == null) {
@@ -53,17 +55,25 @@ public class Defender extends AbstractRobot {
                 return;
             }
         }
-        if (!curLoc.isWithinDistanceSquared(target, 20)) {
+
+        for (RobotInfo enemy : enemies)
+            if (enemy.hasFlag)
+                Utils.storeLocationInSharedArray(rc, Constants.SharedArray.capturedFlagLocs[flagNumber], enemy.getLocation());
+
+        MapLocation capturedFlag = Utils.getLocationInSharedArray(rc, Constants.SharedArray.capturedFlagLocs[flagNumber]);
+        if (capturedFlag != null) {
+            Pathfinding.moveTowards(rc, curLoc, capturedFlag, true);
+            if (rc.canAttack(capturedFlag))
+                rc.attack(capturedFlag);
+        } else if (!curLoc.isWithinDistanceSquared(target, 20)) {
             Pathfinding.moveTowards(rc, curLoc, target, false);
         } else if (!builder) {
-            RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
             RobotInfo lowest = Utils.lowestHealth(enemies);
             RobotInfo closest = Utils.getClosest(enemies, curLoc);
             if (lowest == null) {
                 if (closest != null && rc.canAttack(closest.getLocation()))
                     rc.attack(closest.getLocation());
-            } else {
-                if (rc.canAttack(lowest.getLocation()))
+                else if (rc.canAttack(lowest.getLocation()))
                     rc.attack(lowest.getLocation());
             }
             for (int i = 0; i < 4; i++) {
@@ -106,7 +116,6 @@ public class Defender extends AbstractRobot {
                 }
                 Pathfinding.moveTowards(rc, curLoc, buildTarget, false);
             }
-            RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
             if (enemies.length > 0) {
                 RobotInfo lowest = Utils.lowestHealth(enemies);
                 RobotInfo closest = Utils.getClosest(enemies, curLoc);

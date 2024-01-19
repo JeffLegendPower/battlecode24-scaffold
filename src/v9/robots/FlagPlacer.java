@@ -98,6 +98,9 @@ public class FlagPlacer extends AbstractRobot {
                     }
                 }
             }
+            if (!flagGone) {
+                Utils.storeLocationInSharedArray(rc, Constants.SharedArray.capturedFlagLocs[flagPlacerNum], null);
+            }
         }
     }
 
