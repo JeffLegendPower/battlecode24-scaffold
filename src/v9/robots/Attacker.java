@@ -122,15 +122,31 @@ public class Attacker extends AbstractRobot {
         RobotInfo[] nearestEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
         RobotInfo[] nearestAllies = rc.senseNearbyRobots(-1, rc.getTeam());
         RobotInfo nearestEnemy = Utils.getClosest(nearestEnemies, curLoc);
+        RobotInfo weakestEnemy = Utils.lowestHealth(nearestEnemies);
 
         RobotInfo nearestAlly = Utils.getClosest(nearestAllies, curLoc);
         FlagInfo[] nearestFlags = rc.senseNearbyFlags(-1, rc.getTeam().opponent());
         ArrayList<FlagInfo> nearestFlagsNotPickedUp = new ArrayList<>();
+        ArrayList<MapLocation> nearestCapturedFlags = new ArrayList<>();
+        MapLocation nearestCapturedFlag;
         for (FlagInfo flag : nearestFlags) {
             if (!flag.isPickedUp())
                 nearestFlagsNotPickedUp.add(flag);
         }
 
+        int capturedFlagNum = -1;
+        for (int i = 0; i < 3; i++) {
+            nearestCapturedFlags.add(Utils.getLocationInSharedArray(rc, Constants.SharedArray.capturedFlagLocs[i]));
+        }
+        nearestCapturedFlag = Utils.getClosest(nearestCapturedFlags, curLoc, 0);
+        if (nearestCapturedFlag != null && rc.canSenseLocation(nearestCapturedFlag)) {
+            capturedFlagNum = nearestCapturedFlags.indexOf(nearestCapturedFlag);
+            if (rc.senseNearbyRobots(nearestCapturedFlag, 1, rc.getTeam().opponent()).length == 0)
+                Utils.storeLocationInSharedArray(rc, Constants.SharedArray.capturedFlagLocs[capturedFlagNum], null);
+            moveTowards(rc, curLoc, nearestCapturedFlag, true);
+            if (rc.canAttack(nearestCapturedFlag))
+                rc.attack(nearestCapturedFlag);
+        }
         /*for (int i = 0; i < 3; i++) {
             System.out.println("flag " + i + " at " + Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]));
         }*/
@@ -206,7 +222,7 @@ public class Attacker extends AbstractRobot {
             hasRetrievedFlag = false;
         }
 
-
+        
         // I have reached the target
         if (curLoc.isWithinDistanceSquared(currentTarget, 25)) {
             Utils.incrementSharedArray(rc, Constants.SharedArray.numAtGlobalAttackTarget);
@@ -218,6 +234,37 @@ public class Attacker extends AbstractRobot {
                     rc.writeSharedArray(Constants.SharedArray.numAtGlobalAttackTarget, 0);
                 } else {
                     Utils.storeLocationInSharedArray(rc, Constants.SharedArray.globalAttackTarget, null);
+                }
+            }
+        }
+
+        if (!isHealer && nearestEnemies.length > 0) {
+            int dist = curLoc.distanceSquaredTo(nearestEnemy.getLocation());
+            if (weakestEnemy == null && rc.canAttack(nearestEnemy.getLocation())) {
+                rc.attack(nearestEnemy.getLocation());
+                moveAway(rc, curLoc, nearestEnemy.getLocation(), true);
+            } else if (weakestEnemy != null && rc.canAttack((weakestEnemy.getLocation()))) {
+                rc.attack(weakestEnemy.getLocation());
+                moveAway(rc, curLoc, nearestEnemy.getLocation(), true);
+            } else if (rc.getHealth() >= 800 || nearestAlly == null) { // Micro 2: Only run in if you have enough health
+                if (dist <= 10 || dist >= 18) {
+                    moveTowards(rc, curLoc, nearestEnemy.getLocation(), true);
+                } else if (rc.canMove(nearestEnemy.getLocation().directionTo(curLoc))) {
+                    rc.move(nearestEnemy.getLocation().directionTo(curLoc));
+//                    moveAway(rc, curLoc, nearestEnemy.getLocation(), true);
+                }
+            } else {
+//                moveTowards(rc, curLoc, nearestAlly.getLocation(), true); // Micro 3: Run towards nearest ally if low
+                moveAway(rc, curLoc, nearestEnemy.getLocation(), true);
+                if (RobotPlayer.rng.nextInt(4) == 0) {
+                    int random = RobotPlayer.rng.nextInt(10);
+                    if (random >= 7) {
+                        if (rc.canBuild(TrapType.EXPLOSIVE, curLoc))
+                            rc.build(TrapType.EXPLOSIVE, curLoc);
+                    } else {
+                        if (rc.canBuild(TrapType.STUN, curLoc))
+                            rc.build(TrapType.STUN, curLoc);
+                    }
                 }
             }
         }
@@ -266,37 +313,6 @@ public class Attacker extends AbstractRobot {
                 Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[enemyFlagIDs.indexOf(currentFlagID)], new MapLocation(63, 63));
             }
             moveTowards(rc, curLoc, nearestFlags[0].getLocation(), true);
-        } else if (!isHealer && nearestEnemies.length > 0) {
-            int dist = curLoc.distanceSquaredTo(nearestEnemy.getLocation());
-            if (rc.canAttack(nearestEnemy.getLocation())) {
-                rc.attack(nearestEnemy.getLocation());
-                // Micro 1: Run in to attack and then run away right after
-//                moveAway(rc, curLoc, nearestEnemy.getLocation(), true);
-//                if (rc.canMove(nearestEnemy.getLocation().directionTo(curLoc))) {
-//                    rc.move(nearestEnemy.getLocation().directionTo(curLoc));
-                moveAway(rc, curLoc, nearestEnemy.getLocation(), true);
-//                }
-            } else if (rc.getHealth() >= 800 || nearestAlly == null) { // Micro 2: Only run in if you have enough health
-                if (dist <= 10 || dist >= 18) {
-                    moveTowards(rc, curLoc, nearestEnemy.getLocation(), true);
-                }
-                else if (rc.canMove(nearestEnemy.getLocation().directionTo(curLoc))) {
-                    rc.move(nearestEnemy.getLocation().directionTo(curLoc));
-//                    moveAway(rc, curLoc, nearestEnemy.getLocation(), true);
-                }
-            } else {
-                moveTowards(rc, curLoc, nearestAlly.getLocation(), true); // Micro 3: Run towards nearest ally if low
-                if (RobotPlayer.rng.nextInt(4) == 0) {
-                    int random = RobotPlayer.rng.nextInt(10);
-                    if (random >= 7) {
-                        if (rc.canBuild(TrapType.EXPLOSIVE, curLoc))
-                            rc.build(TrapType.EXPLOSIVE, curLoc);
-                    } else {
-                        if (rc.canBuild(TrapType.STUN, curLoc))
-                            rc.build(TrapType.STUN, curLoc);
-                    }
-                }
-            }
         } else {
 //            if (nearestFriends.length > 0 && rng.nextInt(5) == 1) {
 //                moveTowards(rc, curLoc, nearestFriends[0].getLocation(), true);

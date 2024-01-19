@@ -12,12 +12,14 @@ import static v9.RobotPlayer.*;
 
 public class Defender extends AbstractRobot {
 
-    public static int flagNumber;
-    public static MapLocation target = null;
-    public static int turnsSinceLastTrap = 0;
-    public static boolean builder = false;
-    public static MapLocation buildTarget = null;
-    public static MapLocation spamTarget = null;
+    public int flagNumber;
+    public MapLocation target = null;
+    public int turnsSinceLastTrap = 0;
+    public boolean builder = false;
+    public MapLocation buildTarget = null;
+    public MapLocation spamTarget = null;
+
+    private int numTurnsWithoutEnemies = 0;
 
     @Override
     public boolean setup(RobotController rc, MapLocation curLoc) throws GameActionException {
@@ -43,7 +45,7 @@ public class Defender extends AbstractRobot {
                 //retarget
                 Random rng = new Random();
                 int rand = rng.nextInt(3);
-                while (rand == flagNumber)
+                while (Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[rand]) == null)
                     rand = rng.nextInt(3);
                 target = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[rand]);
                 flagNumber = rand;
@@ -55,6 +57,26 @@ public class Defender extends AbstractRobot {
                 return;
             }
         }
+
+        MapLocation globalDefenseTarget = Utils.getLocationInSharedArray(rc, Constants.SharedArray.globalDefenseTarget);
+
+        if (enemies.length > 4 && globalDefenseTarget == null) {
+            Utils.storeLocationInSharedArray(rc, Constants.SharedArray.globalDefenseTarget, target);
+            if (rc.readSharedArray(Constants.SharedArray.numNeededDefense) < enemies.length - 1)
+                rc.writeSharedArray(Constants.SharedArray.numNeededDefense, enemies.length - 1);
+        }
+
+        if (enemies.length == 0) {
+            numTurnsWithoutEnemies++;
+            if (numTurnsWithoutEnemies > 10 && globalDefenseTarget != null && globalDefenseTarget.equals(target)) {
+                Utils.storeLocationInSharedArray(rc, Constants.SharedArray.globalDefenseTarget, null);
+                rc.writeSharedArray(Constants.SharedArray.numNeededDefense, 0);
+            }
+        }
+        else
+            numTurnsWithoutEnemies = 0;
+
+
 
         for (RobotInfo enemy : enemies)
             if (enemy.hasFlag)
@@ -73,9 +95,8 @@ public class Defender extends AbstractRobot {
             if (lowest == null) {
                 if (closest != null && rc.canAttack(closest.getLocation()))
                     rc.attack(closest.getLocation());
-                else if (rc.canAttack(lowest.getLocation()))
-                    rc.attack(lowest.getLocation());
-            }
+            } else if (rc.canAttack(lowest.getLocation()))
+                rc.attack(lowest.getLocation());
             for (int i = 0; i < 4; i++) {
                 Direction dir = directions[i * 2];
                 MapLocation digTarget = curLoc.add(dir);

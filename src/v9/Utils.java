@@ -67,6 +67,36 @@ public class Utils {
         return closest;
     }
 
+    public static MapLocation getClosest(ArrayList<MapLocation> locs, MapLocation curLoc, int useless) {
+        MapLocation closest = null;
+        int closestDist = 999999;
+        int dist;
+        for (MapLocation loc : locs) {
+            if (loc == null)
+                continue;
+            dist = curLoc.distanceSquaredTo(loc);
+            if (dist < closestDist) {
+                closest = loc;
+                closestDist = dist;
+            }
+        }
+        return closest;
+    }
+
+    public static MapInfo getClosest(ArrayList<MapInfo> maps, MapLocation curLoc) {
+        MapInfo closest = null;
+        int closestDist = 999999;
+        int dist;
+        for (MapInfo map : maps) {
+            dist = curLoc.distanceSquaredTo(map.getMapLocation());
+            if (dist < closestDist) {
+                closest = map;
+                closestDist = dist;
+            }
+        }
+        return closest;
+    }
+
     public static MapLocation getFurthest(MapLocation[] locs, MapLocation curLoc) {
         MapLocation furthest = null;
         int furthestDist = 0;
@@ -114,20 +144,6 @@ public class Utils {
     }
 
     public static MapInfo getClosest(MapInfo[] maps, MapLocation curLoc) {
-        MapInfo closest = null;
-        int closestDist = 999999;
-        int dist;
-        for (MapInfo map : maps) {
-            dist = curLoc.distanceSquaredTo(map.getMapLocation());
-            if (dist < closestDist) {
-                closest = map;
-                closestDist = dist;
-            }
-        }
-        return closest;
-    }
-
-    public static MapInfo getClosest(ArrayList<MapInfo> maps, MapLocation curLoc) {
         MapInfo closest = null;
         int closestDist = 999999;
         int dist;
