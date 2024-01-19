@@ -79,21 +79,23 @@ public class Defender extends AbstractRobot {
             Direction dir = directions[rng.nextInt(4) * 2 + ((curLoc.x + curLoc.y) % 2 == 0 ? 0 : 1)];
             if (rc.canMove(dir))
                 rc.move(dir);
-        } else if (rc.getRoundNum() < 150) {
-            if (spamTarget == null) {
-                for(Direction dir : directions) {
-                    if (rc.canDig(curLoc.add(dir))) {
-                        spamTarget = curLoc.add(dir);
-                        break;
-                    }
-                }
-            } else {
-                if (rc.canDig(spamTarget))
-                    rc.dig(spamTarget);
-                else if (rc.canFill(spamTarget))
-                    rc.fill(spamTarget);
-            }
-        } else {
+        }
+//        else if (rc.getRoundNum() < 150) {
+//            if (spamTarget == null) {
+//                for(Direction dir : directions) {
+//                    if (rc.canDig(curLoc.add(dir))) {
+//                        spamTarget = curLoc.add(dir);
+//                        break;
+//                    }
+//                }
+//            } else {
+//                if (rc.canDig(spamTarget))
+//                    rc.dig(spamTarget);
+//                else if (rc.canFill(spamTarget))
+//                    rc.fill(spamTarget);
+//            }
+//        }
+        else {
             if (rc.senseMapInfo(curLoc).getTrapType() != TrapType.NONE) {
                 if (buildTarget == null) {
                     ArrayList<MapInfo> infos = new ArrayList<>();

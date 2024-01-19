@@ -26,7 +26,6 @@ public class Pathfinding {
     private static HashMap<MapLocation, Integer> visited = new HashMap<>();
 
     public static void IterativeGreedy(RobotController rc, MapLocation curLoc, MapLocation target, int maxDepth, boolean fillWater) throws GameActionException {
-
         if (!rc.isSpawned()) return; // Prevent NPEs
         if (!rc.isMovementReady()) return;
         if (curLoc.equals(target)) return;
@@ -35,8 +34,9 @@ public class Pathfinding {
 
         if (lastTarget == null || !lastTarget.equals(target)) {
             best.clear();
-            visited.clear();
         }
+        if (lastTarget != null && !lastTarget.isWithinDistanceSquared(target, 10))
+            visited.clear();
 
         if (curLoc.isAdjacentTo(target)) {
             if (rc.canFill(target) && Utils.canBeFilled(rc, target))
@@ -72,8 +72,9 @@ public class Pathfinding {
         }
 
         int depth;
+        int startBytecode = Clock.getBytecodeNum();
         for (depth = 1; depth <= maxDepth; depth++) {
-            if (Clock.getBytecodeNum() > 8000) break;
+            if (Clock.getBytecodeNum() - startBytecode > 6000 || Clock.getBytecodeNum() > 20000) break;
             best = moveTowardsDirect(rc, best.isEmpty() ? curLoc : best.get(best.size() - 1), target, best, fillWater);
 
         }
@@ -133,8 +134,8 @@ public class Pathfinding {
 
         if (bestMove == null) return current;
 
-//        rc.setIndicatorDot(bestMove, 255, 0, 0);
-//        rc.setIndicatorLine(curLoc, bestMove, 0, 255, 0);
+        rc.setIndicatorDot(bestMove, 255, 0, 0);
+        rc.setIndicatorLine(curLoc, bestMove, 0, 255, 0);
         current.add(bestMove);
 
         return current;

@@ -13,6 +13,7 @@ public class FlagPlacer extends AbstractRobot {
     public static MapInfo[] nearby;
     public static MapLocation target = null;
     public static boolean flagGone = false;
+    public static int flagGoneFor = 0;
 
     @Override
     public boolean setup(RobotController rc, MapLocation curLoc) throws GameActionException {
@@ -70,12 +71,19 @@ public class FlagPlacer extends AbstractRobot {
             } else {
                 FlagInfo[] nearbyFlags = rc.senseNearbyFlags(1);
                 if (nearbyFlags.length == 0) {
+                    flagGoneFor++;
                     flagGone = true;
+                }
+                else {
+                    flagGone = false;
+                    flagGoneFor = 0;
+                }
+                if (flagGone && flagGoneFor > 20) {
                     Random rng = new Random();
                     int rand = rng.nextInt(3);
-                    while (rand == flagPlacerNum)
-                        rand = rng.nextInt(3);
                     Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[flagPlacerNum], null);
+                    while (Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[rand]) == null)
+                        rand = rng.nextInt(3);
                     target = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[rand]);
                     flagPlacerNum = rand;
                 }
