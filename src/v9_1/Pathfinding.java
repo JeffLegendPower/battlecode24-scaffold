@@ -16,13 +16,13 @@ public class Pathfinding {
 
     public static void moveTowards(RobotController rc, MapLocation curLoc, MapLocation target, boolean fillWater) throws GameActionException {
         IterativeGreedy(rc, curLoc, target, 10, fillWater, false);
-        rc.setIndicatorString("Target: " + target);
+//        rc.setIndicatorString("Target: " + target);
     }
 
     // Will avoid robots
     public static void moveTowardsAfraid(RobotController rc, MapLocation curLoc, MapLocation target, boolean fillWater) throws GameActionException {
         IterativeGreedy(rc, curLoc, target, 10, fillWater, true);
-        rc.setIndicatorString("Target: " + target);
+//        rc.setIndicatorString("Target: " + target);
     }
 
     public static void moveAway(RobotController rc, MapLocation curLoc, MapLocation target, boolean fillWater) throws GameActionException {

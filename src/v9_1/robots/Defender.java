@@ -65,7 +65,6 @@ public class Defender extends AbstractRobot {
 
         if (enemies.length > 4 && globalDefenseTarget == null) {
             Utils.storeLocationInSharedArray(rc, Constants.SharedArray.globalDefenseTarget, target);
-//            if (rc.readSharedArray(Constants.SharedArray.numNeededDefense) < enemies.length)
             rc.writeSharedArray(Constants.SharedArray.numNeededDefense, enemies.length);
         }
 

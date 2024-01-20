@@ -133,6 +133,24 @@ public class AttackerTwo extends AbstractRobot {
             RobotInfo closestAlly = Utils.getClosest(allies, curLoc);
             if (closestEnemy != null) {
 
+                int bestFirstAttackScore = -9999999;
+                MapLocation bestFirstAttackTarget = null;
+                for (RobotInfo enemy : enemies) {
+                    if (rc.canAttack(enemy.getLocation())) {
+                        int score = staticAttackEval(rc, enemy, curLoc);
+                        if (score > bestFirstAttackScore) {
+                            bestFirstAttackScore = score;
+                            bestFirstAttackTarget = enemy.getLocation();
+                        }
+                    }
+                }
+                if (bestFirstAttackTarget != null)
+                    rc.attack(bestFirstAttackTarget);
+
+//                if (rc.canAttack(closestEnemy.getLocation())) {
+//                    rc.attack(closestEnemy.getLocation());
+//                }
+
                 int maxScore = -9999999;
                 Direction bestDir = null;
                 RobotInfo localClosest = closestEnemy;
@@ -152,11 +170,32 @@ public class AttackerTwo extends AbstractRobot {
                 if (bestDir != null)
                     rc.move(bestDir);
 
-                if (rc.canAttack(localClosest.getLocation()))
-                    rc.attack(localClosest.getLocation());
-//                moveTowards(rc, curLoc, closestEnemy.getLocation(), fillWater);
+                int bestSecondAttackScore = -9999999;
+                MapLocation bestSecondAttackTarget = null;
+                for (RobotInfo enemy : enemies) {
+                    if (rc.canAttack(enemy.getLocation())) {
+                        int score = staticAttackEval(rc, enemy, curLoc);
+                        if (score > bestSecondAttackScore) {
+                            bestSecondAttackScore = score;
+                            bestSecondAttackTarget = enemy.getLocation();
+                        }
+                    }
+                }
+                if (bestSecondAttackTarget != null)
+                    rc.attack(bestSecondAttackTarget);
+
+//                if (rc.canAttack(localClosest.getLocation()))
+//                    rc.attack(localClosest.getLocation());
             } else {
-                moveTowards(rc, curLoc, target, fillWater);
+                boolean allHealed = true;
+                for (RobotInfo ally : allies) {
+                    if (rc.canHeal(ally.getLocation())) {
+                        rc.heal(ally.getLocation());
+                        allHealed = false;
+                    }
+                }
+                if (allHealed)
+                    moveTowards(rc, curLoc, target, fillWater);
             }
 
             if (curLoc.distanceSquaredTo(target) <= 64
@@ -181,24 +220,33 @@ public class AttackerTwo extends AbstractRobot {
     @Override
     public void spawn(RobotController rc) throws GameActionException {
         MapLocation target = Utils.getLocationInSharedArray(rc, Constants.SharedArray.globalAttackerTargets[attackerGroup]);
+
         if (target == null) {
             super.spawn(rc);
-            Utils.incrementSharedArray(rc, Constants.SharedArray.numAttackersRespawned);
-            releasedFromSpawn = false;
+//            Utils.incrementSharedArray(rc, Constants.SharedArray.numAttackersRespawned);
+//            releasedFromSpawn = false;
             lastTarget = spawn;
             return;
         }
         MapLocation[] spawnLocs = rc.getAllySpawnLocations();
-        Arrays.sort(spawnLocs, Comparator.comparingInt(a -> a.distanceSquaredTo(target)));
+//        Arrays.sort(spawnLocs, Comparator.comparingInt(a -> a.distanceSquaredTo(target)));
+        MapLocation bestSpawn = null;
+        int shortestDist = 999999999;
         for (MapLocation spawnLoc : spawnLocs) {
-            if (rc.canSpawn(spawnLoc)) {
-                Utils.incrementSharedArray(rc, Constants.SharedArray.numAttackersRespawned);
-                releasedFromSpawn = false;
-                rc.spawn(spawnLoc);
-                spawn = spawnLoc;
-                lastTarget = spawn;
+            int dist = spawnLoc.distanceSquaredTo(target);
+            if (rc.canSpawn(spawnLoc) && dist < shortestDist) {
+//                Utils.incrementSharedArray(rc, Constants.SharedArray.numAttackersRespawned);
+//                releasedFromSpawn = false;
+                bestSpawn = spawnLoc;
+                shortestDist = dist;
                 return;
             }
+        }
+
+        if (bestSpawn != null) {
+            rc.spawn(bestSpawn);
+            spawn = bestSpawn;
+            lastTarget = spawn;
         }
     }
 
@@ -220,5 +268,37 @@ public class AttackerTwo extends AbstractRobot {
             score /= 10;
 
         return score;
+    }
+
+    private int staticAttackEval(RobotController rc, RobotInfo target, MapLocation loc) {
+//        if (!rc.canAttack(target.getLocation())) return -999999;
+        int lvl = rc.getLevel(SkillType.ATTACK);
+        int dmg = 150;
+        switch (lvl) {
+            case 1:
+                dmg *= 1.05;
+                break;
+            case 2:
+                dmg *= 1.1;
+                break;
+            case 3:
+                dmg *= 1.15;
+                break;
+            case 4:
+                dmg *= 1.2;
+                break;
+            case 5:
+                dmg *= 1.3;
+                break;
+            case 6:
+                dmg *= 1.4;
+                break;
+            default:
+                break;
+        }
+
+        if (target.health <= dmg) return 999999;
+
+        return -target.getLocation().distanceSquaredTo(loc); //- target.health / 2; // TODO try if target.health / 2 works
     }
 }
