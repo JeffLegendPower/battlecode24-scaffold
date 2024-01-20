@@ -8,6 +8,7 @@ import v10.Utils;
 import java.util.ArrayList;
 
 import static v10.RobotPlayer.*;
+import static v10.Evaluators.*;
 
 public class Defender extends AbstractRobot {
 
@@ -90,13 +91,22 @@ public class Defender extends AbstractRobot {
         } else if (!curLoc.isWithinDistanceSquared(target, 20)) {
             Pathfinding.moveTowards(rc, curLoc, target, false);
         } else if (!builder) {
-            RobotInfo lowest = Utils.lowestHealth(enemies);
-            RobotInfo closest = Utils.getClosest(enemies, curLoc);
-            if (lowest == null) {
-                if (closest != null && rc.canAttack(closest.getLocation()))
-                    rc.attack(closest.getLocation());
-            } else if (rc.canAttack(lowest.getLocation()))
-                rc.attack(lowest.getLocation());
+//            RobotInfo lowest = Utils.lowestHealth(enemies);
+
+//            if (enemies.length > 0 && rc.canAttack(lowest.getLocation()))
+//                rc.attack(lowest.getLocation());
+            MapLocation bestAttack = null;
+            int bestScore = -9999999;
+            for (RobotInfo enemy : enemies) {
+                int score = staticAttackEval(rc, enemy, curLoc);
+                if (rc.canAttack(enemy.getLocation()) && score > bestScore) {
+                    bestScore = score;
+                    bestAttack = enemy.getLocation();
+                }
+            }
+            if (bestAttack != null)
+                rc.attack(bestAttack);
+
             for (int i = 0; i < 4; i++) {
                 Direction dir = directions[i * 2];
                 MapLocation digTarget = curLoc.add(dir);
@@ -125,16 +135,27 @@ public class Defender extends AbstractRobot {
                 Pathfinding.moveTowards(rc, curLoc, buildTarget, false);
             }
             if (enemies.length > 0) {
-                RobotInfo lowest = Utils.lowestHealth(enemies);
-                RobotInfo closest = Utils.getClosest(enemies, curLoc);
-                if (lowest == null) {
-                    if (closest != null && rc.canAttack(closest.getLocation()))
-                        rc.attack(closest.getLocation());
+//                RobotInfo lowest = Utils.lowestHealth(enemies);
+//                RobotInfo closest = Utils.getClosest(enemies, curLoc);
+//                if (lowest == null) {
+//                    if (closest != null && rc.canAttack(closest.getLocation()))
+//                        rc.attack(closest.getLocation());
+//                }
+//                else {
+//                    if (rc.canAttack(lowest.getLocation()))
+//                        rc.attack(lowest.getLocation());
+//                }
+                MapLocation bestAttack = null;
+                int bestScore = -9999999;
+                for (RobotInfo enemy : enemies) {
+                    int score = staticAttackEval(rc, enemy, curLoc);
+                    if (rc.canAttack(enemy.getLocation()) && score > bestScore) {
+                        bestScore = score;
+                        bestAttack = enemy.getLocation();
+                    }
                 }
-                else {
-                    if (rc.canAttack(lowest.getLocation()))
-                        rc.attack(lowest.getLocation());
-                }
+                if (bestAttack != null)
+                    rc.attack(bestAttack);
             }
             else {
                 if ((curLoc.x + curLoc.y) % 2 == 1
@@ -145,7 +166,6 @@ public class Defender extends AbstractRobot {
                         if (rc.canBuild(TrapType.EXPLOSIVE, curLoc)) {
                             rc.build(TrapType.EXPLOSIVE, curLoc);
                             rc.writeSharedArray(Constants.SharedArray.lastFlagTrapPlaced, flagNumber);
-//                        System.out.println("Trap placed for flag " + flagNumber);
                         }
                     }
                     else if (rand >= 3) {
