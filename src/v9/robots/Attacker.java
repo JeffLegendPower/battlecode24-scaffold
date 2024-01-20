@@ -28,7 +28,7 @@ public class Attacker extends AbstractRobot {
             enemyFlagIDs.add(-1);
 
         if (corner == null) {
-            System.out.println("An attacker was created without corner being found");
+//            System.out.println("An attacker was created without corner being found");
             return false; // it needs the corner to organize targets
         }
 
@@ -100,7 +100,7 @@ public class Attacker extends AbstractRobot {
             int index = enemyFlagIDs.indexOf(info.getID());
             int lastNotSeenFlag = enemyFlagIDs.indexOf(-1);
             if (index == -1) {
-                System.out.println("I found flag " + info.getID() + " at " + info.getLocation());
+//                System.out.println("I found flag " + info.getID() + " at " + info.getLocation());
                 rc.writeSharedArray(Constants.SharedArray.enemyFlagIDs[lastNotSeenFlag], info.getID() + 1);
                 index = lastNotSeenFlag;
 
