@@ -1,11 +1,15 @@
-package v9.robots;
+package v9_1.robots;
 
 public enum RobotType {
     CornerFinder(new CornerFinder()),
     FlagPlacer(new FlagPlacer()),
-    Attacker(new Attacker()),
+    //Attacker(new Attacker()),
     Defender(new Defender()),
-    Default(new Default());
+    Scouter(new Scouter()),
+    Default(new Default()),
+    AttackerTwo(new AttackerTwo()),
+    FlagCarrier(new FlagCarrier());
+//    FlagCarrier(new FlagCarrier());
 //    BorderBuilder,
 
     private final AbstractRobot robot;

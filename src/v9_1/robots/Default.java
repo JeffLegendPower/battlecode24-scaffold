@@ -1,13 +1,12 @@
-package v9.robots;
+package v9_1.robots;
 
 import battlecode.common.GameActionException;
 import battlecode.common.MapLocation;
 import battlecode.common.RobotController;
 
-import static v9.Pathfinding.moveTowards;
-import static v9.RobotPlayer.*;
-import v9.Utils;
-import v9.Constants;
+import static v9_1.Pathfinding.moveTowards;
+import static v9_1.RobotPlayer.*;
+
 public class Default extends AbstractRobot {
 
     @Override
@@ -19,9 +18,9 @@ public class Default extends AbstractRobot {
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
         MapLocation[] nearbyCrumbs = rc.senseNearbyCrumbs(-1);
         if (nearbyCrumbs.length > 0)
-            moveTowards(rc, curLoc, nearbyCrumbs[0], true);
+            moveTowards(rc, curLoc, nearbyCrumbs[0], false);
         else
-            moveTowards(rc, curLoc, curLoc.add(directions[rng.nextInt(8)]), true);
+            moveTowards(rc, curLoc, curLoc.add(directions[rng.nextInt(8)]), false);
     }
 
     @Override

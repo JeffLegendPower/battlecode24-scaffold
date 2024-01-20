@@ -1,11 +1,11 @@
-package v9;
+package v9_1;
 
 import battlecode.common.*;
-import v9.robots.RobotType;
+import v9_1.robots.RobotType;
 
 import java.util.Random;
 
-import static v9.Pathfinding.moveTowards;
+import static v9_1.Pathfinding.moveTowards;
 
 
 /* 1) move all flags to nearest corner
@@ -31,58 +31,90 @@ public strictfp class RobotPlayer {
     private static boolean setupAfterSetup = false;
     public static Random rng = new Random();
 
+    public static int numMapped = 0;
+    public static int queueOrder = -1;
+
     @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
 
         map = new MapInfo[rc.getMapHeight()][rc.getMapWidth()];
 
         while (true) {
-
-            if (rc.canBuyGlobal(GlobalUpgrade.ACTION))
-                rc.buyGlobal(GlobalUpgrade.ACTION);
+            if (rc.readSharedArray(Constants.SharedArray.queueNum) == 50) {
+                rc.writeSharedArray(Constants.SharedArray.queueNum, 0);
+            }
+            if (rc.canBuyGlobal(GlobalUpgrade.ATTACK))
+                rc.buyGlobal(GlobalUpgrade.ATTACK);
             else if (rc.canBuyGlobal(GlobalUpgrade.HEALING))
                 rc.buyGlobal(GlobalUpgrade.HEALING);
+            else if (rc.canBuyGlobal(GlobalUpgrade.CAPTURING))
+                rc.buyGlobal(GlobalUpgrade.CAPTURING);
 
             if (!rc.isSpawned()) {
+                if (type != null)
+                type.getRobot().tickJailed(rc);
                 spawn(rc);
-
             } else {
 
                 MapInfo[] nearbyMapInfo = rc.senseNearbyMapInfos();
                 for (MapInfo info : nearbyMapInfo) {
                     MapLocation loc = info.getMapLocation();
+                    if (map[loc.y][loc.x] == null) numMapped++;
                     map[loc.y][loc.x] = info;
+                }
+
+                for (int i = 0; i < 12; i++) {
+                    MapInfo info = Utils.getInfoInSharedArray(rc, Constants.SharedArray.scoutInfoChannels[i]);
+                    if (info != null) {
+                        MapLocation loc = info.getMapLocation();
+                        if (map[loc.y][loc.x] == null) {
+                            map[loc.y][loc.x] = info;
+                            numMapped++;
+                        }
+                    }
                 }
 
                 MapLocation curLoc = rc.getLocation();
 
-                if (rc.getRoundNum() < GameConstants.SETUP_ROUNDS) {
+                if (rc.getRoundNum() < GameConstants.SETUP_ROUNDS - 50) {
                     if (!setupBeforeSetup) {
                         type = RobotType.CornerFinder;
                         if (!type.getRobot().setup(rc, rc.getLocation()))
-                            type = null;
+                            type = RobotType.Default;
                         setupBeforeSetup = true;
                     }
-                    if (type != null && type.getRobot().completedTask())
-                        type = null;
+                    if (type != RobotType.Default && type.getRobot().completedTask())
+                        type = RobotType.Default;
                 } else {
                     if (!setupAfterSetup && (type == RobotType.Default || type == RobotType.CornerFinder)) {
-                       type = RobotType.Attacker;
-                       type.getRobot().setup(rc, curLoc);
-                       setupAfterSetup = true;
+                        type = RobotType.AttackerTwo;
+                        type.getRobot().setup(rc, curLoc);
+                        setupAfterSetup = true;
                     }
                 }
 
-                if (rc.getRoundNum() % 20 == 0) {
-                    Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagHolderLoc, null);
+//                if (rc.getRoundNum() % 20 == 0) {
+//                    Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagHolderLoc, null);
+//                }
+                if (rc.hasFlag() && type != RobotType.FlagPlacer) {
+                    type = RobotType.FlagCarrier;
+                    type.getRobot().setup(rc, curLoc);
+                }
+                else if (!rc.hasFlag() && type == RobotType.FlagCarrier) {
+                    // we used to have a flag, but now we are back to attacking
+                    type = RobotType.AttackerTwo;
+                    type.getRobot().setup(rc, curLoc);
                 }
 
                 if (type != null) {
+                    rc.setIndicatorString(type.name() + " " + (numMapped * 100) / (rc.getMapWidth() * rc.getMapHeight()) + "% mapped");
                     type.getRobot().tick(rc, curLoc);
-                    rc.setIndicatorString(type.name());
+                    if (type == RobotType.Scouter) {
+                        rc.setIndicatorDot(curLoc, 0, 0, 255);
+                    }
 //                    if (type == RobotType.CornerFinder) System.out.println(rc.getLocation());
                 } else if (rc.getRoundNum() >= GameConstants.SETUP_ROUNDS - 50) {
-                     type = RobotType.Attacker;
+                     type = RobotType.AttackerTwo;
                      type.getRobot().setup(rc, curLoc);
                      setupAfterSetup = true;
                 } else {
@@ -102,7 +134,10 @@ public strictfp class RobotPlayer {
     private static boolean assigned = false;
 
     private static void spawn(RobotController rc) throws GameActionException {
-
+        if (queueOrder == -1) {
+            queueOrder = rc.readSharedArray(Constants.SharedArray.queueNum);
+            rc.writeSharedArray(Constants.SharedArray.queueNum, rc.readSharedArray(Constants.SharedArray.queueNum));
+        }
         if (!assigned) {
             type = RobotType.FlagPlacer;
             type.getRobot().spawn(rc);
@@ -110,13 +145,15 @@ public strictfp class RobotPlayer {
                 type = RobotType.Default;
             else
                 setupBeforeSetup = true;
+
             if (type == RobotType.Default) {
                 type = RobotType.Defender;
-                if (!type.getRobot().setup(rc, rc.getLocation()))
-                    type = RobotType.Default;
-                else
-                    setupBeforeSetup = true;
-
+                if (!type.getRobot().setup(rc, rc.getLocation())) {
+                    type = RobotType.Scouter;
+                    if (!type.getRobot().setup(rc, rc.getLocation()))
+                        type = RobotType.Default;
+                }
+                setupBeforeSetup = type != RobotType.Default;
             }
             assigned = true;
         }

@@ -1,9 +1,10 @@
-package v9.robots;
+package v9_1.robots;
 
 import battlecode.common.*;
-import v9.Constants;
-import static v9.Pathfinding.*;
-import v9.Utils;
+import v9_1.Constants;
+import static v9_1.Pathfinding.*;
+import v9_1.Utils;
+import java.util.Random;
 
 public class FlagPlacer extends AbstractRobot {
 
@@ -11,10 +12,11 @@ public class FlagPlacer extends AbstractRobot {
     public static int flagPlacerNum = 0;
     public static MapInfo[] nearby;
     public static MapLocation target = null;
+    public static boolean flagGone = false;
+    public static int flagGoneFor = 0;
 
     @Override
     public boolean setup(RobotController rc, MapLocation curLoc) throws GameActionException {
-        //System.out.println("Loc: " + curLoc);
         if (rc.readSharedArray(Constants.SharedArray.numberFlagPlacer) < 3 && rc.canPickupFlag(curLoc)) {
             rc.pickupFlag(curLoc);
             flagPlacerNum = rc.readSharedArray(Constants.SharedArray.numberFlagPlacer);
@@ -56,15 +58,37 @@ public class FlagPlacer extends AbstractRobot {
                     Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[flagPlacerNum], curLoc);
                 }
                 if (rc.getRoundNum() >= 150 && !rc.hasFlag() && closestDistance < 36)
-                    moveAway(rc, curLoc, closestFlag, false);
+                    moveAway(rc, curLoc, closestFlag, true);
 
-                moveTowards(rc, curLoc, target, false);
+                moveTowards(rc, curLoc, target, true);
             }
         }
-        else {
-            if (!curLoc.equals(target)) {
+        else if (target != null) {
+            if (!flagGone && !curLoc.equals(target)) {
                 moveTowards(rc, curLoc, target, true);
+            } else if (flagGone && !rc.canSenseLocation(target)) {
+                moveTowards(rc, curLoc, target, false);
             } else {
+                FlagInfo[] nearbyFlags = rc.senseNearbyFlags(1);
+                if (nearbyFlags.length == 0) {
+                    flagGoneFor++;
+                    flagGone = true;
+                }
+                else {
+                    flagGone = false;
+                    flagGoneFor = 0;
+                }
+                if (flagGone && flagGoneFor > 20) {
+                    Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[flagPlacerNum], null);
+
+                    for (int i = 0; i < 3; i++) {
+                        target = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[i]);
+                        if (target != null) {
+                            flagPlacerNum = i;
+                            break;
+                        }
+                    }
+                }
                 RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
                 RobotInfo closest = Utils.getClosest(enemies, curLoc);
                 if (closest != null && rc.canAttack(closest.getLocation()))
@@ -77,10 +101,15 @@ public class FlagPlacer extends AbstractRobot {
                         break;
                     }
                     else if (rc.canBuild(TrapType.EXPLOSIVE, info.getMapLocation()) && rc.senseMapInfo(info.getMapLocation()).isWater()) {
-                        rc.build(TrapType.EXPLOSIVE, info.getMapLocation());
+
+//                        rc.build(TrapType.EXPLOSIVE, info.getMapLocation());
+//                        rc.build(TrapType.STUN, info.getMapLocation());
                         break;
                     }
                 }
+            }
+            if (!flagGone) {
+                Utils.storeLocationInSharedArray(rc, Constants.SharedArray.capturedFlagLocs[flagPlacerNum], null);
             }
         }
     }
