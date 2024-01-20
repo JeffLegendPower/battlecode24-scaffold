@@ -1,15 +1,11 @@
-package v9_1.robots;
+package v10.robots;
 
 import battlecode.common.*;
-import v9_1.Constants;
-import v9_1.RobotPlayer;
-import v9_1.Utils;
+import v10.Constants;
+import v10.Utils;
 
-import java.util.Arrays;
-import java.util.Comparator;
-
-import static v9_1.RobotPlayer.*;
-import static v9_1.Pathfinding.*;
+import static v10.Pathfinding.*;
+import static v10.RobotPlayer.*;
 
 public class AttackerTwo extends AbstractRobot {
 
