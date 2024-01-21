@@ -1,12 +1,14 @@
-package v10_2.robots;
+package v10_3.robots;
 
 import battlecode.common.*;
-import v10_2.Constants;
-import v10_2.Utils;
+import v10_3.Constants;
+import v10_3.Utils;
 
-import static v10_2.Evaluators.*;
-import static v10_2.Pathfinding.*;
-import static v10_2.RobotPlayer.*;
+import static v10_3.Evaluators.Action;
+import static v10_3.Evaluators.staticLocEval;
+import static v10_3.Pathfinding.moveTowards;
+import static v10_3.RobotPlayer.directions;
+import static v10_3.RobotPlayer.rng;
 
 public class AttackerTwo extends AbstractRobot {
 
@@ -125,7 +127,7 @@ public class AttackerTwo extends AbstractRobot {
                         rc.heal(bestAction.target);
                         break;
                     case 2:
-                        rc.build(TrapType.STUN, bestAction.target);
+                        rc.build(rng.nextInt(6) == 0 ? TrapType.EXPLOSIVE : TrapType.STUN, bestAction.target);
                         break;
                     default:
                         break;
