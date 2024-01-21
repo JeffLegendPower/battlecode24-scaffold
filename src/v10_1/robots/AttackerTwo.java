@@ -1,12 +1,12 @@
-package v10.robots;
+package v10_1.robots;
 
 import battlecode.common.*;
-import v10.Constants;
-import v10.Utils;
+import v10_1.Constants;
+import v10_1.Utils;
 
-import static v10.Pathfinding.*;
-import static v10.RobotPlayer.*;
-import static v10.Evaluators.*;
+import static v10_1.Pathfinding.*;
+import static v10_1.RobotPlayer.*;
+import static v10_1.Evaluators.*;
 
 public class AttackerTwo extends AbstractRobot {
 
@@ -110,7 +110,7 @@ public class AttackerTwo extends AbstractRobot {
                 MapLocation bestFirstAttackTarget = null;
                 for (RobotInfo enemy : enemies) {
                     if (rc.canAttack(enemy.getLocation())) {
-                        int score = staticActionEval(rc, enemy, curLoc);
+                        int score = staticAttackEval(rc, enemy, curLoc);
                         if (score > bestFirstAttackScore) {
                             bestFirstAttackScore = score;
                             bestFirstAttackTarget = enemy.getLocation();
@@ -140,7 +140,7 @@ public class AttackerTwo extends AbstractRobot {
                 MapLocation bestSecondAttackTarget = null;
                 for (RobotInfo enemy : enemies) {
                     if (rc.canAttack(enemy.getLocation())) {
-                        int score = staticActionEval(rc, enemy, curLoc);
+                        int score = staticAttackEval(rc, enemy, curLoc);
                         if (score > bestSecondAttackScore) {
                             bestSecondAttackScore = score;
                             bestSecondAttackTarget = enemy.getLocation();

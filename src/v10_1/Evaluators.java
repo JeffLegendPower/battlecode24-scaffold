@@ -1,30 +1,51 @@
-package v10;
+package v10_1;
 
-import battlecode.common.*;
-
-import static v10.RobotPlayer.*;
+import battlecode.common.MapLocation;
+import battlecode.common.RobotController;
+import battlecode.common.RobotInfo;
 
 public class Evaluators {
 
+
     public static int staticLocEval(RobotController current, RobotInfo[] enemies, RobotInfo[] allies, RobotInfo closest, MapLocation loc) {
+
         int score = 0;
+
+        int maxDist = 25;
+
+        RobotInfo target = bestTarget(current, enemies, loc);
+
         for (RobotInfo enemy : enemies) {
-            if (closest.getID() == enemy.getID()) continue;
-            score += enemy.getLocation().distanceSquaredTo(loc) * 1000 / current.getHealth();
+            if (enemy.getID() == target.getID()) continue;
+            score -= (maxDist - enemy.getLocation().distanceSquaredTo(loc)) * 1000 / current.getHealth();
         }
 
         for (RobotInfo ally : allies) {
-            score -= ally.getLocation().distanceSquaredTo(loc); // * (rc.getHealth() / 500);
+            score += maxDist - ally.getLocation().distanceSquaredTo(loc); //* (rc.getHealth() / 500);
         }
 
-        int closestDist = closest.getLocation().distanceSquaredTo(loc);
+        int closestDist = target.getLocation().distanceSquaredTo(loc);
 
-        score -= closestDist * 20;
+        if (enemies.length < allies.length * 3 + 3 && allies.length > 1)
+            score += (maxDist - closestDist) * 10;
 
-        if (closestDist >= 5 && closestDist <= 10)
-            score /= 10;
+//        if (closestDist >= 5 && closestDist <= 10)
+//            score -= 20;
 
         return score;
+    }
+
+    public static RobotInfo bestTarget(RobotController rc, RobotInfo[] enemies, MapLocation loc) {
+        RobotInfo best = null;
+        int bestScore = -9999999;
+        for (RobotInfo enemy : enemies) {
+            int score = staticAttackEval(rc, enemy, loc);
+            if (score > bestScore) {
+                bestScore = score;
+                best = enemy;
+            }
+        }
+        return best;
     }
 
 //    public static int staticLocEval(RobotController current, RobotInfo[] enemies, RobotInfo[] allies, RobotInfo closest, MapLocation loc) {
@@ -92,12 +113,12 @@ public class Evaluators {
 //        return score;
 //    }
 
-    public static int staticActionEval(RobotController rc, RobotInfo target, MapLocation loc) {
+    public static int staticAttackEval(RobotController rc, RobotInfo target, MapLocation loc) {
         int dmg = rc.getAttackDamage();
 
         if (target.health <= dmg) return 999999;
 
-        return -target.getLocation().distanceSquaredTo(loc) * 100;
+        return -target.getLocation().distanceSquaredTo(loc) * 1000 / (target.health - dmg);
     }
 
     public static int staticTrapEval(RobotController rc, RobotInfo[] enemies, MapLocation loc) {

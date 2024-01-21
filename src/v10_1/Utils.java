@@ -1,9 +1,11 @@
-package v10;
+package v10_1;
 
 import battlecode.common.*;
+
 import java.util.ArrayList;
 
-import static v10.RobotPlayer.*;
+import static v10_1.RobotPlayer.directions;
+import static v10_1.RobotPlayer.map;
 
 public class Utils {
 
@@ -264,20 +266,8 @@ public class Utils {
         return -1;
     }
 
-    public static MapLocation[] semiLegalMoves(MapLocation start, RobotController rc) {
-        MapLocation[] moves = new MapLocation[8];
-        int i = 0;
-        for (Direction dir : directions) {
-            int endLocX = start.x + dir.dx;
-            int endLocY = start.y + dir.dy;
-            if (!isInMap(new MapLocation(endLocX, endLocY), rc)) continue;
-
-            MapInfo endInfo = map[endLocY][endLocX];
-            if (endInfo == null || endInfo.isDam() || endInfo.isWall() || endInfo.isWater()) continue;
-            moves[i] = start.add(dir);
-            i++;
-        }
-        return moves;
+    public static boolean canAttack(RobotController rc, MapLocation curLoc, MapLocation target) {
+        return rc.getActionCooldownTurns() < 10 && curLoc.isWithinDistanceSquared(target, 4);
     }
 
     // Pair

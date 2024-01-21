@@ -1,14 +1,14 @@
-package v10.robots;
+package v10_1.robots;
 
 import battlecode.common.*;
-import v10.Constants;
-import v10.Pathfinding;
-import v10.Utils;
+import v10_1.Constants;
+import v10_1.Pathfinding;
+import v10_1.Utils;
 
 import java.util.ArrayList;
 
-import static v10.RobotPlayer.*;
-import static v10.Evaluators.*;
+import static v10_1.Evaluators.staticAttackEval;
+import static v10_1.RobotPlayer.*;
 
 public class Defender extends AbstractRobot {
 
@@ -104,7 +104,7 @@ public class Defender extends AbstractRobot {
                 MapLocation bestAttack = null;
                 int bestScore = -9999999;
                 for (RobotInfo enemy : enemies) {
-                    int score = staticActionEval(rc, enemy, curLoc);
+                    int score = staticAttackEval(rc, enemy, curLoc);
                     if (rc.canAttack(enemy.getLocation()) && score > bestScore) {
                         bestScore = score;
                         bestAttack = enemy.getLocation();
@@ -145,7 +145,7 @@ public class Defender extends AbstractRobot {
                 MapLocation bestAttack = null;
                 int bestScore = -9999999;
                 for (RobotInfo enemy : enemies) {
-                    int score = staticActionEval(rc, enemy, curLoc);
+                    int score = staticAttackEval(rc, enemy, curLoc);
                     if (rc.canAttack(enemy.getLocation()) && score > bestScore) {
                         bestScore = score;
                         bestAttack = enemy.getLocation();
