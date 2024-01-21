@@ -176,7 +176,7 @@ public class Evaluators {
             MapLocation bestTrapTarget = null;
             for (Direction direction : Direction.values()) {
                 MapLocation newLoc = curLoc.add(direction);
-                if (!rc.canBuild(TrapType.EXPLOSIVE, newLoc)) continue;
+                if (!rc.canBuild(TrapType.EXPLOSIVE, newLoc) || !rc.canBuild(TrapType.STUN, newLoc)) continue;
                 int score = staticTrapEval(rc, enemies, newLoc);
                 if (score > bestTrapScore) {
                     bestTrapScore = score;

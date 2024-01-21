@@ -158,7 +158,7 @@ public class AttackerTwo extends AbstractRobot {
                         rc.heal(bestAction.target);
                         break;
                     case 2:
-                        rc.build(TrapType.STUN, bestAction.target);
+                        rc.build(rng.nextInt(6) == 0 ? TrapType.EXPLOSIVE : TrapType.STUN, bestAction.target);
                         break;
                     default:
                         break;
