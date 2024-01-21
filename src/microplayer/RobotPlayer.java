@@ -413,12 +413,13 @@ public class RobotPlayer {
         }
 
         // go to nearest flag or nearest broadcast flag location
-        if (broadcastFlagPathfindLoc == null) {
+        if (broadcastFlagPathfindLoc == null || (rc.getRoundNum() % 100) == 0) {
             MapLocation[] broadcasted = rc.senseBroadcastFlagLocations();
             if (broadcasted.length == 0) {
                 MapLocation center = new MapLocation(mapWidth/2, mapHeight/2);
                 broadcastFlagPathfindLoc = locationInOtherDirection(center, centerSpawnLocations[0]);
             } else {
+                rng.nextInt(robotLoc.x * 359 + robotLoc.y * 5995 + 1);
                 broadcastFlagPathfindLoc = broadcasted[rng.nextInt(broadcasted.length)];
             }
         }
