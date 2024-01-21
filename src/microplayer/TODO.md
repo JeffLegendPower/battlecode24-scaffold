@@ -23,3 +23,5 @@ protectors should call in for backup
 do optimizations to bring down bytecode count
 
 refactor code with FSM
+
+protectors should walk back to their designated location if the flag is there
