@@ -5,36 +5,31 @@ import v10_2.Constants;
 import v10_2.Pathfinding;
 import v10_2.Utils;
 
-import java.util.ArrayList;
-
 import static v10_2.Evaluators.staticAttackEval;
-import static v10_2.RobotPlayer.*;
+import static v10_2.RobotPlayer.directions;
+import static v10_2.RobotPlayer.rng;
 
 public class Defender extends AbstractRobot {
 
     public int flagNumber;
     public MapLocation target = null;
-    public int turnsSinceLastTrap = 0;
-    public boolean builder = false;
-    public MapLocation buildTarget = null;
-    public MapLocation spamTarget = null;
-    public int moveRadius = 0;
-
+    public MapLocation[] spawns;
     private int numTurnsWithoutEnemies = 0;
 
     @Override
     public boolean setup(RobotController rc, MapLocation curLoc) throws GameActionException {
+
+        MapLocation[] mySpawns = rc.getAllySpawnLocations();
+        spawns = new MapLocation[] {
+                new MapLocation(mySpawns[0].x, mySpawns[0].y),
+                new MapLocation(mySpawns[1*9+4].x, mySpawns[1*9+4].y),
+                new MapLocation(mySpawns[2*9+4].x, mySpawns[2*9+4].y),
+        };
+
         if (rc.readSharedArray(Constants.SharedArray.numberDefenders) < 6) {
             flagNumber = rc.readSharedArray(Constants.SharedArray.numberDefenders);
-            if (flagNumber < 3) {
-                builder = true;
-            }
             flagNumber %= 3;
             rc.writeSharedArray(Constants.SharedArray.numberDefenders, rc.readSharedArray(Constants.SharedArray.numberDefenders) + 1);
-            if (builder)
-                moveRadius = 9;
-            else
-                moveRadius = 20;
             return true;
         }
         return false;
@@ -44,7 +39,6 @@ public class Defender extends AbstractRobot {
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
         target = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[flagNumber]);
 
-        RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
         if (target == null) {
             if (rc.getRoundNum() > 200) {
                 //retarget
@@ -66,6 +60,8 @@ public class Defender extends AbstractRobot {
                 rc.move(dir);
             return;
         }
+
+        RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
 
         MapLocation globalDefenseTarget = Utils.getLocationInSharedArray(rc, Constants.SharedArray.globalDefenseTarget);
 
@@ -93,13 +89,9 @@ public class Defender extends AbstractRobot {
             Pathfinding.moveTowards(rc, curLoc, capturedFlag, true);
             if (rc.canAttack(capturedFlag))
                 rc.attack(capturedFlag);
-        } else if (!curLoc.isWithinDistanceSquared(target, 20)) {
+        } else if (!curLoc.isWithinDistanceSquared(target, 10)) {
             Pathfinding.moveTowards(rc, curLoc, target, false);
-        } else if (!builder) {
-//            RobotInfo lowest = Utils.lowestHealth(enemies);
-
-//            if (enemies.length > 0 && rc.canAttack(lowest.getLocation()))
-//                rc.attack(lowest.getLocation());
+        } else {
             if (enemies.length > 0) {
                 MapLocation bestAttack = null;
                 int bestScore = -9999999;
@@ -114,12 +106,21 @@ public class Defender extends AbstractRobot {
                     rc.attack(bestAttack);
             }
 
-            for (int i = 3; --i >= 0;) {
-                Direction dir = directions[i * 2];
-                MapLocation digTarget = curLoc.add(dir);
-                if ((digTarget.x + digTarget.y) % 2 == 0 && rc.getCrumbs() > 1400 && rc.canDig(digTarget)) {
-                    rc.dig(digTarget);
-                    break;
+//            for (int i = 3; --i >= 0;) {
+//                Direction dir = directions[i * 2];
+//                MapLocation digTarget = curLoc.add(dir);
+//                if ((digTarget.x + digTarget.y) % 2 == 0 && rc.getCrumbs() > 1400 && rc.canDig(digTarget)) {
+//                    rc.dig(digTarget);
+//                    break;
+//                }
+//            }
+
+            if (curLoc.isWithinDistanceSquared(target, 4)) {
+                for (MapInfo info : rc.senseNearbyMapInfos(2)) {
+                    MapLocation infoLoc = info.getMapLocation();
+                    if (rc.canBuild(TrapType.STUN, infoLoc) && ((infoLoc.x % 2 == 0 && infoLoc.y % 2 == 0) || (infoLoc.x % 2 == 1 && infoLoc.y % 2 == 1))) {
+                        rc.build(TrapType.STUN, info.getMapLocation());
+                    }
                 }
             }
 
@@ -128,59 +129,10 @@ public class Defender extends AbstractRobot {
                 rc.move(dir);
         }
 
-        else {
-            if (rc.senseMapInfo(curLoc).getTrapType() != TrapType.NONE) {
-                if (buildTarget == null) {
-                    ArrayList<MapInfo> infos = new ArrayList<>();
-                    for (MapInfo info : rc.senseNearbyMapInfos()) {
-                        if (info.getTrapType() == TrapType.NONE) {
-                            infos.add(info);
-                        }
-                    }
-                    buildTarget = Utils.getClosest(infos, target).getMapLocation();
-                }
-                Pathfinding.moveTowards(rc, curLoc, buildTarget, false);
-            }
-            if (enemies.length > 0) {
-                MapLocation bestAttack = null;
-                int bestScore = -9999999;
-                for (RobotInfo enemy : enemies) {
-                    int score = staticAttackEval(rc, enemy, curLoc);
-                    if (rc.canAttack(enemy.getLocation()) && score > bestScore) {
-                        bestScore = score;
-                        bestAttack = enemy.getLocation();
-                    }
-                }
-                if (bestAttack != null)
-                    rc.attack(bestAttack);
-            }
-            else {
-                if ((curLoc.x + curLoc.y) % 2 == 1
-                        && (turnsSinceLastTrap > 15 || (rc.readSharedArray(Constants.SharedArray.lastFlagTrapPlaced) != flagNumber && turnsSinceLastTrap > 5))
-                        && rc.getCrumbs() > 1500) {
-                    int rand = rng.nextInt(10);
-                    if (rand >= 7) {
-                        if (rc.canBuild(TrapType.EXPLOSIVE, curLoc)) {
-                            rc.build(TrapType.EXPLOSIVE, curLoc);
-                            rc.writeSharedArray(Constants.SharedArray.lastFlagTrapPlaced, flagNumber);
-                        }
-                    }
-                    else if (rand >= 3) {
-                        if (rc.canBuild(TrapType.STUN, curLoc)) {
-                            rc.build(TrapType.STUN, curLoc);
-                            rc.writeSharedArray(Constants.SharedArray.lastFlagTrapPlaced, flagNumber);
-                        }
-                    }
-                    turnsSinceLastTrap = 0;
-                    buildTarget = null;
-                }
-                turnsSinceLastTrap++;
-            }
 
-            Direction dir = directions[rng.nextInt(8)];
-            if (rc.canMove(dir))
-                rc.move(dir);
-        }
+        Direction dir = directions[rng.nextInt(8)];
+        if (rc.canMove(dir))
+            rc.move(dir);
     }
 
     @Override

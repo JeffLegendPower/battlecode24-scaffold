@@ -27,7 +27,7 @@ public class Pathfinding {
         IterativeGreedy(rc, curLoc.translate(curLoc.x - target.x, curLoc.y - target.y), curLoc, 10, fillWater, false);
     }
     private static MapLocation lastTarget = null;
-    private static HashMap<MapLocation, Integer> visited = new HashMap<>();
+    public static HashMap<MapLocation, Integer> visited = new HashMap<>();
 
     public static void IterativeGreedy(RobotController rc, MapLocation curLoc, MapLocation target, int maxDepth, boolean fillWater, boolean afraid) throws GameActionException {
         if (!rc.isSpawned()) return; // Prevent NPEs

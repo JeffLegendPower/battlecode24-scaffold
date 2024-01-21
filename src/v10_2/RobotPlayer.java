@@ -3,6 +3,7 @@ package v10_2;
 import battlecode.common.*;
 import v10_2.robots.RobotType;
 
+import java.util.HashMap;
 import java.util.Random;
 
 import static v10_2.Pathfinding.moveTowards;
@@ -30,9 +31,10 @@ public strictfp class RobotPlayer {
     private static boolean setupBeforeSetup = false;
     private static boolean setupAfterSetup = false;
     public static Random rng = new Random();
-
     public static int numMapped = 0;
     public static int queueOrder = -1;
+
+    public static boolean trackedDeath = true;
 
     @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
@@ -51,10 +53,17 @@ public strictfp class RobotPlayer {
                 rc.buyGlobal(GlobalUpgrade.CAPTURING);
 
             if (!rc.isSpawned()) {
+                Pathfinding.visited = new HashMap<>();
                 if (type != null)
-                type.getRobot().tickJailed(rc);
+                    type.getRobot().tickJailed(rc);
+                if (!trackedDeath) {
+                    Utils.incrementSharedArray(rc, Constants.SharedArray.deathsInLastTurn);
+                    trackedDeath = true;
+                }
                 spawn(rc);
             } else {
+
+                trackedDeath = false;
 
                 MapInfo[] nearbyMapInfo = rc.senseNearbyMapInfos();
                 for (MapInfo info : nearbyMapInfo) {
@@ -93,9 +102,7 @@ public strictfp class RobotPlayer {
                     }
                 }
 
-//                if (rc.getRoundNum() % 20 == 0) {
-//                    Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagHolderLoc, null);
-//                }
+
                 if (rc.hasFlag() && type != RobotType.FlagPlacer) {
                     type = RobotType.FlagCarrier;
                     type.getRobot().setup(rc, curLoc);
@@ -105,6 +112,7 @@ public strictfp class RobotPlayer {
                     type = RobotType.AttackerTwo;
                     type.getRobot().setup(rc, curLoc);
                 }
+
 
                 if (type != null) {
                     rc.setIndicatorString(type.name() + " " + (numMapped * 100) / (rc.getMapWidth() * rc.getMapHeight()) + "% mapped");
@@ -125,6 +133,9 @@ public strictfp class RobotPlayer {
                         moveTowards(rc, curLoc, curLoc.add(directions[rng.nextInt(8)]), true);
                 }
             }
+            if (queueOrder == 49 && rc.getRoundNum() % 10 == 0) {
+                rc.writeSharedArray(Constants.SharedArray.deathsInLastTurn, 0);
+            }
 
             Clock.yield();
         }
@@ -136,7 +147,8 @@ public strictfp class RobotPlayer {
     private static void spawn(RobotController rc) throws GameActionException {
         if (queueOrder == -1) {
             queueOrder = rc.readSharedArray(Constants.SharedArray.queueNum);
-            rc.writeSharedArray(Constants.SharedArray.queueNum, rc.readSharedArray(Constants.SharedArray.queueNum));
+            //rc.writeSharedArray(Constants.SharedArray.queueNum, rc.readSharedArray(Constants.SharedArray.queueNum));
+            Utils.incrementSharedArray(rc, Constants.SharedArray.queueNum);
         }
         if (!assigned) {
             type = RobotType.FlagPlacer;

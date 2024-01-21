@@ -1,9 +1,6 @@
 package v10_2.robots;
 
-import battlecode.common.FlagInfo;
-import battlecode.common.GameActionException;
-import battlecode.common.MapLocation;
-import battlecode.common.RobotController;
+import battlecode.common.*;
 import v10_2.Constants;
 import v10_2.RobotPlayer;
 import v10_2.Utils;
@@ -21,12 +18,27 @@ public abstract class AbstractRobot {
 
     public void spawn(RobotController rc) throws GameActionException {
         if (rc.isSpawned()) return;
-        for (MapLocation spawnLoc : rc.getAllySpawnLocations()) {
-            if (rc.canSpawn(spawnLoc)) {
-                rc.spawn(spawnLoc);
-                spawn = spawnLoc;
-                return;
+
+//        for (MapLocation spawnLoc : rc.getAllySpawnLocations()) {
+//            if (rc.canSpawn(spawnLoc)) {
+//                rc.spawn(spawnLoc);
+//                spawn = spawnLoc;
+//                return;
+//            }
+//        }
+
+        int tries = 0;
+        MapLocation[] spawnLocs = rc.getAllySpawnLocations();
+
+        while (!rc.isSpawned()) {
+            if (tries > 10) break;
+            int rand = RobotPlayer.rng.nextInt(spawnLocs.length);
+            if (rc.canSpawn(spawnLocs[rand])) {
+                rc.spawn(spawnLocs[rand]);
+                spawn = spawnLocs[rand];
+                break;
             }
+            tries++;
         }
     }
 
@@ -39,6 +51,7 @@ public abstract class AbstractRobot {
         // If it sees a flag, add it to the global tracking array
         for (int i = 0; i < 3; i++)
             enemyFlagIDs[i] = rc.readSharedArray(Constants.SharedArray.enemyFlagIDs[i]) - 1;
+
 
         for (FlagInfo info : nearbyFlags) {
             if (info.isPickedUp())
@@ -57,9 +70,10 @@ public abstract class AbstractRobot {
             if (rc.canPickupFlag(info.getLocation())) {
                 // Transition into FlagCarrier robotType
                 rc.pickupFlag(info.getLocation());
-                Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[index], null);
+               Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[index], null);
             }
         }
+
 
         for (int i = 0; i < 3; i++)
             enemyFlagLocs[i] = Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]);
