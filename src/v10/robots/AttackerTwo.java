@@ -29,6 +29,7 @@ public class AttackerTwo extends AbstractRobot {
         for (int i = 0; i < 3; i++) {
             flagLoc = Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]);
             if (flagLoc != null) {
+                System.out.println("going to flag loc");
                 return flagLoc;
             }
         }
@@ -110,7 +111,7 @@ public class AttackerTwo extends AbstractRobot {
                 MapLocation bestFirstAttackTarget = null;
                 for (RobotInfo enemy : enemies) {
                     if (rc.canAttack(enemy.getLocation())) {
-                        int score = staticAttackEval(rc, enemy, curLoc);
+                        int score = staticActionEval(rc, enemy, curLoc);
                         if (score > bestFirstAttackScore) {
                             bestFirstAttackScore = score;
                             bestFirstAttackTarget = enemy.getLocation();
@@ -122,18 +123,23 @@ public class AttackerTwo extends AbstractRobot {
 
                 int maxScore = -9999999;
                 Direction bestDir = null;
-                RobotInfo localClosest = closestEnemy;
 
-                for (Direction direction : directions) {
+                for (Direction direction : Direction.values()) {
                     if (!rc.canMove(direction))
                         continue;
                     MapLocation loc = curLoc.add(direction);
-                    RobotInfo closest = Utils.getClosest(enemies, loc);
-                    int eval = staticLocEval(rc, enemies, allies, closestEnemy, loc);
+                    /*RobotInfo lowestHealthEnemy = null;
+                    int lowestHealth = 9999;
+                    for (RobotInfo enemy : enemies) {
+                        if (enemy.getHealth() < lowestHealth) {
+                            lowestHealthEnemy = enemy;
+                            lowestHealth = enemy.getHealth();
+                        }
+                    }*/
+                    int eval = staticLocEval(rc.senseRobot(rc.getID()), enemies, allies, closestEnemy, loc);
                     if (eval > maxScore) {
                         maxScore = eval;
                         bestDir = direction;
-                        localClosest = closest;
                     }
                 }
                 if (bestDir != null)
@@ -143,7 +149,7 @@ public class AttackerTwo extends AbstractRobot {
                 MapLocation bestSecondAttackTarget = null;
                 for (RobotInfo enemy : enemies) {
                     if (rc.canAttack(enemy.getLocation())) {
-                        int score = staticAttackEval(rc, enemy, curLoc);
+                        int score = staticActionEval(rc, enemy, curLoc);
                         if (score > bestSecondAttackScore) {
                             bestSecondAttackScore = score;
                             bestSecondAttackTarget = enemy.getLocation();

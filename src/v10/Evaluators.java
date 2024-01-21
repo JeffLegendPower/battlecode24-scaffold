@@ -6,11 +6,11 @@ import battlecode.common.RobotInfo;
 
 public class Evaluators {
 
-    public static int staticLocEval(RobotController rc, RobotInfo[] enemies, RobotInfo[] allies, RobotInfo closest, MapLocation loc) {
+    public static int staticLocEval(RobotInfo current, RobotInfo[] enemies, RobotInfo[] allies, RobotInfo closest, MapLocation loc) {
         int score = 0;
         for (RobotInfo enemy : enemies) {
             if (closest.getID() == enemy.getID()) continue;
-            score += enemy.getLocation().distanceSquaredTo(loc) * 1000 / rc.getHealth();
+            score += enemy.getLocation().distanceSquaredTo(loc) * 1000 / current.getHealth();
         }
         for (RobotInfo ally : allies) {
             score -= ally.getLocation().distanceSquaredTo(loc); // * (rc.getHealth() / 500);
@@ -26,12 +26,15 @@ public class Evaluators {
         return score;
     }
 
-    public static int staticAttackEval(RobotController rc, RobotInfo target, MapLocation loc) {
-//        if (!rc.canAttack(target.getLocation())) return -999999;
+    public static int staticActionEval(RobotController rc, RobotInfo target, MapLocation loc) {
         int dmg = rc.getAttackDamage();
 
         if (target.health <= dmg) return 999999;
 
-        return -target.getLocation().distanceSquaredTo(loc); //- target.health / 2; // TODO try if target.health / 2 works
+        return -target.getLocation().distanceSquaredTo(loc) * 100;
+    }
+
+    public static int staticTrapEval(RobotController rc, RobotInfo[] enemies, MapLocation loc) {
+        return 0;
     }
 }

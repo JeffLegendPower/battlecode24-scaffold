@@ -98,7 +98,7 @@ public class Defender extends AbstractRobot {
             MapLocation bestAttack = null;
             int bestScore = -9999999;
             for (RobotInfo enemy : enemies) {
-                int score = staticAttackEval(rc, enemy, curLoc);
+                int score = staticActionEval(rc, enemy, curLoc);
                 if (rc.canAttack(enemy.getLocation()) && score > bestScore) {
                     bestScore = score;
                     bestAttack = enemy.getLocation();
@@ -148,7 +148,7 @@ public class Defender extends AbstractRobot {
                 MapLocation bestAttack = null;
                 int bestScore = -9999999;
                 for (RobotInfo enemy : enemies) {
-                    int score = staticAttackEval(rc, enemy, curLoc);
+                    int score = staticActionEval(rc, enemy, curLoc);
                     if (rc.canAttack(enemy.getLocation()) && score > bestScore) {
                         bestScore = score;
                         bestAttack = enemy.getLocation();

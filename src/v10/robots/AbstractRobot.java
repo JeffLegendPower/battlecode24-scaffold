@@ -11,6 +11,7 @@ import v10.Utils;
 public abstract class AbstractRobot {
 
     protected Integer[] enemyFlagIDs = new Integer[3];
+    protected MapLocation[] enemyFlagLocs = new MapLocation[3];
     protected MapLocation spawn;
 
     // Returns whether the robot should be this type or not
@@ -45,7 +46,7 @@ public abstract class AbstractRobot {
             int index = Utils.indexOf(enemyFlagIDs, info.getID());
             int lastNotSeenFlag = Utils.indexOf(enemyFlagIDs, -1);
             if (index == -1) {
-                System.out.println("v9.1-" + RobotPlayer.type.name() + " found flag " + info.getID() + " at " + info.getLocation());
+                System.out.println("v10-" + RobotPlayer.type.name() + " found flag " + info.getID() + " at " + info.getLocation());
                 rc.writeSharedArray(Constants.SharedArray.enemyFlagIDs[lastNotSeenFlag], info.getID() + 1);
                 Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagOrigins[lastNotSeenFlag], info.getLocation());
                 index = lastNotSeenFlag;
@@ -60,6 +61,9 @@ public abstract class AbstractRobot {
                 Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[index], null);
             }
         }
+
+        for (int i = 0; i < 3; i++)
+            enemyFlagLocs[i] = Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]);
 
         // delete flags that aren't there anymore
         for (int i = 0; i < 3; i++) {

@@ -34,12 +34,19 @@ public class FlagPlacer extends AbstractRobot {
             if (rc.readSharedArray(Constants.SharedArray.numberCornerFinder) == 100) {
                 if (target == null) {
                     target = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[0]);
+                    MapLocation possibleCorner = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[flagPlacerNum]);
                     if (flagPlacerNum == 1)
-                        target = target.translate(0, (target.y == rc.getMapHeight() - 1) ? -10 : 10);
+                        if (possibleCorner == null)
+                            target = target.translate(0, (target.y == rc.getMapHeight() - 1) ? -10 : 10);
+                        else
+                            target = possibleCorner;
                     else if (flagPlacerNum == 2)
-                        target = target.translate((target.x == rc.getMapWidth() - 1) ? -10 : 10, 0);
+                        if (possibleCorner == null)
+                            target = target.translate((target.x == rc.getMapWidth() - 1) ? -10 : 10, 0);
+                        else
+                            target = possibleCorner;
+
                 }
-                //System.out.println("Im goin to flag: " + target + " cuz im id " + rc.getID() + " on team " + rc.getTeam());
                 int closestDistance = 9999999;
                 MapLocation closestFlag = null;
                 for (int i = 0; i <= 2; i++) {
@@ -50,6 +57,8 @@ public class FlagPlacer extends AbstractRobot {
                         closestFlag = loc;
                     }
                 }
+
+
                 if ((curLoc.equals(target) || (rc.getRoundNum() >= 170 && closestDistance > 36)) && rc.hasFlag()) {
                     //System.out.println("Droppin flag: " + curLoc + " cuz im id " + rc.getID());
                     target = curLoc;
@@ -57,7 +66,8 @@ public class FlagPlacer extends AbstractRobot {
                     flagPlaced = true;
                     Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[flagPlacerNum], curLoc);
                 }
-                if (rc.getRoundNum() >= 150 && !rc.hasFlag() && closestDistance < 36)
+
+                if (rc.getRoundNum() >= 150 && closestDistance < 36 && !rc.hasFlag())
                     moveAway(rc, curLoc, closestFlag, true);
 
                 moveTowards(rc, curLoc, target, true);

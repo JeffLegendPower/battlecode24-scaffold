@@ -61,19 +61,24 @@ public class CornerFinder extends AbstractRobot {
 
                 int smallestDist = 999;
                 int smallestIdx = -1;
+                int fclIdx = 0;
                 int dist;
 
                 for (int i = 0; i<4; i++){
                     dist = locs[i].distanceSquaredTo(corners[i]);
                     System.out.println("i: " + i + " dist: " + dist);
                     if (dist < smallestDist){
-
                         smallestDist = dist;
                         smallestIdx = i;
                     }
+                    if (dist < 4) {
+                        //Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[fclIdx], corners[i]);
+                        fclIdx++;
+                    }
                 }
                 System.out.println("Best corner: " + corners[smallestIdx]);
-                Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[0], corners[smallestIdx]);
+                if (fclIdx == 0 || true)
+                    Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[0], corners[smallestIdx]);
                 rc.writeSharedArray(Constants.SharedArray.numberCornerFinder, 100); // simply signify that the corner is located
                 completed = true;
             }

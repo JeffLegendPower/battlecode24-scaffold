@@ -8,6 +8,9 @@ import v10.Utils;
 
 import java.util.ArrayList;
 
+import static v10.Evaluators.staticActionEval;
+import static v10.Evaluators.staticLocEval;
+
 public class Scouter extends AbstractRobot {
 
     private MapLocation currentTarget = null;
@@ -36,6 +39,8 @@ public class Scouter extends AbstractRobot {
 
         FlagInfo[] enemyFlags = rc.senseNearbyFlags(-1, rc.getTeam().opponent());
         MapLocation[] nearbyCrumbs = rc.senseNearbyCrumbs(-1);
+        RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+        RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
 
         detectAndPickupFlags(rc, enemyFlags);
 
@@ -50,13 +55,71 @@ public class Scouter extends AbstractRobot {
             }
         }
 
-        if (currentTarget != null) {
-            Pathfinding.moveTowards(rc, curLoc, currentTarget, true);
+//        if (currentTarget == null) {
+            // Start from the last flag detected as attackers will be going towards the first flag detected
+            // So this acts more flanker-ish
+        for (int i = 2; i >= 0; i--) {
+            MapLocation flag = Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]);
+            if (flag != null) {
+                currentTarget = flag;
+                break;
+            }
+        }
+
+        if (enemies.length > 0) {
+            RobotInfo closestEnemy = Utils.getClosest(enemies, curLoc);
+            int bestFirstAttackScore = -9999999;
+            MapLocation bestFirstAttackTarget = null;
+            for (RobotInfo enemy : enemies) {
+                if (rc.canAttack(enemy.getLocation())) {
+                    int score = staticActionEval(rc, enemy, curLoc);
+                    if (score > bestFirstAttackScore) {
+                        bestFirstAttackScore = score;
+                        bestFirstAttackTarget = enemy.getLocation();
+                    }
+                }
+            }
+            if (bestFirstAttackTarget != null)
+                rc.attack(bestFirstAttackTarget);
+
+            int maxScore = -9999999;
+            Direction bestDir = null;
+            RobotInfo localClosest = closestEnemy;
+
+            for (Direction direction : Direction.values()) {
+                if (!rc.canMove(direction))
+                    continue;
+                MapLocation loc = curLoc.add(direction);
+                RobotInfo closest = Utils.getClosest(enemies, loc);
+                int eval = staticLocEval(rc.senseRobot(rc.getID()), enemies, allies, closestEnemy, loc);
+                if (eval > maxScore) {
+                    maxScore = eval;
+                    bestDir = direction;
+                    localClosest = closest;
+                }
+            }
+            if (bestDir != null)
+                rc.move(bestDir);
+
+            int bestSecondAttackScore = -9999999;
+            MapLocation bestSecondAttackTarget = null;
+            for (RobotInfo enemy : enemies) {
+                if (rc.canAttack(enemy.getLocation())) {
+                    int score = staticActionEval(rc, enemy, curLoc);
+                    if (score > bestSecondAttackScore) {
+                        bestSecondAttackScore = score;
+                        bestSecondAttackTarget = enemy.getLocation();
+                    }
+                }
+            }
+            if (bestSecondAttackTarget != null)
+                rc.attack(bestSecondAttackTarget);
+        } else if (currentTarget != null) {
+            Pathfinding.moveTowardsAfraid(rc, curLoc, currentTarget, true);
             if (curLoc.distanceSquaredTo(currentTarget) <= 4) {
                 currentTarget = null;
             }
         }
-
         else if (nearbyCrumbs.length > 0) {
             // Get some crumbs since if we see them
             Pathfinding.moveTowards(rc, curLoc, nearbyCrumbs[0], true);

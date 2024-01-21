@@ -1,8 +1,9 @@
 package v10;
 
 import battlecode.common.*;
-
 import java.util.ArrayList;
+
+import static v10.RobotPlayer.*;
 
 public class Utils {
 
@@ -247,6 +248,10 @@ public class Utils {
 //                && loc.distanceSquaredTo(flag.translate((flag.x == rc.getMapWidth() - 1) ? -10 : 10, 0)) > 2;
     }
 
+    public static boolean isInMap(MapLocation loc, RobotController rc) {
+        return loc.x >= 0 && loc.x < rc.getMapWidth() && loc.y >= 0 && loc.y < rc.getMapHeight();
+    }
+
     public static MapLocation clamp(MapLocation loc, RobotController rc) {
         return new MapLocation(Math.max(1, Math.min(rc.getMapWidth() - 1, loc.x)), Math.max(1, Math.min(rc.getMapHeight() - 1, loc.y)));
     }
@@ -257,6 +262,22 @@ public class Utils {
             if (array[i].equals(element)) return i;
         }
         return -1;
+    }
+
+    public static MapLocation[] semiLegalMoves(MapLocation start, RobotController rc) {
+        MapLocation[] moves = new MapLocation[8];
+        int i = 0;
+        for (Direction dir : directions) {
+            int endLocX = start.x + dir.dx;
+            int endLocY = start.y + dir.dy;
+            if (!isInMap(new MapLocation(endLocX, endLocY), rc)) continue;
+
+            MapInfo endInfo = map[endLocY][endLocX];
+            if (endInfo == null || endInfo.isDam() || endInfo.isWall() || endInfo.isWater()) continue;
+            moves[i] = start.add(dir);
+            i++;
+        }
+        return moves;
     }
 
     // Pair
