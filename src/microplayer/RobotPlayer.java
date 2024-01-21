@@ -302,7 +302,8 @@ public class RobotPlayer {
 
         // go to nearest flag or nearest broadcast flag location
         if (broadcastFlagPathfindLoc == null) {
-            broadcastFlagPathfindLoc = rc.senseBroadcastFlagLocations()[rng.nextInt(3)];
+            MapLocation[] broadcasted = rc.senseBroadcastFlagLocations();
+            broadcastFlagPathfindLoc = broadcasted[rng.nextInt(broadcasted.length)];
         }
         MapLocation pathfindGoalLoc = broadcastFlagPathfindLoc;
 
