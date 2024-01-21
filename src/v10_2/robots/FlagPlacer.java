@@ -17,6 +17,8 @@ public class FlagPlacer extends AbstractRobot {
 
     @Override
     public boolean setup(RobotController rc, MapLocation curLoc) throws GameActionException {
+        if (curLoc == null)
+            return false;
         if (rc.readSharedArray(Constants.SharedArray.numberFlagPlacer) < 3 && rc.canPickupFlag(curLoc)) {
             rc.pickupFlag(curLoc);
             flagPlacerNum = rc.readSharedArray(Constants.SharedArray.numberFlagPlacer);
@@ -30,98 +32,54 @@ public class FlagPlacer extends AbstractRobot {
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
         //if (rc.getRoundNum() <=  GameConstants.SETUP_ROUNDS) return;
         //if (rc.getRoundNum() == GameConstants.SETUP_ROUNDS+1) {rc.pickupFlag(curLoc);}
-        if (!flagPlaced) {
-            if (rc.readSharedArray(Constants.SharedArray.numberCornerFinder) == 100) {
-                if (target == null) {
-                    target = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[0]);
-                    MapLocation possibleCorner = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[flagPlacerNum]);
-                    if (flagPlacerNum == 1)
-                        if (possibleCorner == null)
-                            target = target.translate(0, (target.y == rc.getMapHeight() - 1) ? -10 : 10);
-                        else
-                            target = possibleCorner;
-                    else if (flagPlacerNum == 2)
-                        if (possibleCorner == null)
-                            target = target.translate((target.x == rc.getMapWidth() - 1) ? -10 : 10, 0);
-                        else
-                            target = possibleCorner;
 
-                }
-                int closestDistance = 9999999;
-                MapLocation closestFlag = null;
-                for (int i = 0; i <= 2; i++) {
-                    if (i == flagPlacerNum) continue;
-                    MapLocation loc = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[i]);
-                    if (loc != null && (loc.distanceSquaredTo(curLoc) < closestDistance)) {
-                        closestDistance = loc.distanceSquaredTo(curLoc);
-                        closestFlag = loc;
-                    }
-                }
-
-
-                if ((curLoc.equals(target) || (rc.getRoundNum() >= 170 && closestDistance > 36)) && rc.hasFlag()) {
-                    //System.out.println("Droppin flag: " + curLoc + " cuz im id " + rc.getID());
-                    target = curLoc;
-                    rc.dropFlag(curLoc);
-                    flagPlaced = true;
-                    Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[flagPlacerNum], curLoc);
-                }
-
-                if (rc.getRoundNum() >= 150 && closestDistance < 36 && !rc.hasFlag())
-                    moveAway(rc, curLoc, closestFlag, true);
-
-                moveTowards(rc, curLoc, target, true);
-            }
+        if (target == null) {
+            target = curLoc;
+            Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[flagPlacerNum], curLoc);
         }
-        else if (target != null) {
-            if (!flagGone && !curLoc.equals(target)) {
-                moveTowards(rc, curLoc, target, true);
-            } else if (flagGone && !rc.canSenseLocation(target)) {
-                moveTowards(rc, curLoc, target, false);
-            } else {
-                FlagInfo[] nearbyFlags = rc.senseNearbyFlags(1);
-                if (nearbyFlags.length == 0) {
-                    flagGoneFor++;
-                    flagGone = true;
-                }
-                else {
-                    flagGone = false;
-                    flagGoneFor = 0;
-                }
-                if (flagGone && flagGoneFor > 20) {
-                    Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[flagPlacerNum], null);
 
-                    for (int i = 0; i < 3; i++) {
-                        target = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[i]);
-                        if (target != null) {
-                            flagPlacerNum = i;
-                            break;
-                        }
-                    }
-                }
-                RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-                RobotInfo closest = Utils.getClosest(enemies, curLoc);
-                if (closest != null && rc.canAttack(closest.getLocation()))
-                    rc.attack(closest.getLocation());
+        if (!flagGone && !curLoc.equals(target)) {
+            moveTowards(rc, curLoc, target, true);
+        } else if (flagGone && !rc.canSenseLocation(target)) {
+            moveTowards(rc, curLoc, target, false);
+        } else {
+            FlagInfo[] nearbyFlags = rc.senseNearbyFlags(1);
+            if (nearbyFlags.length == 0) {
+                flagGoneFor++;
+                flagGone = true;
+            }
+            else {
+                flagGone = false;
+                flagGoneFor = 0;
+            }
 
-                nearby = rc.senseNearbyMapInfos(2);
-                for (MapInfo info : nearby) {
-                    if (rc.canDig(info.getMapLocation())) {
-                        rc.dig(info.getMapLocation());
-                        break;
-                    }
-                    else if (rc.canBuild(TrapType.EXPLOSIVE, info.getMapLocation()) && rc.senseMapInfo(info.getMapLocation()).isWater()) {
+            if (flagGone && flagGoneFor > 20) {
+                Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[flagPlacerNum], null);
 
-//                        rc.build(TrapType.EXPLOSIVE, info.getMapLocation());
-//                        rc.build(TrapType.STUN, info.getMapLocation());
+                for (int i = 0; i < 3; i++) {
+                    target = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[i]);
+                    if (target != null) {
+                        flagPlacerNum = i;
                         break;
                     }
                 }
             }
-            if (!flagGone) {
-                Utils.storeLocationInSharedArray(rc, Constants.SharedArray.capturedFlagLocs[flagPlacerNum], null);
+
+            RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+            RobotInfo closest = Utils.getClosest(enemies, curLoc);
+            if (closest != null && rc.canAttack(closest.getLocation()))
+                rc.attack(closest.getLocation());
+
+            nearby = rc.senseNearbyMapInfos(2);
+            for (MapInfo info : nearby) {
+                MapLocation infoLoc = info.getMapLocation();
+                if (rc.canBuild(TrapType.STUN, infoLoc) && ((infoLoc.x % 2 == 0 && infoLoc.y % 2 == 0) || (infoLoc.x % 2 == 1 && infoLoc.y % 2 == 1))) {
+                    rc.build(TrapType.STUN, info.getMapLocation());
+                }
             }
         }
+
+
     }
 
     @Override

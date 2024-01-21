@@ -26,6 +26,7 @@ public class Constants {
         public static final int numNeededDefense = 40;
         public static final int[] globalAttackerTargets = {41, 42, 43};
         public static final int cornerPosessions = 44;
+        public static final int deathsInLastTurn = 45;
 
 
     }

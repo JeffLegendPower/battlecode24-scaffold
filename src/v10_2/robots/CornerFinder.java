@@ -77,8 +77,7 @@ public class CornerFinder extends AbstractRobot {
                     }
                 }
                 System.out.println("Best corner: " + corners[smallestIdx]);
-                if (fclIdx == 0 || true)
-                    Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[0], corners[smallestIdx]);
+
                 rc.writeSharedArray(Constants.SharedArray.numberCornerFinder, 100); // simply signify that the corner is located
                 completed = true;
             }
