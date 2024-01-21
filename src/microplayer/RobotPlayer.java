@@ -74,7 +74,7 @@ public class RobotPlayer {
                 return true;
             }
             if (carrierLocations[flagCarrierIndex] == null) {
-                System.out.println("big error 3 !!!");
+                // System.out.println("big error 3 !!!");
                 isCarrier = false;
                 return true;
             }
@@ -168,12 +168,19 @@ public class RobotPlayer {
 
         int v = rc.readSharedArray(7);
         int[] centerLocationWeights = new int[3];
+        int total = 0;
         for (int i=0; i<3; i++) {
             centerLocationWeights[i] = v & 0b11111;
+            total += v & 0b11111;
             v >>= 5;
         }
         Integer[] centerSpawnLocationWeightsIndicies = sort(new Integer[]{0, 1, 2}, (i) -> -centerLocationWeights[i]);
         for (int i=0; i<3; i++) {
+            if (centerLocationWeights[centerSpawnLocationWeightsIndicies[i]] < total/2) {
+                if (rng.nextInt(3) == 1) {
+                    continue;
+                }
+            }
             MapLocation centerSpawnLocation = centerSpawnLocations[centerSpawnLocationWeightsIndicies[i]];
             for (MapLocation adjacent : getAdjacents(centerSpawnLocation)) {
                 if (rc.canSpawn(adjacent)) {
@@ -188,6 +195,9 @@ public class RobotPlayer {
     public static void randomizeRng() throws GameActionException {
         // (linear congruential generator)-ish but bad
         MapLocation robotLoc = rc.getLocation();
+        if (!rc.isSpawned()) {
+            rngSeed = 23892 + rngSeed * 38855;
+        }
         rngSeed = (rngSeed * 47127 + robotLoc.x * 43 + robotLoc.y * 59) % 481936283;
         rng.setSeed(rngSeed);
         if (Clock.getBytecodesLeft() > 1000) {
@@ -246,13 +256,29 @@ public class RobotPlayer {
             rc.setIndicatorString("carrying flag " + (flagCarrierIndex+1));
             sort(allySpawnLocations, (spawnLoc) -> spawnLoc.distanceSquaredTo(robotLoc));
             MapLocation[] enemyLocations = new MapLocation[enemyInfos.length];
+            MapInfo[] allMapInfos = rc.senseNearbyMapInfos(4);
+            MapLocation[] trapLocations = new MapLocation[allMapInfos.length];
+            int writeIndex=0;
+            for (MapInfo allMapInfo : allMapInfos) {
+                if (allMapInfo.getTrapType().equals(TrapType.STUN)) {
+                    trapLocations[writeIndex++] = allMapInfo.getMapLocation();
+                }
+            }
             for (int i=0; i<enemyInfos.length; i++) {
                 enemyLocations[i] = enemyInfos[i].getLocation();
             }
             for (MapLocation adjacent : sort(getAdjacents(robotLoc), (loc) -> {
                 int total = 0;
+                // avoid enemies
                 for (MapLocation enemyLocation : enemyLocations) {
                     total += enemyLocation.distanceSquaredTo(loc);
+                }
+                // go towards ally stun traps
+                for (MapLocation trapLocation : trapLocations) {
+                    if (trapLocation == null) {
+                        break;
+                    }
+                    total -= (trapLocation.distanceSquaredTo(loc) * 2) / 3;
                 }
                 return loc.distanceSquaredTo(carrierDestination) - total;
             })) {
@@ -356,10 +382,23 @@ public class RobotPlayer {
         if (crumbLocs.length > 0) {
             sort(crumbLocs, (crumbLoc) -> crumbLoc.distanceSquaredTo(robotLoc));
             MapLocation closestCrumbLoc = crumbLocs[0];
+            if (continueInThisDirection != null) {
+                if (rc.canMove(continueInThisDirection)) {
+                    rc.move(continueInThisDirection);
+                }
+                if (rng.nextInt(7) == 0) {
+                    continueInThisDirection = null;
+                }
+            }
             Direction[] idealMovementDirections = getIdealMovementDirections(robotLoc, closestCrumbLoc);
+            int i=0;
             // try to move in the ideal directions
             for (Direction idealMoveDir : idealMovementDirections) {
+                i++;
                 if (rc.canMove(idealMoveDir)) {
+                    if (i >= 3) {
+                        continueInThisDirection = idealMoveDir;
+                    }
                     rc.move(idealMoveDir);
                     return;
                 } else {
@@ -369,6 +408,7 @@ public class RobotPlayer {
                     }
                 }
             }
+
             return;
         }
 
@@ -515,9 +555,9 @@ public class RobotPlayer {
                 if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2) {
                     for (Direction direction : Direction.allDirections()) {
                         MapLocation newLoc = robotLoc.add(direction);
-                        if ((newLoc.x + newLoc.y) % 2 == 0) {
-                            if (rc.canBuild(TrapType.STUN, robotLoc.add(direction))) {
-                                rc.build(TrapType.STUN, robotLoc.add(direction));
+                        if (rc.getCrumbs() > 5000 || (robotLoc.x+robotLoc.y) % 2 == 0) {
+                            if (rc.canBuild(TrapType.STUN, newLoc)) {
+                                rc.build(TrapType.STUN, newLoc);
                                 break;
                             }
                         }
@@ -615,7 +655,7 @@ public class RobotPlayer {
             if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2) {
                 for (Direction direction : Direction.allDirections()) {
                     MapLocation newLoc = robotLoc.add(direction);
-                    if ((newLoc.x + newLoc.y) % 2 == 0) {
+                    if ((newLoc.x - newLoc.y * 2) % 3 == 1) {
                         if (rc.canBuild(TrapType.STUN, robotLoc.add(direction))) {
                             rc.build(TrapType.STUN, robotLoc.add(direction));
                             break;
@@ -697,11 +737,24 @@ public class RobotPlayer {
         if (crumbLocs.length > 0) {
             sort(crumbLocs, (crumbLoc) -> crumbLoc.distanceSquaredTo(robotLoc));
             MapLocation closestCrumbLoc = crumbLocs[0];
+            if (continueInThisDirection != null) {
+                if (rc.canMove(continueInThisDirection)) {
+                    rc.move(continueInThisDirection);
+                }
+                if (rng.nextInt(10) == 0) {
+                    continueInThisDirection = null;
+                }
+            }
             Direction[] idealMovementDirections = getIdealMovementDirections(robotLoc, closestCrumbLoc);
             // try to move in the ideal directions
+            int i=0;
             for (Direction idealMoveDir : idealMovementDirections) {
+                i++;
                 if (rc.canMove(idealMoveDir)) {
                     rc.move(idealMoveDir);
+                    if (i >= 3) {
+                        continueInThisDirection = idealMoveDir;
+                    }
                     return;
                 } else {
                     if (rc.canFill(robotLoc.add(idealMoveDir))) {

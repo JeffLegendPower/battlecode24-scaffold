@@ -23,6 +23,7 @@ public class General {
     public static MapLocation broadcastFlagPathfindLoc = null;
     public static MapLocation[] enemyFlagLocations = new MapLocation[3];
     public static boolean[] enemyFlagIsTaken = new boolean[3];
+    public static Direction continueInThisDirection = null;
 
     public static boolean isCarrier = false;
     public static MapLocation carrierDestination = null;

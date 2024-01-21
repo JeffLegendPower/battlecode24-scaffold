@@ -14,7 +14,7 @@ if a flag is dropped, have all nearby ducks try to go to it
 
 go to dam during setup faster, better
 
-prevent ducks from getting stuck by using bug navigation
+prevent ducks from getting stuck by using A*
 
 do optimizations to bring down bytecode count
 
