@@ -57,6 +57,16 @@ public class RobotPlayer {
             return false;
         }
 
+        if (isProtector) {
+            int v = rc.readSharedArray(7);
+            v |= (0b11111 << (5*protectedFlagIndex));
+            rc.writeSharedArray(7, v);
+            if (rc.canSpawn(myProtectedFlagLocation)) {
+                rc.spawn(myProtectedFlagLocation);
+            }
+            return true;
+        }
+
         if (isCarrier) {
             if (flagCarrierIndex == -1) {
                 System.out.println("big error 2 !!!");
@@ -108,8 +118,8 @@ public class RobotPlayer {
             rc.setIndicatorString("id: " + id);
         }
 
-        if (protectedFlagLocations == null) {
-            protectedFlagLocations = new MapLocation[3];
+        if (centerSpawnLocations == null) {
+            centerSpawnLocations = new MapLocation[3];
             int i=0;
             for (MapLocation allySpawn1 : allySpawnLocations) {
                 MapLocation[] checks = {
@@ -134,23 +144,42 @@ public class RobotPlayer {
                 }
                 if (allChecksPassed) {
                     rc.setIndicatorDot(allySpawn1, 0, 255, 0);
-                    protectedFlagLocations[i++] = allySpawn1;
+                    centerSpawnLocations[i++] = allySpawn1;
 
                 }
             }
-            for (MapLocation protectedFlagLoc : protectedFlagLocations) {
+            for (MapLocation protectedFlagLoc : centerSpawnLocations) {
                 if (rc.canSpawn(protectedFlagLoc)) {
                     rc.spawn(protectedFlagLoc);
+                    for (int i2=0; i2<3; i2++) {
+                        if (protectedFlagLoc.equals(centerSpawnLocations[i2])) {
+                            protectedFlagIndex = i2;
+                        }
+                    }
+                    if (protectedFlagIndex == null) {
+                        System.out.println("big error 4 !!!");
+                    }
+                    myProtectedFlagLocation = protectedFlagLoc;
                     isProtector = true;
                     return false;
                 }
             }
         }
 
-        for (MapLocation allySpawnLocation : allySpawnLocations) {
-            if (rc.canSpawn(allySpawnLocation)) {
-                rc.spawn(allySpawnLocation);
-                return false;
+        int v = rc.readSharedArray(7);
+        int[] centerLocationWeights = new int[3];
+        for (int i=0; i<3; i++) {
+            centerLocationWeights[i] = v & 0b11111;
+            v >>= 5;
+        }
+        Integer[] centerSpawnLocationWeightsIndicies = sort(new Integer[]{0, 1, 2}, (i) -> -centerLocationWeights[i]);
+        for (int i=0; i<3; i++) {
+            MapLocation centerSpawnLocation = centerSpawnLocations[centerSpawnLocationWeightsIndicies[i]];
+            for (MapLocation adjacent : getAdjacents(centerSpawnLocation)) {
+                if (rc.canSpawn(adjacent)) {
+                    rc.spawn(adjacent);
+                    return false;
+                }
             }
         }
         return true;
@@ -238,11 +267,40 @@ public class RobotPlayer {
                         writeLocationToShared(4+flagCarrierIndex, adjacent, 0, 1);
                         isCarrier = false;
                         flagCarrierIndex = -1;
-                        return;
+                        break;
                     }
                     visited.add(adjacent);
                     writeLocationToShared(4+flagCarrierIndex, adjacent, 0, 0);
-                    return;
+                    break;
+                }
+            }
+            // pass the flag if stuck
+            if (rc.getMovementCooldownTurns() < 10 && rc.getActionCooldownTurns() < 10) {
+                for (MapLocation d : sort(getAdjacents(robotLoc), (loc) -> loc.distanceSquaredTo(allySpawnLocations[0]))) {
+                    if (!rc.onTheMap(d)) {
+                        continue;
+                    }
+                    RobotInfo ally = rc.senseRobotAtLocation(d);
+                    if (ally == null) {
+                        continue;
+                    }
+                    if (!ally.getTeam().equals(rc.getTeam())) {
+                        continue;
+                    }
+                    if (ally.hasFlag()) {
+                        continue;
+                    }
+                    if (!rc.canDropFlag(ally.getLocation())) {
+                        break;
+                    }
+                    rc.dropFlag(ally.getLocation());
+                    isCarrier = false;
+                    transferCooldown = 4;
+                    rc.writeSharedArray(flagCarrierIndex+4, locToInt(ally.getLocation(), 1, 0));
+                    hasCarrierDroppedFlag[flagCarrierIndex] = true;
+                    lastDroppedFlagValue = -1;
+                    flagCarrierIndex = -1;
+                    break;
                 }
             }
             return;
@@ -254,7 +312,21 @@ public class RobotPlayer {
                 robotLoc.add(Direction.SOUTHWEST), robotLoc.add(Direction.NORTHEAST)
         };
         if (isProtector) {
-            rc.setIndicatorString("i am protector");
+            int v = rc.readSharedArray(7);
+            int enemiesSeen = Math.min(enemyInfos.length, 31);
+            if (rc.senseNearbyFlags(1, rc.getTeam()).length == 0) {  // no flag there
+                enemiesSeen = Math.max(enemiesSeen-7, 0);
+            }
+            int newSafetyLevel = enemiesSeen << (5*protectedFlagIndex);
+            int newV = (v ^ (v & (0b11111 << (5*protectedFlagIndex)))) | newSafetyLevel;
+            rc.setIndicatorString("protect " + v + " " + newV);
+            rc.writeSharedArray(7, newV);
+
+            if (myProtectedFlagLocation != rc.getLocation()) {
+                System.out.println("big error 1 !!!");
+                return;
+            }
+
             sort(diagonals, (loc) -> {
                 int total=0;
                 for (RobotInfo enemy : enemyInfos) {
@@ -303,7 +375,12 @@ public class RobotPlayer {
         // go to nearest flag or nearest broadcast flag location
         if (broadcastFlagPathfindLoc == null) {
             MapLocation[] broadcasted = rc.senseBroadcastFlagLocations();
-            broadcastFlagPathfindLoc = broadcasted[rng.nextInt(broadcasted.length)];
+            if (broadcasted.length == 0) {
+                MapLocation center = new MapLocation(mapWidth/2, mapHeight/2);
+                broadcastFlagPathfindLoc = locationInOtherDirection(center, centerSpawnLocations[0]);
+            } else {
+                broadcastFlagPathfindLoc = broadcasted[rng.nextInt(broadcasted.length)];
+            }
         }
         MapLocation pathfindGoalLoc = broadcastFlagPathfindLoc;
 
@@ -335,13 +412,35 @@ public class RobotPlayer {
                 continue;
             }
             int distance = carrierLoc.distanceSquaredTo(robotLoc);
-            if (closestCarrierDistance > distance && distance >= 6.7) {
+            if (closestCarrierDistance > distance) {
                 closestCarrierDistance = distance;
                 closestCarrierLocation = carrierLoc;
             }
         }
         if (closestCarrierLocation != null) {
             pathfindGoalLoc = closestCarrierLocation;
+            if (closestCarrierDistance < 8) {
+                pathfindGoalLoc = locationInOtherDirection(robotLoc, pathfindGoalLoc);
+            }
+            // try to spam traps around carrier
+            if (enemyInfos.length > 0) {
+                rc.setIndicatorString("spamming traps around carrier");
+                if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2) {
+                    for (Direction direction : Direction.allDirections()) {
+                        MapLocation newLoc = robotLoc.add(direction);
+                        if ((newLoc.x + newLoc.y) % 2 == 0) {
+                            if (rc.canBuild(TrapType.STUN, robotLoc.add(direction))) {
+                                rc.build(TrapType.STUN, robotLoc.add(direction));
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (transferCooldown > 0) {
+            transferCooldown -= 1;
         }
 
         // sense flags
@@ -373,6 +472,9 @@ public class RobotPlayer {
             }
 
             if (flagInfo.getLocation().distanceSquaredTo(robotLoc) <= 2) {  // grab the flag
+                if (transferCooldown > 0) {
+                    continue;
+                }
                 if (rc.canPickupFlag(flagInfo.getLocation())) {
                     rc.pickupFlag(flagInfo.getLocation());
                     isCarrier = true;
@@ -402,37 +504,27 @@ public class RobotPlayer {
             }
         }
 
-        // spam stun traps when see flag
-        int closestEnemyFlag = 1000000;
-        for (MapLocation flagLoc : enemyFlagLocations) {
-            if (flagLoc == null) {
-                continue;
-            }
-            int dist = flagLoc.distanceSquaredTo(robotLoc);
-            if (closestEnemyFlag > dist) {
-                closestEnemyFlag = dist;
-            }
-            break;
-        }
-        if (mapWidth/1.7 + mapHeight/1.7 < closestEnemyFlag && closestEnemyFlag < mapWidth/3.4 + mapHeight/3.4) {
-            if (rc.getCrumbs() > 2000 - rc.getRoundNum() / 2) {
-                for (Direction direction : Direction.allDirections()) {
-                    MapLocation newLoc = robotLoc.add(direction);
-                    if ((newLoc.x+newLoc.y) % 2 == 0) {
-                        if (rc.canBuild(TrapType.STUN, robotLoc.add(direction))) {
-                            rc.build(TrapType.STUN, robotLoc.add(direction));
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
         RobotInfo[] allyInfos = rc.senseNearbyRobots(-1, rc.getTeam());
         sort(allyInfos, (ally) -> (ally.getLocation().distanceSquaredTo(robotLoc) - rc.getHealth() / 100 - (rc.hasFlag() ? 10000 : 0)));
 
         // no enemies nearby-ish
         if (enemyInfos.length == 0 || enemyInfos[0].getLocation().distanceSquaredTo(robotLoc) >= 16) {
+            // no enemies nearby-ish -> spam traps when no enemies in 2 step range
+            if (enemyInfos.length > 0) {
+                rc.setIndicatorString("spamming traps");
+                if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2) {
+                    for (Direction direction : Direction.allDirections()) {
+                        MapLocation newLoc = robotLoc.add(direction);
+                        if ((newLoc.x + newLoc.y) % 2 == 0) {
+                            if (rc.canBuild(TrapType.STUN, robotLoc.add(direction))) {
+                                rc.build(TrapType.STUN, robotLoc.add(direction));
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
             // no enemies nearby-ish -> there are allies nearby
             if (allyInfos.length > 0) {
                 RobotInfo closestAlly = allyInfos[0];
@@ -518,6 +610,20 @@ public class RobotPlayer {
                 rc.setIndicatorString("Enemy in range, not attacked");
             }
 
+            // spam traps if still can do stuff
+            rc.setIndicatorString("spamming traps");
+            if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2) {
+                for (Direction direction : Direction.allDirections()) {
+                    MapLocation newLoc = robotLoc.add(direction);
+                    if ((newLoc.x + newLoc.y) % 2 == 0) {
+                        if (rc.canBuild(TrapType.STUN, robotLoc.add(direction))) {
+                            rc.build(TrapType.STUN, robotLoc.add(direction));
+                            break;
+                        }
+                    }
+                }
+            }
+
             // still can perform action, so try to heal others
             if (rc.getActionCooldownTurns() <= 10) {
                 for (RobotInfo ally : allyInfos) {
@@ -530,8 +636,19 @@ public class RobotPlayer {
             return;
         }
 
-        // more enemies than allies by a bit
-        // todo: place traps if overwhelmed
+        // more enemies than allies by a bit, spam traps
+        rc.setIndicatorString("spamming traps");
+        if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2) {
+            for (Direction direction : Direction.allDirections()) {
+                MapLocation newLoc = robotLoc.add(direction);
+                if ((newLoc.x + newLoc.y) % 2 == 0) {
+                    if (rc.canBuild(TrapType.STUN, robotLoc.add(direction))) {
+                        rc.build(TrapType.STUN, robotLoc.add(direction));
+                        break;
+                    }
+                }
+            }
+        }
         if (closestEnemyLoc.distanceSquaredTo(robotLoc) >= 16) {  // can safely flee
             MapLocation finalPathfindGoalLoc = pathfindGoalLoc;
             for (Direction d : sort(getIdealMovementDirections(closestEnemyLoc, robotLoc), (dir) -> robotLoc.add(dir).distanceSquaredTo(finalPathfindGoalLoc))) {
@@ -645,9 +762,6 @@ public class RobotPlayer {
 
         // stick to dam
         if (rc.getRoundNum() > 130) {
-            if (findDamRotateLeft == null) {
-                findDamRotateLeft = rng.nextBoolean();
-            }
             for (MapLocation ml : getAdjacents(robotLoc)) {
                 if (!rc.onTheMap(ml)) {
                     continue;
@@ -675,17 +789,16 @@ public class RobotPlayer {
                     }
                 }
             }
-            if (findDamDirection == null) {
-                findDamDirection = directions[0];
-            }
-            Direction d = findDamDirection;
-            for (int i=0; i<8; i++) {
+            MapLocation centerLoc = new MapLocation(mapWidth/2, mapHeight/2);
+            for (Direction d : getIdealMovementDirections(robotLoc, centerLoc)) {
                 if (rc.canMove(d)) {
                     rc.move(d);
-                    findDamDirection = d;
-                    return;
+                } else {
+                    MapLocation newLoc = robotLoc.add(d);
+                    if (rc.canFill(newLoc)) {
+                        rc.fill(newLoc);
+                    }
                 }
-                d = findDamRotateLeft ? d.rotateLeft() : d.rotateRight();
             }
             return;
         }

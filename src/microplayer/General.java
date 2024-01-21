@@ -16,11 +16,9 @@ public class General {
 
     public static Direction lastMovedSetupExplorationDirection = null;
     public static MapLocation[] allySpawnLocations = null;
-    public static MapLocation[] protectedFlagLocations = null;
+    public static MapLocation[] centerSpawnLocations = null;
     public static MapLocation[] visitedForSetupPathfinding = new MapLocation[30];
     public static int visitedForSetupPathfindingIndex = 0;
-    public static Direction findDamDirection = null;
-    public static Boolean findDamRotateLeft = null;
 
     public static MapLocation broadcastFlagPathfindLoc = null;
     public static MapLocation[] enemyFlagLocations = new MapLocation[3];
@@ -34,9 +32,12 @@ public class General {
     public static MapLocation[] carrierLocations = new MapLocation[3];
     public static boolean[] hasCarrierDroppedFlag = new boolean[3];
     public static boolean[] isEnemyFlagDeposited = new boolean[3];
+    public static int transferCooldown = 0;
     public static ArrayList<MapLocation> visited = new ArrayList<>();
 
     public static boolean isProtector = false;
+    public static MapLocation myProtectedFlagLocation = null;
+    public static Integer protectedFlagIndex = null;
 
     public static Direction[] directions = {
         Direction.NORTH,
@@ -59,6 +60,7 @@ public class General {
     4 | carried flag location 1 | 0=carried 1=dropped 2,3=deposited
     5 | carried flag location 2 | 0=carried 1=dropped 2,3=deposited
     6 | carried flag location 3 | 0=carried 1=dropped 2,3=deposited
+    7 | 1 bit empty, 5 bits protector index 3, 5 bits protector index 2, 5 bits protector index 1
     */
 
 }
