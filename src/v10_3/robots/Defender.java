@@ -6,6 +6,7 @@ import v10_3.Pathfinding;
 import v10_3.Utils;
 
 import static v10_3.Evaluators.staticAttackEval;
+import static v10_3.Evaluators.staticLocEval;
 import static v10_3.RobotPlayer.directions;
 import static v10_3.RobotPlayer.rng;
 
@@ -30,6 +31,7 @@ public class Defender extends AbstractRobot {
             flagNumber = rc.readSharedArray(Constants.SharedArray.numberDefenders);
             flagNumber %= 3;
             rc.writeSharedArray(Constants.SharedArray.numberDefenders, rc.readSharedArray(Constants.SharedArray.numberDefenders) + 1);
+            target = spawns[flagNumber];
             return true;
         }
         return false;
@@ -37,7 +39,7 @@ public class Defender extends AbstractRobot {
 
     @Override
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
-        target = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[flagNumber]);
+        //target = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[flagNumber]);
 
         if (target == null) {
             if (rc.getRoundNum() > 200) {
@@ -62,6 +64,7 @@ public class Defender extends AbstractRobot {
         }
 
         RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+        RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
 
         MapLocation globalDefenseTarget = Utils.getLocationInSharedArray(rc, Constants.SharedArray.globalDefenseTarget);
 
@@ -104,18 +107,34 @@ public class Defender extends AbstractRobot {
                 }
                 if (bestAttack != null)
                     rc.attack(bestAttack);
-            }
 
-            if (curLoc.isWithinDistanceSquared(target, 4)) {
-                for (MapInfo info : rc.senseNearbyMapInfos(2)) {
-                    MapLocation infoLoc = info.getMapLocation();
-                    if (rc.getCrumbs() > 2000
-                            && rc.canBuild(TrapType.STUN, infoLoc)
-                            && ((infoLoc.x % 2 == 0 && infoLoc.y % 2 == 0) || (infoLoc.x % 2 == 1 && infoLoc.y % 2 == 1))) {
-                        rc.build(TrapType.STUN, info.getMapLocation());
+                double maxScore = -9999999;
+                Direction bestDir = null;
+
+                for (Direction direction : Direction.values()) {
+                    if (!rc.canMove(direction))
+                        continue;
+                    MapLocation loc = curLoc.add(direction);
+                    double eval = staticLocEval(rc, enemies, allies, loc);
+                    if (eval > maxScore) {
+                        maxScore = eval;
+                        bestDir = direction;
                     }
                 }
+                if (bestDir != null && rc.canMove(bestDir))
+                    rc.move(bestDir);
             }
+
+//            if (curLoc.isWithinDistanceSquared(target, 4)) {
+//                for (MapInfo info : rc.senseNearbyMapInfos(2)) {
+//                    MapLocation infoLoc = info.getMapLocation();
+//                    if (rc.getCrumbs() > 2000
+//                            && rc.canBuild(TrapType.STUN, infoLoc)
+//                            && ((infoLoc.x % 2 == 0 && infoLoc.y % 2 == 0) || (infoLoc.x % 2 == 1 && infoLoc.y % 2 == 1))) {
+//                        rc.build(TrapType.STUN, info.getMapLocation());
+//                    }
+//                }
+//            }
 
             Direction dir = directions[rng.nextInt(4) * 2 + ((curLoc.x + curLoc.y) % 2 == 0 ? 0 : 1)];
             if (rc.canMove(dir))

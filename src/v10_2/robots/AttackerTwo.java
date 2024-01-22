@@ -55,6 +55,8 @@ public class AttackerTwo extends AbstractRobot {
     }
 
 
+
+
     @Override
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
         if (attackerGroup == -1) {

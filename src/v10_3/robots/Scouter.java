@@ -54,20 +54,19 @@ public class Scouter extends AbstractRobot {
 //        }
 
 //        if (currentTarget == null) {
+        boolean allEnemyFlagsFound = true;
+//        for (int i = 0; i < 3; i++) {
+//            if (enemyFlagIDs[i] == -1) {
+//                allEnemyFlagsFound = false;
+//                break;
+//            }
+//        }
             // Start from the last flag detected as attackers will be going towards the first flag detected
             // So this acts more flanker-ish
         for (int i = 2; i >= 0; i--) {
             MapLocation flag = Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]);
-            if (flag != null) {
+            if (flag != null && allEnemyFlagsFound) {
                 currentTarget = flag;
-                break;
-            }
-        }
-
-        boolean allEnemyFlagsFound = true;
-        for (int i = 0; i < 3; i++) {
-            if (enemyFlagIDs[i] == -1) {
-                allEnemyFlagsFound = false;
                 break;
             }
         }
@@ -87,14 +86,14 @@ public class Scouter extends AbstractRobot {
             if (bestFirstAttackTarget != null)
                 rc.attack(bestFirstAttackTarget);
 
-            int maxScore = -9999999;
+            double maxScore = -9999999;
             Direction bestDir = null;
 
             for (Direction direction : Direction.values()) {
                 if (!rc.canMove(direction))
                     continue;
                 MapLocation loc = curLoc.add(direction);
-                int eval = staticLocEval(rc, enemies, allies, loc);
+                double eval = staticLocEval(rc, enemies, allies, loc);
                 if (eval > maxScore) {
                     maxScore = eval;
                     bestDir = direction;

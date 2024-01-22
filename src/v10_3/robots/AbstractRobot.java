@@ -62,7 +62,7 @@ public abstract class AbstractRobot {
             int index = Utils.indexOf(enemyFlagIDs, info.getID());
             int lastNotSeenFlag = Utils.indexOf(enemyFlagIDs, -1);
             if (index == -1) {
-                System.out.println("v10.2-" + RobotPlayer.type.name() + " found flag " + info.getID() + " at " + info.getLocation());
+                System.out.println("v10.3-" + RobotPlayer.type.name() + " found flag " + info.getID() + " at " + info.getLocation());
                 rc.writeSharedArray(Constants.SharedArray.enemyFlagIDs[lastNotSeenFlag], info.getID() + 1);
                 Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagOrigins[lastNotSeenFlag], info.getLocation());
                 index = lastNotSeenFlag;

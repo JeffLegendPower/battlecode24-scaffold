@@ -3,6 +3,9 @@ package v10_3;
 import battlecode.common.*;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.function.Function;
 
 import static v10_3.RobotPlayer.directions;
 
@@ -263,6 +266,11 @@ public class Utils {
             if (array[i].equals(element)) return i;
         }
         return -1;
+    }
+
+    public static <T> T[] sort(T[] list, Function<T, Integer> valueFn) {
+        Arrays.sort(list, Comparator.comparingInt(valueFn::apply));
+        return list;
     }
 
     public static boolean canAttack(RobotController rc, MapLocation curLoc, MapLocation target) {

@@ -4,11 +4,11 @@ import battlecode.common.*;
 import v10_3.Constants;
 import v10_3.Utils;
 
+import static v10_3.Utils.sort;
 import static v10_3.Evaluators.Action;
 import static v10_3.Evaluators.staticLocEval;
 import static v10_3.Pathfinding.moveTowards;
-import static v10_3.RobotPlayer.directions;
-import static v10_3.RobotPlayer.rng;
+import static v10_3.RobotPlayer.*;
 
 public class AttackerTwo extends AbstractRobot {
 
@@ -29,15 +29,14 @@ public class AttackerTwo extends AbstractRobot {
         MapLocation globalTarget = Utils.getLocationInSharedArray(rc, Constants.SharedArray.globalAttackerTargets[attackerGroup]);
         if (globalTarget != null) return globalTarget;
 
-        MapLocation globalDefenseTarget = Utils.getLocationInSharedArray(rc, Constants.SharedArray.globalDefenseTarget);
-        int numNeededDefense = rc.readSharedArray(Constants.SharedArray.numNeededDefense);
-        if (globalDefenseTarget != null && numNeededDefense > (attackerGroup + 1) * 4) {
-            return globalDefenseTarget;
-        }
+//        MapLocation globalDefenseTarget = Utils.getLocationInSharedArray(rc, Constants.SharedArray.globalDefenseTarget);
+//        int numNeededDefense = rc.readSharedArray(Constants.SharedArray.numNeededDefense);
+//        if (globalDefenseTarget != null && numNeededDefense > (attackerGroup + 1) * 4) {
+//            return globalDefenseTarget;
+//        }
 
-        MapLocation flagLoc;
         for (int i = 0; i < 3; i++) {
-            flagLoc = Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]);
+            MapLocation flagLoc = Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]);
             if (flagLoc != null) {
                 return flagLoc;
             }
@@ -55,6 +54,55 @@ public class AttackerTwo extends AbstractRobot {
 
         return new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
     }
+    static Direction[] getIdealMovementDirections(MapLocation start, MapLocation goal) {
+        int sx = start.x;
+        int sy = start.y;
+        int gx = goal.x;
+        int gy = goal.y;
+
+        // 13 cases
+        if (sx < gx) {  // rightwards
+            if (sy < gy) {  // upwards
+                if ((gx-sx) > (gy-sy)) {  // right > up
+                    return new Direction[]{Direction.NORTHEAST, Direction.EAST, Direction.NORTH, Direction.SOUTHEAST, Direction.NORTHWEST};
+                } else {  // up > right
+                    return new Direction[]{Direction.NORTHEAST, Direction.NORTH, Direction.EAST, Direction.NORTHWEST, Direction.SOUTHEAST};
+                }
+            } else if (sy == gy) {  // already horizontally centered
+                return new Direction[]{Direction.EAST, Direction.NORTHEAST, Direction.SOUTHEAST, Direction.NORTH, Direction.SOUTH};
+            } else {  // downwards
+                if ((gx-sx) > (sy-gy)) {  // right > down
+                    return new Direction[]{Direction.SOUTHEAST, Direction.EAST, Direction.SOUTH, Direction.NORTHEAST, Direction.SOUTHWEST};
+                } else {  // down > right
+                    return new Direction[]{Direction.SOUTHEAST, Direction.SOUTH, Direction.EAST, Direction.SOUTHWEST, Direction.NORTHEAST};
+                }
+            }
+        } else if (sx == gx) {  // already vertically centered
+            if (sy < gy) {  // upwards
+                return new Direction[]{Direction.NORTH, Direction.NORTHWEST, Direction.NORTHEAST, Direction.EAST, Direction.WEST};
+            } else if (sy == gy) {  // dont go anywhere
+                return new Direction[]{Direction.CENTER};
+            } else {  // downwards
+                return new Direction[]{Direction.SOUTH, Direction.SOUTHWEST, Direction.SOUTHEAST, Direction.WEST, Direction.EAST};
+            }
+        } else {  // leftwards
+            if (sy < gy) {  // upwards
+                if ((gx-sx) > (gy-sy)) {  // left > up
+                    return new Direction[]{Direction.NORTHWEST, Direction.WEST, Direction.NORTH, Direction.SOUTHWEST, Direction.NORTHEAST};
+                } else {  // up > left
+                    return new Direction[]{Direction.NORTHWEST, Direction.NORTH, Direction.WEST, Direction.NORTHEAST, Direction.SOUTHWEST};
+                }
+            } else if (sy == gy) {  // already horizontally centered
+                return new Direction[]{Direction.WEST, Direction.NORTHWEST, Direction.SOUTHWEST, Direction.NORTH, Direction.SOUTH};
+            } else {  // downwards
+                if ((gx-sx) > (sy-gy)) {  // left > down
+                    return new Direction[]{Direction.SOUTHWEST, Direction.WEST, Direction.SOUTH, Direction.NORTHWEST, Direction.SOUTHEAST};
+                } else {  // down > left
+                    return new Direction[]{Direction.SOUTHWEST, Direction.SOUTH, Direction.WEST, Direction.SOUTHEAST, Direction.NORTHWEST};
+                }
+            }
+        }
+    }
 
 
     @Override
@@ -64,7 +112,7 @@ public class AttackerTwo extends AbstractRobot {
             rc.writeSharedArray(Constants.SharedArray.numAttackers, rc.readSharedArray(Constants.SharedArray.numAttackers) + 1);
         }
 
-        if (rc.getRoundNum() < 170) {
+        if (rc.getRoundNum() < 160) {
             Direction dir = directions[rng.nextInt(8)];
             if (rc.canMove(dir))
                 rc.move(dir);
@@ -77,9 +125,9 @@ public class AttackerTwo extends AbstractRobot {
                 if (info.isDam()) {
                     int dist = info.getMapLocation().distanceSquaredTo(curLoc);
 
-                    if (dist <= 4 && rc.canBuild(TrapType.STUN, curLoc) && rng.nextInt(10) == 0 && !built) {
-                        rc.build(TrapType.STUN, curLoc);
-                    }
+//                    if (dist <= 4 && rc.canBuild(TrapType.STUN, curLoc) && rng.nextInt(10) == 0 && !built) {
+//                        rc.build(TrapType.STUN, curLoc);
+//                    }
 
                     if (dist < closest) {
                         closest = dist;
@@ -89,13 +137,16 @@ public class AttackerTwo extends AbstractRobot {
             }
 
             if (dam != null) {
-                moveTowards(rc, curLoc, dam.getMapLocation(), true);
+                MapLocation target = dam.getMapLocation();
+                if (rc.getRoundNum() >= 180) {
+                    Direction dirToSpawn = curLoc.directionTo(Utils.getClosest(rc.getAllySpawnLocations(), curLoc));
+                    target.translate(dirToSpawn.dx * 3, dirToSpawn.dy * 3);
+                }
+                moveTowards(rc, curLoc, target, false);
             } else {
-                moveTowards(rc, curLoc, getTarget(rc, curLoc), true);
+                moveTowards(rc, curLoc, getTarget(rc, curLoc), false);
             }
         } else {
-
-            boolean fillWater = rc.senseNearbyFlags(-1, rc.getTeam()).length == 0;
             FlagInfo[] flags = rc.senseNearbyFlags(-1, rc.getTeam().opponent());
             MapLocation target = getTarget(rc, curLoc);
             lastTarget = target;
@@ -114,76 +165,98 @@ public class AttackerTwo extends AbstractRobot {
             RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
 
             RobotInfo closestAlly = Utils.getClosest(allies, curLoc);
+            Action bestAction = Action.getBest(rc);
+            if (bestAction.type == 1)
+                System.out.println(bestAction.score);
+            switch (bestAction.type) {
+                case 0:
+                    rc.attack(bestAction.target);
+                    break;
+                case 1:
+                    rc.heal(bestAction.target);
+                    break;
+                case 2:
+                    rc.build(TrapType.STUN, bestAction.target);
+                    break;
+                default:
+                    break;
+            }
+
             if (enemies.length > 0) {
 
-                Action bestAction = Action.getBest(rc);
-                if (bestAction.type == 1)
-                    System.out.println(bestAction.score);
-                switch (bestAction.type) {
-                    case 0:
-                        rc.attack(bestAction.target);
-                        break;
-                    case 1:
-                        rc.heal(bestAction.target);
-                        break;
-                    case 2:
-                        rc.build(rng.nextInt(6) == 0 ? TrapType.EXPLOSIVE : TrapType.STUN, bestAction.target);
-                        break;
-                    default:
-                        break;
-                }
-
-                int maxScore = -9999999;
+                double maxScore = -9999999;
                 Direction bestDir = null;
 
                 for (Direction direction : Direction.values()) {
-                    if (!rc.canMove(direction))
+                    if (direction != Direction.CENTER && !rc.canMove(direction))
                         continue;
                     MapLocation loc = curLoc.add(direction);
-                    int eval = staticLocEval(rc, enemies, allies, loc);
+                    double eval = staticLocEval(rc, enemies, allies, loc);
                     if (eval > maxScore) {
                         maxScore = eval;
                         bestDir = direction;
                     }
                 }
-                if (bestDir != null)
+                if (bestDir != null && rc.canMove(bestDir))
                     rc.move(bestDir);
 
                 bestAction = Action.getBest(rc);
                 switch (bestAction.type) {
                     case 0:
-                        rc.attack(bestAction.target);
+                        if (rc.canAttack(bestAction.target))
+                            rc.attack(bestAction.target);
                         break;
                     case 1:
-                        rc.heal(bestAction.target);
+                        if (rc.canHeal(bestAction.target))
+                            rc.heal(bestAction.target);
                         break;
                     case 2:
-                        rc.build(rng.nextInt(6) == 0 ? TrapType.EXPLOSIVE : TrapType.STUN, bestAction.target);
+                        if (rc.canBuild(TrapType.STUN, bestAction.target))
+                            rc.build(TrapType.STUN, bestAction.target);
                         break;
                     default:
                         break;
                 }
 
+//                if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2) {
+//                    for (Direction direction : Direction.allDirections()) {
+//                        MapLocation newLoc = curLoc.add(direction);
+//                        if ((newLoc.x + newLoc.y) % 2 == 0) {
+//                            if (rc.canBuild(TrapType.STUN, curLoc.add(direction))) {
+//                                System.out.println("J");
+//                                rc.build(TrapType.STUN, curLoc.add(direction));
+//                                break;
+//                            }
+//                        }
+//                    }
+//                }
+
             } else {
-                boolean allHealed = true;
-                for (RobotInfo ally : allies) {
-                    if (rc.canHeal(ally.getLocation())) {
-                        rc.heal(ally.getLocation());
-                        allHealed = false;
+                if (allies.length > 0 && closestAlly.getHealth() <= 1000 - rc.getHealAmount()) {
+                    for (Direction d : sort(
+                            getIdealMovementDirections(curLoc, target),
+                            (d) -> curLoc.add(d).distanceSquaredTo(closestAlly.getLocation()))
+                    ) {
+                        if (rc.canMove(d)) {
+                            rc.move(d);
+                            rc.setIndicatorString("moved towards goal & ally");
+                            if (rc.canHeal(closestAlly.getLocation())) {
+                                rc.heal(closestAlly.getLocation());
+                                rc.setIndicatorString("healed a guy");
+                            }
+                            return;
+                        } else {
+                            if (rc.canFill(curLoc.add(d))) {
+                                rc.fill(curLoc.add(d));
+                            }
+                        }
                     }
+                    if (rc.canHeal(closestAlly.getLocation())) {
+                        rc.heal(closestAlly.getLocation());
+                    }
+                } else {
+                    moveTowards(rc, curLoc, target, true);
                 }
-                if (allHealed)
-                    moveTowards(rc, curLoc, target, fillWater);
-            }
-
-            if (curLoc.distanceSquaredTo(target) <= 64
-                    && rc.canBuild(TrapType.EXPLOSIVE, curLoc)
-                    && rng.nextInt(2500 - Math.min(2500, rc.getCrumbs()) + 1) == 0
-                    && rc.getCrumbs() > 1000)
-                rc.build(rng.nextInt(3) < 2 ? TrapType.STUN : TrapType.EXPLOSIVE, curLoc);
-
-            if (closestAlly != null && rc.canHeal(closestAlly.getLocation())) {
-                rc.heal(closestAlly.getLocation());
             }
         }
     }

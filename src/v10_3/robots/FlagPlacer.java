@@ -53,7 +53,7 @@ public class FlagPlacer extends AbstractRobot {
                 flagGoneFor = 0;
             }
 
-            if (flagGone && flagGoneFor > 20) {
+            if (flagGone && flagGoneFor > 30) {
                 Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[flagPlacerNum], null);
 
                 for (int i = 0; i < 3; i++) {

@@ -2,14 +2,18 @@ package v10_3;
 
 import battlecode.common.*;
 
-import static v10_3.RobotPlayer.directions;
-import static v10_3.RobotPlayer.map;
+import static v10_3.RobotPlayer.*;
 
 public class Evaluators {
 
-    public static int staticLocEval(RobotController current, RobotInfo[] enemies, RobotInfo[] allies, MapLocation loc) {
-        int score = 0;
+    private static int attackEvalMax = -1;
+    private static int trapEvalMax = -1;
+
+    public static double staticLocEval(RobotController current, RobotInfo[] enemies, RobotInfo[] allies, MapLocation loc) {
+        double score = 0;
         int maxDist = 25;
+        double enemyScore = 0;
+        double allyScore = 0;
 
         RobotInfo target = bestTarget(current, enemies, loc);
 
@@ -18,25 +22,62 @@ public class Evaluators {
 
         boolean isOnCooldown = current.getActionCooldownTurns() >= 10;
 
+        MapLocation trapExplosionLoc = new MapLocation(-100, -100);
+
+        for (RobotInfo enemy : enemies) {
+            MapLocation enemyLoc = enemy.getLocation();
+            if (!enemyLoc.isWithinDistanceSquared(loc, 4)) continue;
+            if (!current.onTheMap(enemyLoc)) continue;
+            MapInfo lastTurnInfo = lastTurnMap[enemyLoc.y][enemyLoc.x];
+            if (lastTurnInfo != null && lastTurnInfo.getTrapType() == TrapType.STUN) {
+                trapExplosionLoc = enemyLoc;
+                break;
+            }
+        }
+
         for (RobotInfo enemy : enemies) {
             avgEnemyX += enemy.getLocation().x;
             avgEnemyY += enemy.getLocation().y;
             if (enemy.getID() == target.getID()) continue;
-            score -= (maxDist - enemy.getLocation().distanceSquaredTo(loc))
-                    * 2000 / current.getHealth()
-                    * (isOnCooldown ? 2 : 1);
+            MapLocation enemyLoc = enemy.getLocation();
+            int dist = enemyLoc.distanceSquaredTo(loc);
+            int curScore = Math.max(maxDist - dist, 0)
+                    * 700 / Math.max(current.getHealth(), 1) * (dist <= 4 ? 2 : 1);
+            // + (enemy.attackLevel + enemy.healLevel + 1) / 4;
+
+            if (!enemyLoc.isWithinDistanceSquared(trapExplosionLoc, 13))
+                enemyScore += curScore;
+
+        }
+
+        enemyScore *= isOnCooldown ? 2 : 1;
+
+        int nearestSpawnDist = Utils.getClosest(current.getAllySpawnLocations(), loc).distanceSquaredTo(loc);
+
+        if (nearestSpawnDist < 100 && enemyScore != 0) {
+            if (nearestSpawnDist == 0) {
+                enemyScore /= 1 / 100;
+            } else {
+                enemyScore /= (nearestSpawnDist / 100);
+            }
         }
 
         for (RobotInfo ally : allies) {
-            score += maxDist - ally.getLocation().distanceSquaredTo(loc); //* (rc.getHealth() / 500);
+            allyScore += (maxDist - ally.getLocation().distanceSquaredTo(loc)); // + (ally.attackLevel + ally.healLevel + 1) / 4;
         }
 
-        int closestDist = target.getLocation().distanceSquaredTo(loc);
+        if (nearestSpawnDist > 100)
+            enemyScore *= 1.1;
 
-        if (enemies.length < allies.length * 3 + 3 && allies.length > 1)
-            score += (maxDist - closestDist) * 20;
 
-//        if (closestDist >= 5 && closestDist <= 10)
+        score += allyScore - enemyScore;
+
+        int targestDist = target.getLocation().distanceSquaredTo(loc);
+
+//        if (allies.length - 2 > enemies.length)
+//            score += (maxDist - targestDist) * 10;// * 5000 / target.health;
+
+//        if (closestDist >= 5 && closestDist <= 10 && nearestSpawnDist > 100)
 //            score -= 20;
 
         MapLocation avgEnemyLoc = new MapLocation(avgEnemyX / enemies.length, avgEnemyY / enemies.length);
@@ -62,16 +103,17 @@ public class Evaluators {
     }
 
     public static RobotInfo bestTarget(RobotController rc, RobotInfo[] enemies, MapLocation loc) {
-        RobotInfo best = null;
-        int bestScore = -9999999;
-        for (RobotInfo enemy : enemies) {
-            int score = staticAttackEval(rc, enemy, loc);
-            if (score > bestScore) {
-                bestScore = score;
-                best = enemy;
-            }
-        }
-        return best;
+//        RobotInfo best = null;
+//        int bestScore = -9999999;
+//        for (RobotInfo enemy : enemies) {
+//            int score = staticAttackEval(rc, enemy, loc);
+//            if (score > bestScore) {
+//                bestScore = score;
+//                best = enemy;
+//            }
+//        }
+//        return best;
+        return Utils.getClosest(enemies, loc);
     }
 
     public static int staticAttackEval(RobotController rc, RobotInfo target, MapLocation loc) {
@@ -98,8 +140,9 @@ public class Evaluators {
         return heal * 20 / target.health - 5;
     }
 
-    public static int staticTrapEval(RobotController rc, RobotInfo[] enemies, MapLocation loc) {
+    public static int staticTrapEval(RobotController rc, RobotInfo[] enemies, RobotInfo[] allies, MapLocation loc) {
         if (enemies.length == 0) return -99999999;
+        if (loc.x % 2 != loc.y % 2) return -99999999;
         int avgEnemyX = 0;
         int avgEnemyY = 0;
         for (RobotInfo enemy : enemies) {
@@ -112,9 +155,9 @@ public class Evaluators {
 
         MapLocation curLoc = rc.getLocation();
 
-        boolean goodPlace = curLoc.equals(loc);
+        boolean goodPlace = false;
         for (int i = -1; i <= 1; i++) {
-            // The +8 is to prevent negatives
+            // The +8 is to prevent negative array indices
             Direction dir = directions[(Utils.indexOf(directions, avgEnemyDir) + i + 8) % 8];
             MapLocation ahead = curLoc.add(dir);
             if (ahead.equals(loc)) {
@@ -123,13 +166,15 @@ public class Evaluators {
             }
         }
 
-        int score = goodPlace ? 10 : 0;
+        int score = goodPlace ? 50 : 0;
 
-//        if (loc.x % 2 == 0 && loc.y % 2 == 0) {
-        if (loc.x % 2 == loc.y % 2) {
-            return score;
+        if (enemies.length - 3 >= allies.length) {
+            score += 40;
+        } else if (allies.length - 2 > enemies.length) {
+            score -= 20;
         }
-        return -9999999;
+
+        return score;
     }
 
     public static class Action {
@@ -157,6 +202,9 @@ public class Evaluators {
                         bestAttackScore = score;
                         bestAttackTarget = enemy.getLocation();
                     }
+                    if (score > attackEvalMax) {
+                        attackEvalMax = score;
+                    }
                 }
             }
 
@@ -177,12 +225,20 @@ public class Evaluators {
             for (Direction direction : Direction.values()) {
                 MapLocation newLoc = curLoc.add(direction);
                 if (!rc.canBuild(TrapType.EXPLOSIVE, newLoc) || !rc.canBuild(TrapType.STUN, newLoc)) continue;
-                int score = staticTrapEval(rc, enemies, newLoc);
+                int score = staticTrapEval(rc, enemies, allies, newLoc);
                 if (score > bestTrapScore) {
                     bestTrapScore = score;
                     bestTrapTarget = newLoc;
                 }
+                if (score > trapEvalMax) {
+                    trapEvalMax = score;
+                }
             }
+
+            if (attackEvalMax > 0)
+                bestAttackScore /= attackEvalMax;
+            if (trapEvalMax > 0)
+                bestTrapScore /= trapEvalMax;
 
             int bestActionScore = -9999999;
             Action bestAction = new Action(-9999999, -1, null);

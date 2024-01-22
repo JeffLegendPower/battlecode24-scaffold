@@ -1,7 +1,6 @@
 package v10_3.robots;
 
 public enum RobotType {
-    CornerFinder(new CornerFinder()),
     FlagPlacer(new FlagPlacer()),
     //Attacker(new Attacker()),
     Defender(new Defender()),

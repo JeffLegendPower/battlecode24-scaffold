@@ -1,15 +1,16 @@
-package v10_3;
+package microplayer_v2;
 
 import battlecode.common.*;
+import microplayer_v2.Utils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import static v10_3.RobotPlayer.directions;
-import static v10_3.RobotPlayer.map;
-import static v10_3.Utils.Pair;
-import static v10_3.Utils.clamp;
+import static microplayer_v2.RobotPlayer.map;
+import static microplayer_v2.Utils.Pair;
+import static microplayer_v2.Utils.clamp;
+
 public class Pathfinding {
     private static List<MapLocation> best = new ArrayList<>();
     public static MapLocation currentTarget = null;
@@ -46,7 +47,7 @@ public class Pathfinding {
         }
 
         if (curLoc.isAdjacentTo(target)) {
-            if (rc.canFill(target) && Utils.canBeFilled(rc, target) && fillWater)
+            if (rc.canFill(target))
                 rc.fill(target);
 
             if (rc.canMove(curLoc.directionTo(target))) {
@@ -67,7 +68,7 @@ public class Pathfinding {
                 if (move.b >= 0)
                     best.subList(0, move.b + 1).clear();
 
-                if (rc.canFill(move.a) && Utils.canBeFilled(rc, move.a) && fillWater)
+                if (rc.canFill(move.a))
                     rc.fill(move.a);
                 if (rc.canMove(curLoc.directionTo(move.a))) {
                     rc.move(curLoc.directionTo(move.a));
@@ -99,7 +100,7 @@ public class Pathfinding {
         if (move.b >= 0)
             best.subList(0, move.b + 1).clear();
 
-        if (rc.canFill(move.a) && Utils.canBeFilled(rc, move.a) && fillWater)
+        if (rc.canFill(move.a))
             rc.fill(move.a);
 
         if (rc.canMove(curLoc.directionTo(move.a))) {
@@ -130,13 +131,13 @@ public class Pathfinding {
         int centerx = rc.getMapWidth() / 2;
         int centery = rc.getMapHeight() / 2;
 
-        for (Direction dir : directions) {
+        for (Direction dir : Utils.directions) {
             MapLocation newLoc = curLoc.add(dir);
             newLoc = clamp(newLoc, rc);
             if (rc.canSenseRobotAtLocation(newLoc)) continue;
             MapInfo info = map[newLoc.y][newLoc.x];
             if (info != null && !current.contains(newLoc) &&
-                (fillWater ? (!info.isWall() && !info.isDam() && !(info.isWater() && !Utils.canBeFilled(rc, newLoc))) : info.isPassable())) {
+                (fillWater ? (!info.isWall() && !info.isDam()) : info.isPassable())) {
                 double score = calculateDistance(newLoc, target);
                 int thisVisited = visited.getOrDefault(newLoc, 0);
                 score *= (info.isWater() ? 1.35 : 1)
@@ -145,10 +146,8 @@ public class Pathfinding {
                         * (dir == lastDir.opposite() ? 1.2 : 1);
 
                 if (afraid) {
-                    score *= (enemiesNearby(rc, newLoc) ? 2 : 1);
+                    score *= (enemiesNearby(rc, newLoc) ? 1.6 : 1);
 //                    int centerdist = Math.max(Math.abs(centerx - newLoc.x), Math.abs(centery - newLoc.y));
-                    score *= (Math.abs(newLoc.x) <= rc.getMapWidth() / 4
-                            && Math.abs(newLoc.y) <= rc.getMapHeight() / 4) ? 3 : 1;
 //                    score *= (centerdist <= Math.min(rc.getMapWidth(), rc.getMapHeight()) / 4 ? 2 : 1);
 
                 }
@@ -176,19 +175,6 @@ public class Pathfinding {
                 return new Pair<>(moves.get(i), i);
         }
         return null;
-    }
-
-    private static boolean isOnWall(RobotController rc, MapLocation loc) {
-        boolean isWallHugging = false;
-        for (Direction dir : directions) {
-            MapLocation newLoc = clamp(loc.add(dir), rc);
-            MapInfo info = map[newLoc.y][newLoc.x];
-            if (info != null && info.isWall()) {
-                isWallHugging = true;
-                break;
-            }
-        }
-        return isWallHugging;
     }
 
     public static int calculateDistance(MapLocation ml1, MapLocation ml2) {
