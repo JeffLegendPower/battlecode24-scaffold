@@ -359,9 +359,9 @@ public class RobotPlayer {
 //                    rc.attack(enemy.getLocation());
 //                }
 //            }
-            Evaluators.Action best = Evaluators.Action.getBest(rc);
-            if (best.target != null && rc.canAttack(best.target))
-                rc.attack(best.target);
+//            Evaluators.Action best = Evaluators.Action.getBest(rc);
+//            if (best.target != null && rc.canAttack(best.target))
+//                rc.attack(best.target);
 
             return;
         }
@@ -594,9 +594,9 @@ public class RobotPlayer {
                 for (Direction d : getIdealMovementDirections(robotLoc, closestEnemyLoc)) {
                     if (rc.canMove(d)) {
                         rc.move(d);
-                        Evaluators.Action best = Evaluators.Action.getBest(rc);
-                        if (best.target != null && rc.canAttack(best.target))
-                            rc.attack(best.target);
+//                        Evaluators.Action best = Evaluators.Action.getBest(rc);
+//                        if (best.target != null && rc.canAttack(best.target))
+//                            rc.attack(best.target);
 
 //                        if (rc.canAttack(closestEnemyLoc)) {
 //                            rc.attack(closestEnemyLoc);
@@ -615,18 +615,18 @@ public class RobotPlayer {
 
             // less than one step away, attack then move back
             if (distToClosestEnemy <= 4) {
-                Evaluators.Action best = Evaluators.Action.getBest(rc);
-                if (best.target != null && rc.canAttack(best.target)) {
-                    rc.attack(best.target);
-                    for (Direction d : getIdealMovementDirections(closestEnemyLoc, robotLoc)) {
-                        if (rc.canMove(d)) {
-                            rc.move(d);
-                            rc.setIndicatorString("moved away from enemy");
-                            break;
-                        }
-                    }
-                    return;
-                }
+//                Evaluators.Action best = Evaluators.Action.getBest(rc);
+//                if (best.target != null && rc.canAttack(best.target)) {
+//                    rc.attack(best.target);
+//                    for (Direction d : getIdealMovementDirections(closestEnemyLoc, robotLoc)) {
+//                        if (rc.canMove(d)) {
+//                            rc.move(d);
+//                            rc.setIndicatorString("moved away from enemy");
+//                            break;
+//                        }
+//                    }
+//                    return;
+//                }
 
 //                if (rc.canAttack(closestEnemyLoc)) {
 //                    rc.attack(closestEnemyLoc);

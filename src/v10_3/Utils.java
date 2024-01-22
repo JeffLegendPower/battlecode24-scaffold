@@ -36,17 +36,6 @@ public class Utils {
                 | info.getMapLocation().y); // Bits 1-6 to y
     }
 
-    public static void storeBitInSharedArray(RobotController rc, int index, int bit /*0 is right*/, int val) throws GameActionException {
-        if (val == 0)
-            rc.writeSharedArray(index, rc.readSharedArray(index) | 1 << bit);
-        else
-            rc.writeSharedArray(index, rc.readSharedArray(index) & ~(1 << bit));
-    }
-
-    public static int getBitInSharedArray(RobotController rc, int index, int bit /*0 is first*/) throws GameActionException {
-        return (rc.readSharedArray(index) >> bit) & 1;
-    }
-
     public static MapInfo getInfoInSharedArray(RobotController rc, int index) throws GameActionException {
         int info = rc.readSharedArray(index);
         MapLocation loc = (info & (1 << 15)) == 0 ? null : new MapLocation((info >> 6) & 63, info & 63);
@@ -64,6 +53,14 @@ public class Utils {
                 TrapType.NONE,
                 isOurTerritory ? rc.getTeam() : rc.getTeam().opponent()
         );
+    }
+
+    public static void storeBitInSharedArray(RobotController rc, int index, int bit /*0 is right*/, int val) throws GameActionException {
+        rc.writeSharedArray(index, val == 0 ? rc.readSharedArray(index) | 1 << bit : rc.readSharedArray(index) & ~(1 << bit));
+    }
+
+    public static int getBitInSharedArray(RobotController rc, int index, int bit /*0 is first*/) throws GameActionException {
+        return (rc.readSharedArray(index) >> bit) & 1;
     }
 
     public static MapLocation getClosest(MapLocation[] locs, MapLocation curLoc) {

@@ -13,6 +13,8 @@ public class FlagCarrier extends AbstractRobot {
     public MapLocation closestSpawn;
     private boolean aboutToCapture = false;
     private int flagID = -1;
+    private int turnsDied = 0;
+    private MapLocation lastLoc = null;
 
     @Override
     public boolean setup(RobotController rc, MapLocation curLoc) throws GameActionException {
@@ -37,7 +39,16 @@ public class FlagCarrier extends AbstractRobot {
 
     @Override
     public void tickJailed(RobotController rc) throws GameActionException {
-        if (flagID != -1) {
+        turnsDied++;
+        if (turnsDied <= 4 && flagID != -1 && lastLoc != null) {
+            for (int i = 0; i < 3; i++) {
+                if (rc.readSharedArray(Constants.SharedArray.enemyFlagIDs[i]) == flagID + 1) {
+                    Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i], lastLoc);
+                    break;
+                }
+            }
+            lastLoc = null;
+        } else if (flagID != -1) {
             for (int i = 0; i < 3; i++) {
                 if (rc.readSharedArray(Constants.SharedArray.enemyFlagIDs[i]) == flagID + 1) {
                     Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i],
@@ -51,6 +62,8 @@ public class FlagCarrier extends AbstractRobot {
 
     @Override
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
+        lastLoc = curLoc;
+        turnsDied = 0;
         closestSpawn = Utils.getClosest(spawns, curLoc);
 
         moveTowardsAfraid(rc, curLoc, closestSpawn, false);

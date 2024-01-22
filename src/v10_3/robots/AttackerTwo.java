@@ -267,7 +267,7 @@ public class AttackerTwo extends AbstractRobot {
     }
 
     @Override
-    public void spawn(RobotController rc) throws GameActionException {
+    public void spawn(RobotController rc, RobotType type) throws GameActionException {
 //        int numDiedLastTurn = rc.readSharedArray(Constants.SharedArray.deathsInLastTurn);
 //        System.out.println("Deaths last turn: " + numDiedLastTurn);
 //        if (numDiedLastTurn > 10) {
@@ -280,7 +280,7 @@ public class AttackerTwo extends AbstractRobot {
             }
 
             if (target == null) {
-                super.spawn(rc);
+                super.spawn(rc, type);
                 return;
             }
 

@@ -168,7 +168,7 @@ public strictfp class RobotPlayer {
         }
         if (!assigned) {
             type = RobotType.FlagPlacer;
-            type.getRobot().spawn(rc);
+            type.getRobot().spawn(rc, type);
             if (!type.getRobot().setup(rc, rc.getLocation()))
                 type = RobotType.Default;
             else
@@ -186,7 +186,7 @@ public strictfp class RobotPlayer {
             assigned = true;
         }
 
-        type.getRobot().spawn(rc);
+        type.getRobot().spawn(rc, type);
 
 //        for (MapLocation spawnLoc : rc.getAllySpawnLocations()) {
 //            if (rc.canSpawn(spawnLoc)) {

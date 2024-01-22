@@ -3,6 +3,7 @@ package v10_3.robots;
 import battlecode.common.*;
 import v10_3.Constants;
 import v10_3.Pathfinding;
+import v10_3.RobotPlayer;
 import v10_3.Utils;
 
 import static v10_3.Evaluators.staticAttackEval;
@@ -16,6 +17,7 @@ public class Defender extends AbstractRobot {
     public MapLocation target = null;
     public MapLocation[] spawns;
     private int numTurnsWithoutEnemies = 0;
+    public MapLocation ownSpawnLoc = null;
 
     @Override
     public boolean setup(RobotController rc, MapLocation curLoc) throws GameActionException {
@@ -40,7 +42,6 @@ public class Defender extends AbstractRobot {
     @Override
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
         //target = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[flagNumber]);
-
         if (target == null) {
             if (rc.getRoundNum() > 200) {
                 //retarget
@@ -62,6 +63,9 @@ public class Defender extends AbstractRobot {
                 rc.move(dir);
             return;
         }
+
+        if (super.spawn != target)
+            super.spawn = target;
 
         RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
         RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());

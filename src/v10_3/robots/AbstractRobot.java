@@ -12,14 +12,14 @@ public abstract class AbstractRobot {
 
     protected Integer[] enemyFlagIDs = new Integer[3];
     protected MapLocation[] enemyFlagLocs = new MapLocation[3];
-    protected MapLocation spawn;
+    protected MapLocation spawn = null;
 
     // Returns whether the robot should be this type or not
     public abstract boolean setup(RobotController rc, MapLocation curLoc) throws GameActionException;
 
     public abstract void tick(RobotController rc, MapLocation curLoc) throws GameActionException;
 
-    public void spawn(RobotController rc) throws GameActionException {
+    public void spawn(RobotController rc, RobotType type) throws GameActionException {
         if (rc.isSpawned()) return;
 
 //        for (MapLocation spawnLoc : rc.getAllySpawnLocations()) {
@@ -29,6 +29,8 @@ public abstract class AbstractRobot {
 //                return;
 //            }
 //        }
+        if (spawn != null && rc.canSpawn(spawn))
+            rc.spawn(spawn);
 
         int tries = 0;
         MapLocation[] spawnLocs = rc.getAllySpawnLocations();
