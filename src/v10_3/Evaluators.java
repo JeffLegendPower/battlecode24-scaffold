@@ -52,14 +52,15 @@ public class Evaluators {
 
         enemyScore *= isOnCooldown ? 2 : 1;
 
-        int nearestSpawnDist = Utils.getClosest(current.getAllySpawnLocations(), loc).distanceSquaredTo(loc);
+        MapLocation nearestSpawn = Utils.getClosest(current.getAllySpawnLocations(), loc);
+        int nearestSpawnDist = nearestSpawn.distanceSquaredTo(loc);
 
-        if (nearestSpawnDist < 100 && enemyScore != 0) {
-            if (nearestSpawnDist == 0) {
-                enemyScore /= 1 / 100;
-            } else {
-                enemyScore /= (nearestSpawnDist / 100);
-            }
+        if (nearestSpawnDist < 50 && enemyScore != 0) {
+            enemyScore *= .5;
+        } else if (nearestSpawnDist < 20) {
+            return loc.distanceSquaredTo(target.getLocation());
+        } else if (nearestSpawnDist < 10) {
+            return nearestSpawn.distanceSquaredTo(target.getLocation());
         }
 
         for (RobotInfo ally : allies) {

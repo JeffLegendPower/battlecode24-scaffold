@@ -29,9 +29,22 @@ public class Evaluators {
                     * (isOnCooldown ? 2 : 1);
         }
 
+        MapLocation nearestSpawn = v10_3.Utils.getClosest(current.getAllySpawnLocations(), loc);
+        int nearestSpawnDist = nearestSpawn.distanceSquaredTo(loc);
+
+        if (nearestSpawnDist < 50 && score != 0) {
+            score += 50;
+        } else if (nearestSpawnDist < 20) {
+            return loc.distanceSquaredTo(target.getLocation());
+        } else if (nearestSpawnDist < 10) {
+            return nearestSpawn.distanceSquaredTo(target.getLocation());
+        }
+
         for (RobotInfo ally : allies) {
             score += maxDist - ally.getLocation().distanceSquaredTo(loc); //* (rc.getHealth() / 500);
         }
+
+
 
         int closestDist = target.getLocation().distanceSquaredTo(loc);
 

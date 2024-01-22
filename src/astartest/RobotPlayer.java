@@ -146,5 +146,6 @@ public class RobotPlayer {
         }
 
         MapInfo[] infosWithoutNulls = new MapInfo[99999999];
+        return infosWithoutNulls;
     }
 }
