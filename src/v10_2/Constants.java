@@ -13,7 +13,7 @@ public class Constants {
         public static final int numberDefenders = 9;
         public static final int lastFlagTrapPlaced = 10;
         public static final int queueNum = 10;
-//        public static final int flagHolderLoc = 11;
+        public static final int flagDroppedLocation = 11;
         public static final int globalAttackTarget = 12;
         public static final int numAttackersRespawned = 13;
         public static final int[] enemyFlagIDs = {14, 15, 16};
@@ -23,7 +23,7 @@ public class Constants {
         public static final int[] capturedFlagLocs = {33, 34, 35};
         public static final int[] flagOrigins = {36, 37, 38};
         public static final int globalDefenseTarget = 39;
-        public static final int numNeededDefense = 40;
+        public static final int[] numNeededDefense = {40, 46, 47};
         public static final int[] globalAttackerTargets = {41, 42, 43};
         public static final int cornerPosessions = 44;
         public static final int deathsInLastTurn = 45;
