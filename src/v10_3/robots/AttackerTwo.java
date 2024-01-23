@@ -188,17 +188,22 @@ public class AttackerTwo extends AbstractRobot {
                 Direction bestDir = null;
 
                 for (Direction direction : Direction.values()) {
-                    if (direction != Direction.CENTER && !rc.canMove(direction))
+                    if (direction == Direction.CENTER || !rc.canMove(direction))
                         continue;
                     MapLocation loc = curLoc.add(direction);
                     double eval = staticLocEval(rc, enemies, allies, loc);
                     if (eval > maxScore) {
                         maxScore = eval;
                         bestDir = direction;
+                    } else if (bestDir == null){
+                        System.out.println(eval);
                     }
                 }
                 if (bestDir != null && rc.canMove(bestDir))
                     rc.move(bestDir);
+                if (bestDir == null) {
+                    rc.setIndicatorDot(curLoc, 0, 255, 0);
+                }
 
                 bestAction = Action.getBest(rc);
                 switch (bestAction.type) {
@@ -275,7 +280,7 @@ public class AttackerTwo extends AbstractRobot {
 
             MapLocation globalDefenseTarget = Utils.getLocationInSharedArray(rc, Constants.SharedArray.globalDefenseTarget);
             int numNeededDefense = rc.readSharedArray(Constants.SharedArray.numNeededDefense);
-            if (globalDefenseTarget != null && numNeededDefense > (attackerGroup + 1) * 4) {
+            if (globalDefenseTarget != null && numNeededDefense > 1) {
                 target = globalDefenseTarget;
             }
 

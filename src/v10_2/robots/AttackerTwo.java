@@ -202,7 +202,7 @@ public class AttackerTwo extends AbstractRobot {
 
             MapLocation globalDefenseTarget = Utils.getLocationInSharedArray(rc, Constants.SharedArray.globalDefenseTarget);
             int numNeededDefense = rc.readSharedArray(Constants.SharedArray.numNeededDefense);
-            if (globalDefenseTarget != null && numNeededDefense > (attackerGroup + 1) * 4) {
+            if (globalDefenseTarget != null && numNeededDefense > 2) {
                 target = globalDefenseTarget;
             }
 

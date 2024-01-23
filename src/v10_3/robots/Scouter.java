@@ -173,11 +173,11 @@ public class Scouter extends AbstractRobot {
         }
     }
 
-    @Override
-    public void spawn(RobotController rc) throws GameActionException {
-        currentTarget = null;
-        super.spawn(rc);
-    }
+//    @Override
+//    public void spawn(RobotController rc) throws GameActionException {
+//        currentTarget = null;
+//        super.spawn(rc);
+//    }
 
     @Override
     public boolean completedTask() {
