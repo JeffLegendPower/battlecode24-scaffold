@@ -4,6 +4,7 @@ import battlecode.common.*;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Random;
 
 import static testmplayer.General.*;
 import static testmplayer.Utility.*;
@@ -788,6 +789,14 @@ public class RobotPlayer {
             return;
         }
 
+//        centerSpawnLocations = sort(centerSpawnLocations, (spawnLoc) -> robotLoc.distanceSquaredTo(spawnLoc));
+//        MapLocation digTarget = robotLoc.add(directions[rng.nextInt(8)]);
+//        if (robotLoc.distanceSquaredTo(centerSpawnLocations[0]) < 9 && new Random().nextInt(3) == 0 && (digTarget.x + digTarget.y) % 2 == 0) {
+//            if (rc.canDig(digTarget)) {
+//                rc.dig(digTarget);
+//            }
+//        }
+
         // see crumbs, go to the nearest one
         MapLocation[] crumbLocs = rc.senseNearbyCrumbs(-1);
         if (crumbLocs.length > 0) {
@@ -908,7 +917,7 @@ public class RobotPlayer {
                 if (rc.canMove(d)) {
                     rc.move(d);
                     turnsSinceLastMove = 0;
-                } else {
+                } else if(rc.getRoundNum() > 170) {
                     MapLocation newLoc = robotLoc.add(d);
                     if (rc.canFill(newLoc)) {
                         rc.fill(newLoc);
@@ -927,6 +936,7 @@ public class RobotPlayer {
             } else {
                 lastMovedSetupExplorationDirection = directions[rng.nextInt(directions.length)];
             }
+            return;
         }
 
         // move away from allies

@@ -95,8 +95,8 @@ public class Pathfinding {
         if (move.b >= 0)
             best.subList(0, move.b + 1).clear();
 
-//        if (rc.canFill(move.a))
-//            rc.fill(move.a);
+        if (rc.canFill(move.a))
+            rc.fill(move.a);
 
         if (rc.canMove(curLoc.directionTo(move.a))) {
             rc.move(curLoc.directionTo(move.a));

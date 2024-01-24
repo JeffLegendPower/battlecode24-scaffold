@@ -15,6 +15,7 @@ public class Attacker extends AbstractRobot {
     private boolean deviant = false;
 
     private MapLocation lastTarget = null;
+    private MapLocation flagTarget;
 
     @Override
     public boolean setup(RobotController rc) throws GameActionException {
@@ -26,7 +27,7 @@ public class Attacker extends AbstractRobot {
 
     @Override
     public void spawn(RobotController rc) throws GameActionException {
-        MapLocation flagTarget = null;
+        flagTarget = null;
         if (deviant) {
             for (int i = 2; i >= 0; i--) {
                 MapLocation flagLoc = Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]);
@@ -104,7 +105,8 @@ public class Attacker extends AbstractRobot {
     @Override
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
         // First do some quick flag detection stuff
-        FlagInfo[] nearbyFlags = rc.senseNearbyFlags(-1, rc.getTeam().opponent());
+        FlagInfo[] nearbyFlags = Utils.sort(rc.senseNearbyFlags(-1, rc.getTeam().opponent()),
+                (flag) -> flag.getLocation().distanceSquaredTo(curLoc));
         detectAndPickupFlags(rc, nearbyFlags);
 
         // If we see crumbs go for them real quick
@@ -143,13 +145,13 @@ public class Attacker extends AbstractRobot {
         }
 
         MapLocation target = null;
-        int bestDist = deviant ? -999999 : 999999;
+        int bestDist = 999999;
         if (deviant) {
-            for (int i = 2; i >= 0; i--) {
+            for (int i = 0; i < 3; i++) {
                 MapLocation flagLoc = Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]);
                 if (flagLoc != null) {
-                    int dist = flagLoc.distanceSquaredTo(curLoc);
-                    if (dist > bestDist) {
+                    int dist = flagLoc.distanceSquaredTo(flagTarget);
+                    if (dist < bestDist) {
                         target = flagLoc;
                         bestDist = dist;
                     }
@@ -188,6 +190,12 @@ public class Attacker extends AbstractRobot {
             }
         }
 
+        if (nearbyFlags.length > 0) {
+            MapLocation closestFlag = nearbyFlags[0].getLocation();
+            if (curLoc.distanceSquaredTo(closestFlag) <= 25) {
+                Pathfinding.moveTowards(rc, curLoc, closestFlag, true);
+            }
+        }
         // no enemies close enough to attack even if they run in
         if (enemyInfos.length == 0 || enemyInfos[0].getLocation().distanceSquaredTo(curLoc) >= 16) {
             // no enemies nearby-ish -> spam traps when no enemies in 2-step range
@@ -207,17 +215,17 @@ public class Attacker extends AbstractRobot {
 
             // no enemies nearby-ish -> there are allies nearby
             if (allyInfos.length > 0) {
-                RobotInfo closestAlly = allyInfos[0];
-                if (closestAlly.getHealth() <= 1000 - rc.getHealAmount()) {
+                RobotInfo weakestAlly = allyInfos[0];
+                if (weakestAlly.getHealth() <= 1000 - rc.getHealAmount()) {
                     for (Direction d : Utils.sort(
                             Utils.getIdealMovementDirections(curLoc, target),
-                            (d) -> curLoc.add(d).distanceSquaredTo(closestAlly.getLocation()))
+                            (d) -> curLoc.add(d).distanceSquaredTo(weakestAlly.getLocation()))
                     ) {
                         if (rc.canMove(d)) {
                             rc.move(d);
                             rc.setIndicatorString("moved towards goal & ally");
-                            if (rc.canHeal(closestAlly.getLocation())) {
-                                rc.heal(closestAlly.getLocation());
+                            if (rc.canHeal(weakestAlly.getLocation())) {
+                                rc.heal(weakestAlly.getLocation());
                                 rc.setIndicatorString("healed a guy");
                             }
                             return;
@@ -227,8 +235,8 @@ public class Attacker extends AbstractRobot {
                             }
                         }
                     }
-                    if (rc.canHeal(closestAlly.getLocation())) {
-                        rc.heal(closestAlly.getLocation());
+                    if (rc.canHeal(weakestAlly.getLocation())) {
+                        rc.heal(weakestAlly.getLocation());
                     }
                 }
             }
@@ -242,76 +250,16 @@ public class Attacker extends AbstractRobot {
         // enemies nearby
         RobotInfo closestEnemy = enemyInfos[0];
         MapLocation closestEnemyLoc = closestEnemy.getLocation();
-//        for (RobotInfo enemy : enemyInfos) {
-//            if (enemy.health < rc.getAttackDamage() && enemy.location.distanceSquaredTo(curLoc) <= 4) {
-//                System.out.println("can 1tap " + rc.getID() + " " + enemy.getID() + " " + rc.getAttackDamage() + " " + enemy.health);
-//                closestEnemyLoc = enemy.location;
-//                break;
-//            }
-//        }
 
         if (allyInfos.length >= enemyInfos.length - 3) {  // more allies than enemies, attack
             int distToClosestEnemy = curLoc.distanceSquaredTo(closestEnemy.getLocation());
-
-//            // 1+ steps away, so move then attack
-//            if (distToClosestEnemy > 4) {
-//                for (Direction d : Utils.getIdealMovementDirections(curLoc, closestEnemyLoc)) {
-//                    if (rc.canMove(d)) {
-//                        rc.move(d);
-//                        if (rc.canAttack(closestEnemyLoc)) {
-//                            rc.attack(closestEnemyLoc);
-//                        }
-//                        return;
-//                    } else {
-//                        if (rc.canFill(curLoc.add(d))) {
-//                            rc.fill(curLoc.add(d));
-//                            return;
-//                        }
-//                    }
-//                }
-//            }
-//
-//            // less than one step away, attack then move back
-//            // However, if there's way more allies than enemies and your health is high enough, just rush in
-//            if (distToClosestEnemy <= 4) {
-//                if (rc.canAttack(closestEnemyLoc)) {
-//                    rc.attack(closestEnemyLoc);
-//                    // TODO added rush in if health high enough just test it out
-////                    Direction[] movementDirections = allyInfos.length > enemyInfos.length * 2 && rc.getHealth() > 700 ?
-////                            Utils.getIdealMovementDirections(curLoc, closestEnemyLoc) :
-////                            Utils.getIdealMovementDirections(closestEnemyLoc, curLoc);
-//                    Direction[] movementDirections = Utils.getIdealMovementDirections(closestEnemyLoc, curLoc);
-//
-//                    for (Direction d : movementDirections) {
-//                        if (rc.canMove(d)) {
-//                            rc.move(d);
-//                            break;
-//                        }
-//                    }
-//                }
-//            }
 
             MapLocation bestTarget = Evals.Action.getBestTarget(rc);
             if (bestTarget != null && rc.canAttack(bestTarget))
                 rc.attack(bestTarget);
 
-            int maxScore = -9999999;
-            Direction bestDir = null;
-
-            for (Direction direction : rc.getHealth() <= 300 ? RobotPlayer.directions :
-                    distToClosestEnemy > 4 ? Utils.getIdealMovementDirections(curLoc, closestEnemyLoc)
-                    : Utils.getIdealMovementDirections(closestEnemyLoc, curLoc)) {
-                if (!rc.canMove(direction))
-                    continue;
-                MapLocation loc = curLoc.add(direction);
-                int eval = staticLocEval(rc, enemyInfos, allyInfos, loc);
-                if (eval > maxScore) {
-                    maxScore = eval;
-                    bestDir = direction;
-                }
-            }
-            if (bestDir != null)
-                rc.move(bestDir);
+            MicroAttacker microAttacker = new MicroAttacker(rc);
+            microAttacker.doMicro();
 
             bestTarget = Evals.Action.getBestTarget(rc);
             if (bestTarget != null && rc.canAttack(bestTarget))
@@ -364,6 +312,7 @@ public class Attacker extends AbstractRobot {
                 }
             }
         }
+
         if (closestEnemyLoc.distanceSquaredTo(curLoc) >= 16) {  // can safely flee
             MapLocation finalPathfindGoalLoc = target;
             for (Direction d : Utils.sort(Utils.getIdealMovementDirections(closestEnemyLoc, curLoc), (dir) -> curLoc.add(dir).distanceSquaredTo(finalPathfindGoalLoc))) {
