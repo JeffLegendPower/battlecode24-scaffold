@@ -3,6 +3,7 @@ package astartest;
 import battlecode.common.*;
 
 import java.util.*;
+import java.util.concurrent.RunnableScheduledFuture;
 
 public class RobotPlayer {
     static RobotController rc;
@@ -36,6 +37,17 @@ public class RobotPlayer {
             Direction.SOUTHWEST,
             Direction.WEST,
             Direction.NORTHWEST
+    };
+
+    public static Direction[] directionsCornersFirst = {
+            Direction.NORTHEAST,
+            Direction.SOUTHWEST,
+            Direction.SOUTHEAST,
+            Direction.NORTHWEST,
+            Direction.WEST,
+            Direction.EAST,
+            Direction.SOUTH,
+            Direction.NORTH,
     };
 
     public static void run(RobotController rc) {
@@ -91,8 +103,10 @@ public class RobotPlayer {
             if (rc.canSpawn(allySpawn)) {
                 rc.spawn(allySpawn);
                 System.out.println("spawned in at " + allySpawn);
-                id = rc.readSharedArray(0);
-                rc.writeSharedArray(0, id+1);
+                if (id == null) {
+                    id = rc.readSharedArray(0);
+                    rc.writeSharedArray(0, id + 1);
+                }
                 robotLoc = rc.getLocation();
                 return true;
             }
@@ -102,13 +116,12 @@ public class RobotPlayer {
 
     public static void onTurn() throws GameActionException {
 
-        // move towards center of map
+        // a star
         aStar();
 
         // scan for fresh locations
         mapFreshInVisionLocations();
 
-        // todo remove
         // debugMappedLocations();
 
         previousLocation = robotLoc;
@@ -123,17 +136,29 @@ public class RobotPlayer {
         return locations;
     }
 
+    static MapLocation[] getAdjacentsCornersFirst(MapLocation loc) {
+        MapLocation[] locations = new MapLocation[8];
+        for (int i=0; i<8; i++) {
+            locations[i] = loc.add(directionsCornersFirst[i]);
+        }
+        return locations;
+    }
+
+    static int[][] aStarGoalDistSquaredMemo;
     static MapLocation aStarGoal;
+    static int aStarGoalX;
+    static int aStarGoalY;
 
     public static int aStarHeuristic(MapLocation a, MapLocation b) {
-        int gx = aStarGoal.x;
-        int gy = aStarGoal.y;
-        return Math.max(Math.abs(a.x-gx), Math.abs(a.y-gy))-Math.max(Math.abs(b.x-gx), Math.abs(b.y-gy));
+        return a.distanceSquaredTo(aStarGoal)-b.distanceSquaredTo(aStarGoal);
     }
 
     public static void aStar() throws GameActionException {
         aStarGoal = centerOfMap;
-        int edgesChecked = 0;
+        aStarGoalX = aStarGoal.x;
+        aStarGoalY = aStarGoal.y;
+        aStarGoalDistSquaredMemo = new int[mapWidth][mapHeight];
+        boolean isFirst = true;
 
         PriorityQueue<MapLocation> queue = new PriorityQueue<>(RobotPlayer::aStarHeuristic);
         queue.add(robotLoc);
@@ -146,55 +171,59 @@ public class RobotPlayer {
         HashMap<MapLocation, Integer> gScore = new HashMap<>();
         gScore.put(robotLoc, 0);
 
-        while (!queue.isEmpty()) {
+        loop: while (!queue.isEmpty()) {
             MapLocation current = queue.poll();
             if (current.equals(aStarGoal)) {
-                System.out.println("got it!");
-                return;
+                break;
                 // done
             }
 
-            for (MapLocation neighbor : getAdjacents(current)) {
-                edgesChecked += 1;
-                if (current.equals(robotLoc)) {
+            for (MapLocation neighbor : getAdjacentsCornersFirst(current)) {
+                if (isFirst) {
                     adjToMoveTo.put(robotLoc, adjToMoveTo.get(neighbor));
                 }
                 if (!rc.onTheMap(neighbor)) {
                     continue;
                 }
-                int tentativeGScore = gScore.getOrDefault(current, 99999999) + 1;
-                if ((mapped[neighbor.x][neighbor.y] & 0b10) == 0b10) {  // is wall
+                if ((mapped[neighbor.x][neighbor.y] & 0b10) > 0) {  // is not passable
                     continue;
                 }
-                if (mapped[neighbor.x][neighbor.y] == 0)  {  // not explored yet, so we can just get there probably
+                int tentativeGScore = gScore.getOrDefault(current, 99999999) + 1;
+                if (mapped[neighbor.x][neighbor.y] == 0) {  // not explored yet, so we can just get there probably
                     Direction moveD = adjToMoveTo.get(current);
                     rc.setIndicatorDot(current, 0, 255, 0);
                     if (rc.canMove(moveD)) {
                         rc.move(moveD);
                         robotLoc = robotLoc.add(moveD);
-                        return;
+                        break loop;
                     }
                     moveD = moveD.rotateRight();
                     if (rc.canMove(moveD)) {
                         rc.move(moveD);
                         robotLoc = robotLoc.add(moveD);
-                        return;
+                        break loop;
                     }
                     moveD = moveD.rotateLeft().rotateLeft();
                     if (rc.canMove(moveD)) {
                         rc.move(moveD);
                         robotLoc = robotLoc.add(moveD);
-                        return;
+                        break loop;
                     }
+                    break loop;
                 }
                 if (tentativeGScore < gScore.getOrDefault(neighbor, 99999999)) {
-                    adjToMoveTo.put(neighbor, adjToMoveTo.get(current));
-                    gScore.put(neighbor, tentativeGScore);
                     if (!queue.contains(neighbor)) {
+                        adjToMoveTo.put(neighbor, adjToMoveTo.get(current));
+                        gScore.put(neighbor, tentativeGScore);
                         queue.add(neighbor);
                     }
                 }
             }
+            isFirst = false;
+        }
+        for (MapLocation ml : gScore.keySet()) {
+            int v = 255-(gScore.get(ml)+aStarGoal.distanceSquaredTo(ml)/5)*6;
+            rc.setIndicatorDot(ml, v, v, v);
         }
 
     }
@@ -252,7 +281,7 @@ public class RobotPlayer {
                 };
             case SOUTHWEST:
                 return new MapLocation[]{
-                        new MapLocation(x+1,  y-4), new MapLocation(x, y-4), new MapLocation(x+1, y-4),
+                        new MapLocation(x+1,  y-4), new MapLocation(x, y-4), new MapLocation(x-1, y-4),
                         new MapLocation(x-2, y-4), new MapLocation(x-2, y-3), new MapLocation(x-3, y-3),
                         new MapLocation(x-3, y-2), new MapLocation(x-4, y-2), new MapLocation(x-4, y-1),
                         new MapLocation(x-4, y), new MapLocation(x-4, y+1), new MapLocation(x-4, y+2),
@@ -284,7 +313,7 @@ public class RobotPlayer {
             for (MapInfo info : nearbyInfos) {
                 MapLocation loc = info.getMapLocation();
                 if (0 <= loc.x && loc.x < mapWidth && 0 <= loc.y & loc.y < mapHeight) {
-                    mapped[loc.x][loc.y] = mapInfoToMappedInt(info);
+                    mapped[loc.x][loc.y] = info.isPassable() ? 0b01 : 0b11;
                 }
             }
             return;
@@ -297,15 +326,10 @@ public class RobotPlayer {
         for (MapLocation l : getFreshInVisionLocations()) {
             if (0 <= l.x && l.x < mapWidth && 0 <= l.y && l.y < mapHeight) {
                 if (mapped[l.x][l.y] == 0) {
-                    MapInfo mapInfo = rc.senseMapInfo(l);
-                    mapped[l.x][l.y] = mapInfoToMappedInt(mapInfo);
+                    mapped[l.x][l.y] = rc.senseMapInfo(l).isPassable() ? 0b01 : 0b11;
                 }
             }
         }
 
-    }
-
-    public static int mapInfoToMappedInt(MapInfo mapInfo) {
-        return mapInfo.isWall() ? 0b11 : 0b01;
     }
 }

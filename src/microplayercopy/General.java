@@ -1,6 +1,8 @@
-package microplayer;
+package microplayercopy;
 
-import battlecode.common.*;
+import battlecode.common.Direction;
+import battlecode.common.MapLocation;
+import battlecode.common.RobotController;
 
 import java.util.ArrayList;
 import java.util.Random;
