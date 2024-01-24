@@ -1,13 +1,11 @@
-package microplayer;
+package microplayercopy;
 
 import battlecode.common.*;
 
 import java.util.Arrays;
 
-import static microplayer.General.*;
-import static microplayer.Utility.*;
-import static microplayercopy.General.rng;
-import static microplayercopy.General.rngSeed;
+import static microplayercopy.General.*;
+import static microplayercopy.Utility.*;
 
 public class RobotPlayer {
     public static void run(RobotController rc2) {
@@ -177,12 +175,7 @@ public class RobotPlayer {
             v >>= 5;
         }
         Integer[] centerSpawnLocationWeightsIndicies;
-        if (Math.max(centerLocationWeights[2], Math.max(centerLocationWeights[0], centerLocationWeights[1])) == 0) {  // no enemies nearby
-            MapLocation centerOfMap = new MapLocation(mapWidth/2, mapHeight/2);
-            centerSpawnLocationWeightsIndicies = sort(new Integer[]{0, 1, 2}, (i) -> centerSpawnLocations[i].distanceSquaredTo(centerOfMap));
-        } else {
-            centerSpawnLocationWeightsIndicies = sort(new Integer[]{0, 1, 2}, (i) -> -centerLocationWeights[i]);
-        }
+        centerSpawnLocationWeightsIndicies = sort(new Integer[]{0, 1, 2}, (i) -> -centerLocationWeights[i]);
         for (int i=0; i<3; i++) {
             if (centerLocationWeights[centerSpawnLocationWeightsIndicies[i]] < total/2) {
                 if (rng.nextInt(4) == 0) {
