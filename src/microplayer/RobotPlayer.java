@@ -255,7 +255,9 @@ public class RobotPlayer {
         if (isCarrier) {
             rc.setIndicatorString("carrying flag " + (flagCarrierIndex+1));
             sort(allySpawnLocations, (spawnLoc) -> spawnLoc.distanceSquaredTo(robotLoc));
+            RobotInfo[] allyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
             MapLocation[] enemyLocations = new MapLocation[enemyInfos.length];
+            MapLocation[] allyLocations = new MapLocation[allyInfos.length];
             MapInfo[] allMapInfos = rc.senseNearbyMapInfos(4);
             MapLocation[] trapLocations = new MapLocation[allMapInfos.length];
             int writeIndex=0;
@@ -267,11 +269,18 @@ public class RobotPlayer {
             for (int i=0; i<enemyInfos.length; i++) {
                 enemyLocations[i] = enemyInfos[i].getLocation();
             }
+            for (int i=0; i<allyInfos.length; i++) {
+                allyLocations[i] = allyInfos[i].getLocation();
+            }
             for (MapLocation adjacent : sort(getAdjacents(robotLoc), (loc) -> {
                 int total = 0;
                 // avoid enemies
                 for (MapLocation enemyLocation : enemyLocations) {
                     total += enemyLocation.distanceSquaredTo(loc);
+                }
+                // go towards allies
+                for (MapLocation allyLocation : allyLocations) {
+                    total -= allyLocation.distanceSquaredTo(loc)/2;
                 }
                 // go towards ally stun traps
                 for (MapLocation trapLocation : trapLocations) {
@@ -288,6 +297,7 @@ public class RobotPlayer {
                 Direction d = robotLoc.directionTo(adjacent);
                 if (rc.canMove(d)) {
                     rc.move(d);
+                    lastTimeSinceFlagCarrierMoved = 0;
                     if (!rc.hasFlag()) {  // flag deposited
                         System.out.println("deposited flag " + (flagCarrierIndex+1));
                         writeLocationToShared(4+flagCarrierIndex, adjacent, 0, 1);
@@ -328,6 +338,12 @@ public class RobotPlayer {
                     flagCarrierIndex = -1;
                     break;
                 }
+            }
+
+            lastTimeSinceFlagCarrierMoved++;
+            if (lastTimeSinceFlagCarrierMoved > 5) {
+                lastTimeSinceFlagCarrierMoved = 0;
+                visited.clear();
             }
             return;
         }
@@ -420,7 +436,9 @@ public class RobotPlayer {
                 broadcastFlagPathfindLoc = locationInOtherDirection(center, centerSpawnLocations[0]);
             } else {
                 rng.nextInt(robotLoc.x * 359 + robotLoc.y * 5995 + 1);
-                broadcastFlagPathfindLoc = broadcasted[rng.nextInt(broadcasted.length)];
+                double theta = rng.nextDouble() * Math.PI * 2;
+                double distance = rng.nextInt(3)+7;
+                broadcastFlagPathfindLoc = broadcasted[rng.nextInt(broadcasted.length)].translate((int) (Math.sin(theta)*distance), (int) (Math.cos(theta)*distance));
             }
         }
         MapLocation pathfindGoalLoc = broadcastFlagPathfindLoc;
@@ -816,16 +834,18 @@ public class RobotPlayer {
 
         // stick to dam
         if (rc.getRoundNum() > 130) {
+            RobotInfo[] enemyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+            RobotInfo[] allyInfos = rc.senseNearbyRobots(-1, rc.getTeam());
             for (MapLocation ml : getAdjacents(robotLoc)) {
                 if (!rc.onTheMap(ml)) {
                     continue;
                 }
                 if (rc.senseMapInfo(ml).isDam()) {
-                    if ((robotLoc.x+robotLoc.y) % 2 == 0) {
+//                    if (enemyInfos.length+1 >= allyInfos.length) {
                         if (rc.canBuild(TrapType.STUN, robotLoc)) {
                             rc.build(TrapType.STUN, robotLoc);
                         }
-                    }
+//                    }
                     return;
                 }
             }

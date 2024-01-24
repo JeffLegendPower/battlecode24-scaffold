@@ -27,6 +27,7 @@ public class General {
 
     public static boolean isCarrier = false;
     public static MapLocation carrierDestination = null;
+    public static int lastTimeSinceFlagCarrierMoved = 0;
     public static int flagCarrierIndex = -1;
     public static int lastAliveRound = -1;
     public static int lastDroppedFlagValue = -1;
