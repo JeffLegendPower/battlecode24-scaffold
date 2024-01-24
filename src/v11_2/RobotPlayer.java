@@ -1,33 +1,21 @@
-package microplayer_v2;
+package v11_2;
 
 import battlecode.common.*;
 
 import java.util.Arrays;
 
-import static microplayer_v2.General.*;
-import static microplayer_v2.Utils.*;
+import static v11_2.General.*;
+import static v11_2.Utils.*;
 
 public class RobotPlayer {
-
-    public static MapInfo[][] map;
-
     public static void run(RobotController rc2) {
-        map = new MapInfo[rc2.getMapWidth()][rc2.getMapHeight()];
         rc = rc2;
         // noinspection InfiniteLoopStatement
         while (true) {
             try {
-                if (tryToSpawnDuck()) {
+                if (spawn()) {
                     continue;
                 }
-
-                if (rc.isSpawned()) {
-                    for (MapInfo info : rc.senseNearbyMapInfos()) {
-                        MapLocation loc = info.getMapLocation();
-                        map[loc.x][loc.y] = info;
-                    }
-                }
-
                 lastAliveRound = rc.getRoundNum();
                 buyGlobalUpgrades();
                 onTurn();
@@ -64,7 +52,29 @@ public class RobotPlayer {
         }
     }
 
-    public static boolean tryToSpawnDuck() throws GameActionException {
+
+    public static void randomizeRng() throws GameActionException {
+        // (linear congruential generator)-ish but bad
+        MapLocation curLoc = rc.getLocation();
+        if (!rc.isSpawned()) {
+            rngSeed = 23892 + rngSeed * 38855;
+        }
+        rngSeed = (rngSeed * 47127 + curLoc.x * 43 + curLoc.y * 59) % 481936283;
+        rng.setSeed(rngSeed);
+        if (Clock.getBytecodesLeft() > 1000) {
+            shuffleInPlace(allySpawnLocations);
+        }
+    }
+
+    public static void onTurn() throws GameActionException {
+        if (rc.getRoundNum() >= 200) {
+            onGameTurn();
+        } else {
+            onSetupTurn();
+        }
+    }
+
+    public static boolean spawn() throws GameActionException {
         if (rc.isSpawned()) {
             return false;
         }
@@ -82,12 +92,10 @@ public class RobotPlayer {
         if (isCarrier) {
             if (flagCarrierIndex == -1) {
                 System.out.println("big error 2 !!!");
-                isCarrier = false;
                 return true;
             }
             if (carrierLocations[flagCarrierIndex] == null) {
-                System.out.println("big error 3 !!!");
-                isCarrier = false;
+                // System.out.println("big error 3 !!!");
                 return true;
             }
             rc.setIndicatorDot(enemyFlagLocations[flagCarrierIndex], 255, 0, 0);
@@ -108,7 +116,6 @@ public class RobotPlayer {
                     rc.writeSharedArray(flagCarrierIndex + 1, locToInt(enemyFlagLocations[flagCarrierIndex], 0, 0));
                 }
                 lastDroppedFlagValue = -1;
-                isCarrier = false;
                 flagCarrierIndex = -1;
             }
         }
@@ -132,7 +139,7 @@ public class RobotPlayer {
 
         if (centerSpawnLocations == null) {
             centerSpawnLocations = new MapLocation[3];
-            int i=0;
+            int i = 0;
             for (MapLocation allySpawn1 : allySpawnLocations) {
                 MapLocation[] checks = {
                         allySpawn1.add(Direction.NORTHWEST),
@@ -157,7 +164,6 @@ public class RobotPlayer {
                 if (allChecksPassed) {
                     rc.setIndicatorDot(allySpawn1, 0, 255, 0);
                     centerSpawnLocations[i++] = allySpawn1;
-
                 }
             }
             for (MapLocation protectedFlagLoc : centerSpawnLocations) {
@@ -180,12 +186,19 @@ public class RobotPlayer {
 
         int v = rc.readSharedArray(7);
         int[] centerLocationWeights = new int[3];
+        int total = 0;
         for (int i=0; i<3; i++) {
             centerLocationWeights[i] = v & 0b11111;
+            total += v & 0b11111;
             v >>= 5;
         }
         Integer[] centerSpawnLocationWeightsIndicies = sort(new Integer[]{0, 1, 2}, (i) -> -centerLocationWeights[i]);
         for (int i=0; i<3; i++) {
+            if (centerLocationWeights[centerSpawnLocationWeightsIndicies[i]] < total/2) {
+                if (rng.nextInt(3) == 1) {
+                    continue;
+                }
+            }
             MapLocation centerSpawnLocation = centerSpawnLocations[centerSpawnLocationWeightsIndicies[i]];
             for (MapLocation adjacent : getAdjacents(centerSpawnLocation)) {
                 if (rc.canSpawn(adjacent)) {
@@ -197,29 +210,11 @@ public class RobotPlayer {
         return true;
     }
 
-    public static void randomizeRng() throws GameActionException {
-        // (linear congruential generator)-ish but bad
-        MapLocation robotLoc = rc.getLocation();
-        rngSeed = (rngSeed * 47127 + robotLoc.x * 43 + robotLoc.y * 59) % 481936283;
-        rng.setSeed(rngSeed);
-        if (Clock.getBytecodesLeft() > 1000) {
-            shuffleInPlace(allySpawnLocations);
-        }
-    }
-
-    public static void onTurn() throws GameActionException {
-        if (rc.getRoundNum() >= 200) {
-            onGameTurn();
-        } else {
-            onSetupTurn();
-        }
-    }
-
     public static void onGameTurn() throws GameActionException {
-        MapLocation robotLoc = rc.getLocation();
+        MapLocation curLoc = rc.getLocation();
 
         RobotInfo[] enemyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-        sort(enemyInfos, (enemy) -> enemy.getLocation().distanceSquaredTo(robotLoc));
+        sort(enemyInfos, (enemy) -> enemy.getLocation().distanceSquaredTo(curLoc));
 
         // read enemy flag locations from shared
         for (int i=0; i<3; i++) {
@@ -256,28 +251,43 @@ public class RobotPlayer {
         // flag carrier stuff
         if (isCarrier) {
             rc.setIndicatorString("carrying flag " + (flagCarrierIndex+1));
-            sort(allySpawnLocations, (spawnLoc) -> spawnLoc.distanceSquaredTo(robotLoc));
+            sort(allySpawnLocations, (spawnLoc) -> spawnLoc.distanceSquaredTo(curLoc));
             MapLocation[] enemyLocations = new MapLocation[enemyInfos.length];
+            MapInfo[] allMapInfos = rc.senseNearbyMapInfos(4);
+            MapLocation[] trapLocations = new MapLocation[allMapInfos.length];
+            int writeIndex=0;
+            for (MapInfo allMapInfo : allMapInfos) {
+                if (allMapInfo.getTrapType().equals(TrapType.STUN)) {
+                    trapLocations[writeIndex++] = allMapInfo.getMapLocation();
+                }
+            }
             for (int i=0; i<enemyInfos.length; i++) {
                 enemyLocations[i] = enemyInfos[i].getLocation();
             }
-            for (MapLocation adjacent : sort(getAdjacents(robotLoc), (loc) -> {
+            for (MapLocation adjacent : sort(getAdjacents(curLoc), (loc) -> {
                 int total = 0;
+                // avoid enemies
                 for (MapLocation enemyLocation : enemyLocations) {
                     total += enemyLocation.distanceSquaredTo(loc);
+                }
+                // go towards ally stun traps
+                for (MapLocation trapLocation : trapLocations) {
+                    if (trapLocation == null) {
+                        break;
+                    }
+                    total -= (trapLocation.distanceSquaredTo(loc) * 2) / 3;
                 }
                 return loc.distanceSquaredTo(carrierDestination) - total;
             })) {
                 if (visited.contains(adjacent)) {
                     continue;
                 }
-                Direction d = robotLoc.directionTo(adjacent);
+                Direction d = curLoc.directionTo(adjacent);
                 if (rc.canMove(d)) {
                     rc.move(d);
                     if (!rc.hasFlag()) {  // flag deposited
                         System.out.println("deposited flag " + (flagCarrierIndex+1));
                         writeLocationToShared(4+flagCarrierIndex, adjacent, 0, 1);
-                        isCarrier = false;
                         flagCarrierIndex = -1;
                         break;
                     }
@@ -288,7 +298,7 @@ public class RobotPlayer {
             }
             // pass the flag if stuck
             if (rc.getMovementCooldownTurns() < 10 && rc.getActionCooldownTurns() < 10) {
-                for (MapLocation d : sort(getAdjacents(robotLoc), (loc) -> loc.distanceSquaredTo(allySpawnLocations[0]))) {
+                for (MapLocation d : sort(getAdjacents(curLoc), (loc) -> loc.distanceSquaredTo(allySpawnLocations[0]))) {
                     if (!rc.onTheMap(d)) {
                         continue;
                     }
@@ -306,7 +316,6 @@ public class RobotPlayer {
                         break;
                     }
                     rc.dropFlag(ally.getLocation());
-                    isCarrier = false;
                     transferCooldown = 4;
                     rc.writeSharedArray(flagCarrierIndex+4, locToInt(ally.getLocation(), 1, 0));
                     hasCarrierDroppedFlag[flagCarrierIndex] = true;
@@ -320,8 +329,8 @@ public class RobotPlayer {
 
         // protector stuff
         MapLocation[] diagonals = new MapLocation[]{
-                robotLoc.add(Direction.NORTHWEST), robotLoc.add(Direction.SOUTHEAST),
-                robotLoc.add(Direction.SOUTHWEST), robotLoc.add(Direction.NORTHEAST)
+                curLoc.add(Direction.NORTHWEST), curLoc.add(Direction.SOUTHEAST),
+                curLoc.add(Direction.SOUTHWEST), curLoc.add(Direction.NORTHEAST)
         };
         if (isProtector) {
             int v = rc.readSharedArray(7);
@@ -342,7 +351,7 @@ public class RobotPlayer {
             sort(diagonals, (loc) -> {
                 int total=0;
                 for (RobotInfo enemy : enemyInfos) {
-                    total += enemy.getLocation().distanceSquaredTo(robotLoc);
+                    total += enemy.getLocation().distanceSquaredTo(curLoc);
                 }
                 return total;
             });
@@ -354,14 +363,11 @@ public class RobotPlayer {
                 }
             }
 
-//            for (RobotInfo enemy : enemyInfos) {
-//                if (rc.canAttack(enemy.getLocation())) {
-//                    rc.attack(enemy.getLocation());
-//                }
-//            }
-//            Evaluators.Action best = Evaluators.Action.getBest(rc);
-//            if (best.target != null && rc.canAttack(best.target))
-//                rc.attack(best.target);
+            for (RobotInfo enemy : enemyInfos) {
+                if (rc.canAttack(enemy.getLocation())) {
+                    rc.attack(enemy.getLocation());
+                }
+            }
 
             return;
         }
@@ -369,31 +375,46 @@ public class RobotPlayer {
         // see crumbs, go to the nearest one
         MapLocation[] crumbLocs = rc.senseNearbyCrumbs(-1);
         if (crumbLocs.length > 0) {
-            sort(crumbLocs, (crumbLoc) -> crumbLoc.distanceSquaredTo(robotLoc));
+            sort(crumbLocs, (crumbLoc) -> crumbLoc.distanceSquaredTo(curLoc));
             MapLocation closestCrumbLoc = crumbLocs[0];
-            Direction[] idealMovementDirections = getIdealMovementDirections(robotLoc, closestCrumbLoc);
+            if (continueInThisDirection != null) {
+                if (rc.canMove(continueInThisDirection)) {
+                    rc.move(continueInThisDirection);
+                }
+                if (rng.nextInt(7) == 0) {
+                    continueInThisDirection = null;
+                }
+            }
+            Direction[] idealMovementDirections = getIdealMovementDirections(curLoc, closestCrumbLoc);
+            int i=0;
             // try to move in the ideal directions
             for (Direction idealMoveDir : idealMovementDirections) {
+                i++;
                 if (rc.canMove(idealMoveDir)) {
+                    if (i >= 3) {
+                        continueInThisDirection = idealMoveDir;
+                    }
                     rc.move(idealMoveDir);
                     return;
                 } else {
-                    if (rc.canFill(robotLoc.add(idealMoveDir))) {
-                        rc.fill(robotLoc.add(idealMoveDir));
+                    if (rc.canFill(curLoc.add(idealMoveDir))) {
+                        rc.fill(curLoc.add(idealMoveDir));
                         return;
                     }
                 }
             }
+
             return;
         }
 
         // go to nearest flag or nearest broadcast flag location
-        if (broadcastFlagPathfindLoc == null) {
+        if (broadcastFlagPathfindLoc == null || (rc.getRoundNum() % 100) == 0) {
             MapLocation[] broadcasted = rc.senseBroadcastFlagLocations();
             if (broadcasted.length == 0) {
                 MapLocation center = new MapLocation(mapWidth/2, mapHeight/2);
                 broadcastFlagPathfindLoc = locationInOtherDirection(center, centerSpawnLocations[0]);
             } else {
+                rng.nextInt(curLoc.x * 359 + curLoc.y * 5995 + 1);
                 broadcastFlagPathfindLoc = broadcasted[rng.nextInt(broadcasted.length)];
             }
         }
@@ -408,7 +429,7 @@ public class RobotPlayer {
             if (enemyFlagLoc == null) {
                 continue;
             }
-            int flagDist = enemyFlagLoc.distanceSquaredTo(robotLoc);
+            int flagDist = enemyFlagLoc.distanceSquaredTo(curLoc);
             if (closestFlagDistance > flagDist) {
                 closestFlagDistance = flagDist;
                 pathfindGoalLoc = enemyFlagLoc;
@@ -426,7 +447,7 @@ public class RobotPlayer {
             if (isEnemyFlagDeposited[i]) {
                 continue;
             }
-            int distance = carrierLoc.distanceSquaredTo(robotLoc);
+            int distance = carrierLoc.distanceSquaredTo(curLoc);
             if (closestCarrierDistance > distance) {
                 closestCarrierDistance = distance;
                 closestCarrierLocation = carrierLoc;
@@ -435,17 +456,17 @@ public class RobotPlayer {
         if (closestCarrierLocation != null) {
             pathfindGoalLoc = closestCarrierLocation;
             if (closestCarrierDistance < 8) {
-                pathfindGoalLoc = locationInOtherDirection(robotLoc, pathfindGoalLoc);
+                pathfindGoalLoc = locationInOtherDirection(curLoc, pathfindGoalLoc);
             }
             // try to spam traps around carrier
             if (enemyInfos.length > 0) {
                 rc.setIndicatorString("spamming traps around carrier");
                 if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2) {
                     for (Direction direction : Direction.allDirections()) {
-                        MapLocation newLoc = robotLoc.add(direction);
+                        MapLocation newLoc = curLoc.add(direction);
                         if ((newLoc.x + newLoc.y) % 2 == 0) {
-                            if (rc.canBuild(TrapType.STUN, robotLoc.add(direction))) {
-                                rc.build(TrapType.STUN, robotLoc.add(direction));
+                            if (rc.canBuild(TrapType.STUN, curLoc.add(direction))) {
+                                rc.build(TrapType.STUN, curLoc.add(direction));
                                 break;
                             }
                         }
@@ -486,21 +507,21 @@ public class RobotPlayer {
                 }
             }
 
-            if (flagInfo.getLocation().distanceSquaredTo(robotLoc) <= 2) {  // grab the flag
+            if (flagInfo.getLocation().distanceSquaredTo(curLoc) <= 2) {  // grab the flag
                 if (transferCooldown > 0) {
                     continue;
                 }
                 if (rc.canPickupFlag(flagInfo.getLocation())) {
                     rc.pickupFlag(flagInfo.getLocation());
                     isCarrier = true;
-                    sort(allySpawnLocations, (loc) -> loc.distanceSquaredTo(robotLoc));
+                    sort(allySpawnLocations, (loc) -> loc.distanceSquaredTo(curLoc));
                     carrierDestination = allySpawnLocations[0];
-                    visited.add(robotLoc);
+                    visited.add(curLoc);
                     for (int i=0; i<3; i++) {
                         if (enemyFlagLocations[i].equals(flagInfo.getLocation())) {
                             flagCarrierIndex = i;
                             System.out.println("flag " + (i+1) + " picked up at " + flagInfo.getLocation());
-                            writeLocationToShared(4+i, robotLoc, 0, 0);
+                            writeLocationToShared(4+i, curLoc, 0, 0);
                             writeLocationToShared(1+i, enemyFlagLocations[i], 1, 0);
                             return;
                         }
@@ -510,7 +531,7 @@ public class RobotPlayer {
                         if (carrierLocations[i].equals(flagInfo.getLocation())) {  // picked up dead carrier's flag
                             flagCarrierIndex = i;
                             System.out.println("flag " + (i+1) + " reacquired at " + flagInfo.getLocation());
-                            writeLocationToShared(4+i, robotLoc, 0, 0);
+                            writeLocationToShared(4+i, curLoc, 0, 0);
                             writeLocationToShared(1+i, enemyFlagLocations[i], 1, 0);
                             return;
                         }
@@ -520,19 +541,19 @@ public class RobotPlayer {
         }
 
         RobotInfo[] allyInfos = rc.senseNearbyRobots(-1, rc.getTeam());
-        sort(allyInfos, (ally) -> (ally.getLocation().distanceSquaredTo(robotLoc) - rc.getHealth() / 100 - (rc.hasFlag() ? 10000 : 0)));
+        sort(allyInfos, (ally) -> (ally.getLocation().distanceSquaredTo(curLoc) - rc.getHealth() / 100 - (rc.hasFlag() ? 10000 : 0)));
 
         // no enemies nearby-ish
-        if (enemyInfos.length == 0 || enemyInfos[0].getLocation().distanceSquaredTo(robotLoc) >= 16) {
+        if (enemyInfos.length == 0 || enemyInfos[0].getLocation().distanceSquaredTo(curLoc) >= 16) {
             // no enemies nearby-ish -> spam traps when no enemies in 2 step range
             if (enemyInfos.length > 0) {
                 rc.setIndicatorString("spamming traps");
                 if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2) {
                     for (Direction direction : Direction.allDirections()) {
-                        MapLocation newLoc = robotLoc.add(direction);
-                        if ((newLoc.x + newLoc.y) % 2 == 0) {
-                            if (rc.canBuild(TrapType.STUN, robotLoc.add(direction))) {
-                                rc.build(TrapType.STUN, robotLoc.add(direction));
+                        MapLocation newLoc = curLoc.add(direction);
+                        if (rc.getCrumbs() > 5000 || (curLoc.x+curLoc.y) % 2 == 0) {
+                            if (rc.canBuild(TrapType.STUN, newLoc)) {
+                                rc.build(TrapType.STUN, newLoc);
                                 break;
                             }
                         }
@@ -545,8 +566,8 @@ public class RobotPlayer {
                 RobotInfo closestAlly = allyInfos[0];
                 if (closestAlly.getHealth() <= 1000 - rc.getHealAmount()) {
                     for (Direction d : sort(
-                            getIdealMovementDirections(robotLoc, pathfindGoalLoc),
-                            (d) -> robotLoc.add(d).distanceSquaredTo(closestAlly.getLocation()))
+                            getIdealMovementDirections(curLoc, pathfindGoalLoc),
+                            (d) -> curLoc.add(d).distanceSquaredTo(closestAlly.getLocation()))
                     ) {
                         if (rc.canMove(d)) {
                             rc.move(d);
@@ -557,8 +578,8 @@ public class RobotPlayer {
                             }
                             return;
                         } else {
-                            if (rc.canFill(robotLoc.add(d))) {
-                                rc.fill(robotLoc.add(d));
+                            if (rc.canFill(curLoc.add(d))) {
+                                rc.fill(curLoc.add(d));
                             }
                         }
                     }
@@ -569,13 +590,13 @@ public class RobotPlayer {
             }
 
             // no enemies nearby-ish -> no allies nearby
-            for (Direction d : getIdealMovementDirections(robotLoc, pathfindGoalLoc)) {
+            for (Direction d : getIdealMovementDirections(curLoc, pathfindGoalLoc)) {
                 if (rc.canMove(d)) {
                     rc.move(d);
                     return;
                 } else {
-                    if (rc.canFill(robotLoc.add(d))) {
-                        rc.fill(robotLoc.add(d));
+                    if (rc.canFill(curLoc.add(d))) {
+                        rc.fill(curLoc.add(d));
                         return;
                     }
                 }
@@ -587,26 +608,20 @@ public class RobotPlayer {
         RobotInfo closestEnemy = enemyInfos[0];
         MapLocation closestEnemyLoc = closestEnemy.getLocation();
         if (allyInfos.length >= enemyInfos.length-3) {  // more allies than enemies, attack
-            int distToClosestEnemy = robotLoc.distanceSquaredTo(closestEnemy.getLocation());
+            int distToClosestEnemy = curLoc.distanceSquaredTo(closestEnemy.getLocation());
 
             // 1+ steps away, so move then attack
             if (distToClosestEnemy > 4) {
-                for (Direction d : getIdealMovementDirections(robotLoc, closestEnemyLoc)) {
+                for (Direction d : getIdealMovementDirections(curLoc, closestEnemyLoc)) {
                     if (rc.canMove(d)) {
                         rc.move(d);
-//                        Evaluators.Action best = Evaluators.Action.getBest(rc);
-//                        if (best.target != null && rc.canAttack(best.target))
-//                            rc.attack(best.target);
-
-//                        if (rc.canAttack(closestEnemyLoc)) {
-//                            rc.attack(closestEnemyLoc);
-//                            rc.setIndicatorString("moved and got in range and attacked");
-//                        }
-                        rc.setIndicatorString("moving closer to enemy");
+                        if (rc.canAttack(closestEnemyLoc)) {
+                            rc.attack(closestEnemyLoc);
+                        }
                         return;
                     } else {
-                        if (rc.canFill(robotLoc.add(d))) {
-                            rc.fill(robotLoc.add(d));
+                        if (rc.canFill(curLoc.add(d))) {
+                            rc.fill(curLoc.add(d));
                             return;
                         }
                     }
@@ -615,41 +630,28 @@ public class RobotPlayer {
 
             // less than one step away, attack then move back
             if (distToClosestEnemy <= 4) {
-//                Evaluators.Action best = Evaluators.Action.getBest(rc);
-//                if (best.target != null && rc.canAttack(best.target)) {
-//                    rc.attack(best.target);
-//                    for (Direction d : getIdealMovementDirections(closestEnemyLoc, robotLoc)) {
-//                        if (rc.canMove(d)) {
-//                            rc.move(d);
-//                            rc.setIndicatorString("moved away from enemy");
-//                            break;
-//                        }
-//                    }
-//                    return;
-//                }
-
-//                if (rc.canAttack(closestEnemyLoc)) {
-//                    rc.attack(closestEnemyLoc);
-//                    for (Direction d : getIdealMovementDirections(closestEnemyLoc, robotLoc)) {
-//                        if (rc.canMove(d)) {
-//                            rc.move(d);
-//                            break;
-//                        }
-//                    }
-//                    rc.setIndicatorString("Enemy in range, attacked");
-//                    return;
-//                }
-//                rc.setIndicatorString("Enemy in range, not attacked");
+                if (rc.canAttack(closestEnemyLoc)) {
+                    rc.attack(closestEnemyLoc);
+                    for (Direction d : getIdealMovementDirections(closestEnemyLoc, curLoc)) {
+                        if (rc.canMove(d)) {
+                            rc.move(d);
+                            break;
+                        }
+                    }
+                    rc.setIndicatorString("Enemy in range, attacked");
+                    return;
+                }
+                rc.setIndicatorString("Enemy in range, not attacked");
             }
 
             // spam traps if still can do stuff
             rc.setIndicatorString("spamming traps");
             if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2) {
                 for (Direction direction : Direction.allDirections()) {
-                    MapLocation newLoc = robotLoc.add(direction);
-                    if ((newLoc.x + newLoc.y) % 2 == 0) {
-                        if (rc.canBuild(TrapType.STUN, robotLoc.add(direction))) {
-                            rc.build(TrapType.STUN, robotLoc.add(direction));
+                    MapLocation newLoc = curLoc.add(direction);
+                    if ((newLoc.x - newLoc.y * 2) % 3 == 1) {
+                        if (rc.canBuild(TrapType.STUN, curLoc.add(direction))) {
+                            rc.build(TrapType.STUN, curLoc.add(direction));
                             break;
                         }
                     }
@@ -668,29 +670,28 @@ public class RobotPlayer {
             return;
         }
 
-        // more enemies than allies by a bit, spam traps
-        rc.setIndicatorString("spamming traps");
+        // More enemies than allies by a bit, spam traps
         if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2) {
             for (Direction direction : Direction.allDirections()) {
-                MapLocation newLoc = robotLoc.add(direction);
+                MapLocation newLoc = curLoc.add(direction);
                 if ((newLoc.x + newLoc.y) % 2 == 0) {
-                    if (rc.canBuild(TrapType.STUN, robotLoc.add(direction))) {
-                        rc.build(TrapType.STUN, robotLoc.add(direction));
+                    if (rc.canBuild(TrapType.STUN, curLoc.add(direction))) {
+                        rc.build(TrapType.STUN, curLoc.add(direction));
                         break;
                     }
                 }
             }
         }
-        if (closestEnemyLoc.distanceSquaredTo(robotLoc) >= 16) {  // can safely flee
+        // Can safely flee
+        if (closestEnemyLoc.distanceSquaredTo(curLoc) >= 16) {
             MapLocation finalPathfindGoalLoc = pathfindGoalLoc;
-            for (Direction d : sort(getIdealMovementDirections(closestEnemyLoc, robotLoc), (dir) -> robotLoc.add(dir).distanceSquaredTo(finalPathfindGoalLoc))) {
+            for (Direction d : sort(getIdealMovementDirections(closestEnemyLoc, curLoc), (dir) -> curLoc.add(dir).distanceSquaredTo(finalPathfindGoalLoc))) {
                 if (rc.canMove(d)) {
                     rc.move(d);
-                    rc.setIndicatorString("fleeing");
                     return;
                 } else {
-                    if (rc.canFill(robotLoc.add(d))) {
-                        rc.fill(robotLoc.add(d));
+                    if (rc.canFill(curLoc.add(d))) {
+                        rc.fill(curLoc.add(d));
                     }
                 }
             }
@@ -700,26 +701,55 @@ public class RobotPlayer {
         if (rc.canAttack(closestEnemyLoc)) {
             rc.attack(closestEnemyLoc);
         }
-
-        for (Direction d : getIdealMovementDirections(closestEnemyLoc, robotLoc)) {
+        for (Direction d : getIdealMovementDirections(closestEnemyLoc, curLoc)) {
             if (rc.canMove(d)) {
                 rc.move(d);
                 break;
             }
         }
-        rc.setIndicatorString("dying a hero");
     }
 
     public static void onSetupTurn() throws GameActionException {
-        MapLocation robotLoc = rc.getLocation();
+        MapLocation curLoc = rc.getLocation();
 
         // protecting flag
         if (isProtector) {
-            for (MapLocation diag : new MapLocation[]{
-                    robotLoc.add(Direction.NORTHWEST), robotLoc.add(Direction.SOUTHEAST),
-                    robotLoc.add(Direction.SOUTHWEST), robotLoc.add(Direction.NORTHEAST)}) {
-                if (rc.canBuild(TrapType.STUN, diag)) {
-                    rc.build(TrapType.STUN, diag);
+            if (rc.getRoundNum() < 30) {
+                for (MapLocation diag : new MapLocation[]{
+                        curLoc.add(Direction.NORTHWEST), curLoc.add(Direction.SOUTHEAST),
+                        curLoc.add(Direction.SOUTHWEST), curLoc.add(Direction.NORTHEAST)}) {
+                    if (rc.canBuild(TrapType.STUN, diag)) {
+                        rc.build(TrapType.STUN, diag);
+                    }
+                }
+            }
+            else if (rc.getRoundNum() < 180) {
+                if (curLoc.distanceSquaredTo(myProtectedFlagLocation) > 9) {
+                    Direction[] options = getIdealMovementDirections(curLoc, myProtectedFlagLocation);
+                    for (Direction option : options) {
+                        if (rc.canMove(option)) {
+                            rc.move(option);
+                            break;
+                        }
+                    }
+                    return;
+                }
+                Direction dir = directions[rng.nextInt(4) * 2];
+                if (rc.canMove(dir))
+                    rc.move(dir);
+                MapLocation digTarget = curLoc.add(directions[rng.nextInt(4) * 2 + 1]);
+                if (rc.canDig(digTarget))
+                    rc.dig(digTarget);
+            }
+            else {
+                if (!curLoc.equals(myProtectedFlagLocation)) {
+                    Direction[] options = getIdealMovementDirections(curLoc, myProtectedFlagLocation);
+                    for (Direction option : options) {
+                        if (rc.canMove(option)) {
+                            rc.move(option);
+                            break;
+                        }
+                    }
                 }
             }
             return;
@@ -728,17 +758,30 @@ public class RobotPlayer {
         // see crumbs, go to the nearest one
         MapLocation[] crumbLocs = rc.senseNearbyCrumbs(-1);
         if (crumbLocs.length > 0) {
-            sort(crumbLocs, (crumbLoc) -> crumbLoc.distanceSquaredTo(robotLoc));
+            sort(crumbLocs, (crumbLoc) -> crumbLoc.distanceSquaredTo(curLoc));
             MapLocation closestCrumbLoc = crumbLocs[0];
-            Direction[] idealMovementDirections = getIdealMovementDirections(robotLoc, closestCrumbLoc);
+            if (continueInThisDirection != null) {
+                if (rc.canMove(continueInThisDirection)) {
+                    rc.move(continueInThisDirection);
+                }
+                if (rng.nextInt(10) == 0) {
+                    continueInThisDirection = null;
+                }
+            }
+            Direction[] idealMovementDirections = getIdealMovementDirections(curLoc, closestCrumbLoc);
             // try to move in the ideal directions
+            int i=0;
             for (Direction idealMoveDir : idealMovementDirections) {
+                i++;
                 if (rc.canMove(idealMoveDir)) {
                     rc.move(idealMoveDir);
+                    if (i >= 3) {
+                        continueInThisDirection = idealMoveDir;
+                    }
                     return;
                 } else {
-                    if (rc.canFill(robotLoc.add(idealMoveDir))) {
-                        rc.fill(robotLoc.add(idealMoveDir));
+                    if (rc.canFill(curLoc.add(idealMoveDir))) {
+                        rc.fill(curLoc.add(idealMoveDir));
                         return;
                     }
                 }
@@ -749,14 +792,14 @@ public class RobotPlayer {
         // ducks 3-7 go to center
         if ((3 <= id && id <= 7) && rc.getRoundNum() <= 78) {  // 1-78
             MapLocation centerLocation = new MapLocation(mapWidth/2, mapHeight/2);
-            Direction[] idealMovementDirections = getIdealMovementDirections(robotLoc, centerLocation);
+            Direction[] idealMovementDirections = getIdealMovementDirections(curLoc, centerLocation);
             // move closer if possible
             for (Direction idealMoveDir : idealMovementDirections) {
-                MapLocation nextLoc = robotLoc.add(idealMoveDir);
+                MapLocation nextLoc = curLoc.add(idealMoveDir);
                 if (contains(visitedForSetupPathfinding, nextLoc)) {
                     continue;
                 }
-                if (nextLoc.distanceSquaredTo(centerLocation) > robotLoc.distanceSquaredTo(centerLocation)) {
+                if (nextLoc.distanceSquaredTo(centerLocation) > curLoc.distanceSquaredTo(centerLocation)) {
                     continue;
                 }
                 if (rc.canMove(idealMoveDir)) {
@@ -767,8 +810,8 @@ public class RobotPlayer {
             }
             // if not possible to move closer, fill closer
             for (Direction idealMoveDir : idealMovementDirections) {
-                MapLocation nextLoc = robotLoc.add(idealMoveDir);
-                if (nextLoc.distanceSquaredTo(centerLocation) > robotLoc.distanceSquaredTo(centerLocation)) {
+                MapLocation nextLoc = curLoc.add(idealMoveDir);
+                if (nextLoc.distanceSquaredTo(centerLocation) > curLoc.distanceSquaredTo(centerLocation)) {
                     continue;
                 }
                 if (rc.canFill(nextLoc)) {
@@ -777,12 +820,12 @@ public class RobotPlayer {
                 }
             }
             // if not possible to fill closer, do visited thing
-            for (MapLocation nextLoc : sort(getAdjacents(robotLoc), (loc) -> loc.distanceSquaredTo(centerLocation))) {
+            for (MapLocation nextLoc : sort(getAdjacents(curLoc), (loc) -> loc.distanceSquaredTo(centerLocation))) {
                 if (contains(visitedForSetupPathfinding, nextLoc)) {
                     continue;
                 }
-                if (rc.canMove(robotLoc.directionTo(nextLoc))) {
-                    rc.move(robotLoc.directionTo(nextLoc));
+                if (rc.canMove(curLoc.directionTo(nextLoc))) {
+                    rc.move(curLoc.directionTo(nextLoc));
                     visitedForSetupPathfinding[visitedForSetupPathfindingIndex++ % visitedForSetupPathfinding.length] = nextLoc;
                     return;
                 }
@@ -795,14 +838,14 @@ public class RobotPlayer {
 
         // stick to dam
         if (rc.getRoundNum() > 130) {
-            for (MapLocation ml : getAdjacents(robotLoc)) {
+            for (MapLocation ml : getAdjacents(curLoc)) {
                 if (!rc.onTheMap(ml)) {
                     continue;
                 }
                 if (rc.senseMapInfo(ml).isDam()) {
-                    if ((robotLoc.x+robotLoc.y) % 2 == 0) {
-                        if (rc.canBuild(TrapType.STUN, robotLoc)) {
-                            rc.build(TrapType.STUN, robotLoc);
+                    if ((curLoc.x+curLoc.y) % 2 == 0) {
+                        if (rc.canBuild(TrapType.STUN, curLoc)) {
+                            rc.build(TrapType.STUN, curLoc);
                         }
                     }
                     return;
@@ -816,18 +859,18 @@ public class RobotPlayer {
                 }
             }
             if (damLocation != null) {
-                for (Direction idealDir : getIdealMovementDirections(robotLoc, damLocation)) {
+                for (Direction idealDir : getIdealMovementDirections(curLoc, damLocation)) {
                     if (rc.canMove(idealDir)) {
                         rc.move(idealDir);
                     }
                 }
             }
             MapLocation centerLoc = new MapLocation(mapWidth/2, mapHeight/2);
-            for (Direction d : getIdealMovementDirections(robotLoc, centerLoc)) {
+            for (Direction d : getIdealMovementDirections(curLoc, centerLoc)) {
                 if (rc.canMove(d)) {
                     rc.move(d);
                 } else {
-                    MapLocation newLoc = robotLoc.add(d);
+                    MapLocation newLoc = curLoc.add(d);
                     if (rc.canFill(newLoc)) {
                         rc.fill(newLoc);
                     }
@@ -842,7 +885,7 @@ public class RobotPlayer {
             if (rc.canMove(lastMovedSetupExplorationDirection)) {
                 rc.move(lastMovedSetupExplorationDirection);
             } else {
-                lastMovedSetupExplorationDirection = Utils.directions[rng.nextInt(Utils.directions.length)];
+                lastMovedSetupExplorationDirection = directions[rng.nextInt(directions.length)];
             }
         }
 
@@ -851,11 +894,11 @@ public class RobotPlayer {
         for (int i=0; i<nearbyAllies.length; i++) {
             nearbyAllyLocations[i] = nearbyAllies[i].getLocation();
         }
-        Direction[] sortedDirections = sort(Utils.directions, (dir) -> {
-            MapLocation newRobotLoc = robotLoc.add(dir);
+        Direction[] sortedDirections = sort(directions, (dir) -> {
+            MapLocation newcurLoc = curLoc.add(dir);
             int weight = 0;
             for (MapLocation nearbyAllyLoc : nearbyAllyLocations) {
-                weight -= nearbyAllyLoc.distanceSquaredTo(newRobotLoc);
+                weight -= nearbyAllyLoc.distanceSquaredTo(newcurLoc);
             }
             return weight;
         });

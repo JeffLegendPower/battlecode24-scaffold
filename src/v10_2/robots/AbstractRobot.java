@@ -19,19 +19,11 @@ public abstract class AbstractRobot {
     public void spawn(RobotController rc) throws GameActionException {
         if (rc.isSpawned()) return;
 
-//        for (MapLocation spawnLoc : rc.getAllySpawnLocations()) {
-//            if (rc.canSpawn(spawnLoc)) {
-//                rc.spawn(spawnLoc);
-//                spawn = spawnLoc;
-//                return;
-//            }
-//        }
-
         int tries = 0;
         MapLocation[] spawnLocs = rc.getAllySpawnLocations();
 
         while (!rc.isSpawned()) {
-            if (tries > 10) break;
+            if (tries > 15) break;
             int rand = RobotPlayer.rng.nextInt(spawnLocs.length);
             if (rc.canSpawn(spawnLocs[rand])) {
                 rc.spawn(spawnLocs[rand]);

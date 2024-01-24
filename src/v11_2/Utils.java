@@ -1,27 +1,18 @@
-package microplayer_v2;
+package v11_2;
 
-import battlecode.common.*;
+import battlecode.common.Direction;
+import battlecode.common.GameActionException;
+import battlecode.common.MapLocation;
+import battlecode.common.RobotInfo;
 
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.function.Function;
 
-import static microplayer.General.*;
+import static v11_2.General.*;
 
 public class Utils {
-
-    public static Direction[] directions = {
-        Direction.NORTH,
-        Direction.NORTHEAST,
-        Direction.EAST,
-        Direction.SOUTHEAST,
-        Direction.SOUTH,
-        Direction.SOUTHWEST,
-        Direction.WEST,
-        Direction.NORTHWEST
-    };
-
-    static <T> T[] shuffleInPlace(T[] list) {
+    public static <T> T[] shuffleInPlace(T[] list) {
         for (int i1=0; i1<list.length; i1++) {
             int i2 = rng.nextInt(list.length);
             T o1 = list[i1];
@@ -31,12 +22,12 @@ public class Utils {
         return list;
     }
 
-    static <T> T[] sort(T[] list, Function<T, Integer> valueFn) {
+    public static <T> T[] sort(T[] list, Function<T, Integer> valueFn) {
         Arrays.sort(list, Comparator.comparingInt(valueFn::apply));
         return list;
     }
 
-    static MapLocation[] getAdjacents(MapLocation loc) {
+    public static MapLocation[] getAdjacents(MapLocation loc) {
         MapLocation[] locations = new MapLocation[8];
         for (int i=0; i<8; i++) {
             locations[i] = loc.add(directions[i]);
@@ -44,7 +35,7 @@ public class Utils {
         return locations;
     }
 
-    static MapLocation averageLocation(MapLocation[] locs) {
+    public static MapLocation averageLocation(MapLocation[] locs) {
         int x = 0;
         int y = 0;
         for (MapLocation loc : locs) {
@@ -54,7 +45,7 @@ public class Utils {
         return new MapLocation(x/locs.length, y/locs.length);
     }
 
-    static MapLocation[] robotInfosToMapLocations(RobotInfo[] ris) {
+    public static MapLocation[] robotInfosToMapLocations(RobotInfo[] ris) {
         MapLocation[] locs = new MapLocation[ris.length];
         for (int i=0; i<ris.length; i++) {
             locs[i] = ris[i].getLocation();
@@ -62,40 +53,40 @@ public class Utils {
         return locs;
     }
 
-    static MapLocation locationInOtherDirection(MapLocation center, MapLocation location) {
+    public static MapLocation locationInOtherDirection(MapLocation center, MapLocation location) {
         return new MapLocation(2*center.x-location.x, 2*center.y-location.y);
     }
 
-    static int locToInt(MapLocation ml, int flag1, int flag2) {
+    public static int locToInt(MapLocation ml, int flag1, int flag2) {
         return (1 << 15) | (flag1 << 14) | (flag2 << 13) | (ml.x << 6) | ml.y;
     }
 
-    static MapLocation intToLoc(int v) {
+    public static MapLocation intToLoc(int v) {
         return new MapLocation((v >> 6) & 0x3f, v & 0x3f);
     }
 
-    static boolean flag2(int v) {
+    public static boolean flag2(int v) {
         return (v & 0x2000) != 0;
     }
 
-    static boolean flag1(int v) {
+    public static boolean flag1(int v) {
         return (v & 0x4000) != 0;
     }
 
-    static boolean intIsLoc(int v) {
+    public static boolean intIsLoc(int v) {
         return (v & 0x8000) != 0;
     }
 
-    static MapLocation readLocationFromShared(int index) throws GameActionException {
+    public static MapLocation readLocationFromShared(int index) throws GameActionException {
         int v = rc.readSharedArray(index);
         return intIsLoc(v) ? intToLoc(v) : null;
     }
 
-    static void writeLocationToShared(int index, MapLocation loc, int flag1, int flag2) throws GameActionException {
+    public static void writeLocationToShared(int index, MapLocation loc, int flag1, int flag2) throws GameActionException {
         rc.writeSharedArray(index, locToInt(loc, flag1, flag2));
     }
 
-    static <T> boolean contains(T[] list, T item) {
+    public static <T> boolean contains(T[] list, T item) {
         for (T itemCheck : list) {
             if (item.equals(itemCheck)) {
                 return true;
@@ -104,11 +95,11 @@ public class Utils {
         return false;
     }
 
-    static boolean nextToWall(MapLocation l) {
+    public static boolean nextToWall(MapLocation l) {
         return l.x == 0 || l.y == 0 || l.x == mapWidth - 1 || l.y == mapHeight - 1;
     }
 
-    static Direction[] getIdealMovementDirections(MapLocation start, MapLocation goal) {
+    public static Direction[] getIdealMovementDirections(MapLocation start, MapLocation goal) {
         int sx = start.x;
         int sy = start.y;
         int gx = goal.x;
@@ -155,28 +146,6 @@ public class Utils {
                     return new Direction[]{Direction.SOUTHWEST, Direction.SOUTH, Direction.WEST, Direction.SOUTHEAST, Direction.NORTHWEST};
                 }
             }
-        }
-    }
-
-    public static MapLocation clamp(MapLocation loc, RobotController rc) {
-        return new MapLocation(Math.max(1, Math.min(rc.getMapWidth() - 1, loc.x)), Math.max(1, Math.min(rc.getMapHeight() - 1, loc.y)));
-    }
-
-    public static <T> int indexOf(T[] array, T element) {
-        // Create a new array and manually copy elements from the original array
-        for (int i = 0; i < array.length; i++) {
-            if (array[i].equals(element)) return i;
-        }
-        return -1;
-    }
-
-    public static class Pair<T, U> {
-        public final T a;
-        public final U b;
-
-        public Pair(T a, U b) {
-            this.a = a;
-            this.b = b;
         }
     }
 }

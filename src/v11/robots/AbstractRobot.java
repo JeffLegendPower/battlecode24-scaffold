@@ -1,42 +1,32 @@
-package v10_3.robots;
+package v11.robots;
 
-import battlecode.common.FlagInfo;
-import battlecode.common.GameActionException;
-import battlecode.common.MapLocation;
-import battlecode.common.RobotController;
-import v10_3.Constants;
-import v10_3.RobotPlayer;
-import v10_3.Utils;
+import battlecode.common.*;
+import v11.Constants;
+import v11.RobotPlayer;
+import v11.Utils;
 
 public abstract class AbstractRobot {
 
     protected Integer[] enemyFlagIDs = new Integer[3];
     protected MapLocation[] enemyFlagLocs = new MapLocation[3];
-    protected MapLocation spawn = null;
+    protected MapLocation spawn;
 
     // Returns whether the robot should be this type or not
-    public abstract boolean setup(RobotController rc, MapLocation curLoc) throws GameActionException;
+    public abstract boolean setup(RobotController rc) throws GameActionException;
 
     public abstract void tick(RobotController rc, MapLocation curLoc) throws GameActionException;
 
-    public void spawn(RobotController rc, RobotType type) throws GameActionException {
-        if (rc.isSpawned()) return;
-
-//        for (MapLocation spawnLoc : rc.getAllySpawnLocations()) {
-//            if (rc.canSpawn(spawnLoc)) {
-//                rc.spawn(spawnLoc);
-//                spawn = spawnLoc;
-//                return;
-//            }
-//        }
-        if (spawn != null && rc.canSpawn(spawn))
-            rc.spawn(spawn);
+    public void spawn(RobotController rc) throws GameActionException {
+        if (rc.isSpawned()) {
+            spawn = rc.getLocation();
+            return;
+        }
 
         int tries = 0;
         MapLocation[] spawnLocs = rc.getAllySpawnLocations();
 
         while (!rc.isSpawned()) {
-            if (tries > 10) break;
+            if (tries > 15) break;
             int rand = RobotPlayer.rng.nextInt(spawnLocs.length);
             if (rc.canSpawn(spawnLocs[rand])) {
                 rc.spawn(spawnLocs[rand]);
@@ -47,9 +37,17 @@ public abstract class AbstractRobot {
         }
     }
 
-    public void tickJailed(RobotController rc) throws GameActionException {}
+    public void tickJailed(RobotController rc) throws GameActionException {
+        spawn(rc);
+    }
+
+    public void setupTick(RobotController rc, MapLocation curLoc) throws GameActionException {
+        tick(rc, curLoc);
+    }
 
     public abstract boolean completedTask();
+
+    public abstract String name();
 
     public void detectAndPickupFlags(RobotController rc, FlagInfo[] nearbyFlags) throws GameActionException {
 
@@ -64,18 +62,22 @@ public abstract class AbstractRobot {
             int index = Utils.indexOf(enemyFlagIDs, info.getID());
             int lastNotSeenFlag = Utils.indexOf(enemyFlagIDs, -1);
             if (index == -1) {
-                System.out.println("v10.3-" + RobotPlayer.type.name() + " found flag " + info.getID() + " at " + info.getLocation());
+                System.out.println("v11 " + name() + " found flag " + info.getID() + " at " + info.getLocation());
                 rc.writeSharedArray(Constants.SharedArray.enemyFlagIDs[lastNotSeenFlag], info.getID() + 1);
                 Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagOrigins[lastNotSeenFlag], info.getLocation());
+                Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[lastNotSeenFlag], info.getLocation());
                 index = lastNotSeenFlag;
             } else {
                 Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[index], info.getLocation());
+                // Since we default flag locations to their spawn zones and if the flags are not there then this is just making sure that
+                // we not putting the flag origins in the wrong place
+                if (Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagOrigins[index]) == null)
+                    Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagOrigins[index], info.getLocation());
             }
 
             if (rc.canPickupFlag(info.getLocation())) {
                 // Transition into FlagCarrier robotType
                 rc.pickupFlag(info.getLocation());
-               Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[index], null);
             }
         }
 

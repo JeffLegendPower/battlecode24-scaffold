@@ -1,13 +1,12 @@
-package v10_2;
+package v11;
 
 import battlecode.common.*;
 
 import java.util.Random;
 
-import static v10_2.RobotPlayer.directions;
-import static v10_2.RobotPlayer.map;
+import static v11.RobotPlayer.directions;
 
-public class Evaluators {
+public class Evals {
 
     public static int staticLocEval(RobotController current, RobotInfo[] enemies, RobotInfo[] allies, MapLocation loc) {
         int score = 0;
@@ -26,7 +25,7 @@ public class Evaluators {
             if (enemy.getID() == target.getID()) continue;
             score -= (maxDist - enemy.getLocation().distanceSquaredTo(loc))
                     * 1000 / current.getHealth()
-                    * (isOnCooldown ? 2 : 1);
+                    * (isOnCooldown ? 2 : 1) / (Math.max(allies.length * allies.length - enemies.length * enemies.length * 4, 1));
         }
 
         MapLocation nearestSpawn = Utils.getClosest(current.getAllySpawnLocations(), loc);
@@ -39,7 +38,6 @@ public class Evaluators {
         for (RobotInfo ally : allies) {
             score += maxDist - ally.getLocation().distanceSquaredTo(loc); //* (rc.getHealth() / 500);
         }
-
 
 
         int closestDist = target.getLocation().distanceSquaredTo(loc);
@@ -96,19 +94,6 @@ public class Evaluators {
         return (4 - target.getLocation().distanceSquaredTo(loc)) + 1000 / (target.health - dmg);
     }
 
-    public static int staticHealEval(RobotController rc, RobotInfo target, MapLocation loc, RobotInfo[] enemies, RobotInfo[] allies) {
-        int heal = rc.getHealAmount();
-
-        // Don't heal if it won't fully be utilized
-        if (1000 - target.health < heal) return -999999;
-
-        int closestDist = Utils.getClosest(enemies, loc).getLocation().distanceSquaredTo(loc);
-        // Don't heal if we can be attacked
-        if (closestDist <= 9) return -999999;
-
-        return heal * 20 / target.health - 5;
-    }
-
     public static int staticTrapEval(RobotController rc, RobotInfo[] enemies, MapLocation loc) {
         if (enemies.length == 0) return -99999999;
         int avgEnemyX = 0;
@@ -151,9 +136,8 @@ public class Evaluators {
             this.target = target;
         }
 
-        public static Action getBest(RobotController rc) throws GameActionException {
+        public static MapLocation getBestTarget(RobotController rc) throws GameActionException {
             RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-            RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
             MapLocation curLoc = rc.getLocation();
 
             int bestAttackScore = -9999999;
@@ -167,47 +151,7 @@ public class Evaluators {
                     }
                 }
             }
-
-//            int bestHealScore = -9999999;
-//            MapLocation bestHealTarget = null;
-//            for (RobotInfo ally : allies) {
-//                if (rc.canHeal(ally.getLocation())) {
-//                    int score = staticHealEval(rc, ally, curLoc, enemies, allies);
-//                    if (score > bestHealScore) {
-//                        bestHealScore = score;
-//                        bestHealTarget = ally.getLocation();
-//                    }
-//                }
-//            }
-
-            int bestTrapScore = -9999999;
-            MapLocation bestTrapTarget = null;
-            for (Direction direction : Direction.values()) {
-                MapLocation newLoc = curLoc.add(direction);
-                if (!rc.canBuild(TrapType.STUN, newLoc)) continue;
-                int score = staticTrapEval(rc, enemies, newLoc);
-                if (score > bestTrapScore) {
-                    bestTrapScore = score;
-                    bestTrapTarget = newLoc;
-                }
-            }
-
-            int bestActionScore = -9999999;
-            Action bestAction = new Action(-9999999, -1, null);
-            if (bestAttackTarget != null && bestAttackScore > bestActionScore) {
-                bestActionScore = bestAttackScore;
-                bestAction = new Action(bestActionScore, 0, bestAttackTarget);
-            }
-//            if (bestHealTarget != null && bestHealScore > bestActionScore) {
-//                bestActionScore = bestHealScore;
-//                bestAction = new Action(bestActionScore, 1, bestHealTarget);
-//            }
-            if (bestTrapTarget != null && bestTrapScore > bestActionScore) {
-                bestActionScore = bestTrapScore;
-                bestAction = new Action(bestActionScore, 2, bestTrapTarget);
-            }
-
-            return bestAction;
+            return bestAttackTarget;
         }
     }
 }

@@ -622,9 +622,7 @@ public class RobotPlayer {
                         rc.move(d);
                         if (rc.canAttack(closestEnemyLoc)) {
                             rc.attack(closestEnemyLoc);
-                            rc.setIndicatorString("moved and got in range and attacked");
                         }
-                        rc.setIndicatorString("moving closer to enemy");
                         return;
                     } else {
                         if (rc.canFill(robotLoc.add(d))) {
@@ -677,8 +675,7 @@ public class RobotPlayer {
             return;
         }
 
-        // more enemies than allies by a bit, spam traps
-        rc.setIndicatorString("spamming traps");
+        // More enemies than allies by a bit, spam traps
         if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2) {
             for (Direction direction : Direction.allDirections()) {
                 MapLocation newLoc = robotLoc.add(direction);
@@ -690,12 +687,12 @@ public class RobotPlayer {
                 }
             }
         }
-        if (closestEnemyLoc.distanceSquaredTo(robotLoc) >= 16) {  // can safely flee
+        // Can safely flee
+        if (closestEnemyLoc.distanceSquaredTo(robotLoc) >= 16) {
             MapLocation finalPathfindGoalLoc = pathfindGoalLoc;
             for (Direction d : sort(getIdealMovementDirections(closestEnemyLoc, robotLoc), (dir) -> robotLoc.add(dir).distanceSquaredTo(finalPathfindGoalLoc))) {
                 if (rc.canMove(d)) {
                     rc.move(d);
-                    rc.setIndicatorString("fleeing");
                     return;
                 } else {
                     if (rc.canFill(robotLoc.add(d))) {
@@ -715,7 +712,6 @@ public class RobotPlayer {
                 break;
             }
         }
-        rc.setIndicatorString("dying a hero");
     }
 
     public static void onSetupTurn() throws GameActionException {

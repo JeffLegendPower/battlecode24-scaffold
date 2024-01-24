@@ -1,16 +1,13 @@
-package microplayer_v2;
+package v11;
 
 import battlecode.common.*;
-import microplayer_v2.Utils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import static microplayer_v2.RobotPlayer.map;
-import static microplayer_v2.Utils.Pair;
-import static microplayer_v2.Utils.clamp;
-
+import static v11.RobotPlayer.*;
+import static v11.Utils.*;
 public class Pathfinding {
     private static List<MapLocation> best = new ArrayList<>();
     public static MapLocation currentTarget = null;
@@ -27,7 +24,7 @@ public class Pathfinding {
     }
 
     public static void moveAway(RobotController rc, MapLocation curLoc, MapLocation target, boolean fillWater) throws GameActionException {
-        IterativeGreedy(rc, curLoc.translate(curLoc.x - target.x, curLoc.y - target.y), curLoc, 10, fillWater, false);
+        IterativeGreedy(rc, curLoc.translate(curLoc.x - target.x, curLoc.y - target.y), curLoc, 5, fillWater, false);
     }
     private static MapLocation lastTarget = null;
     public static HashMap<MapLocation, Integer> visited = new HashMap<>();
@@ -76,7 +73,6 @@ public class Pathfinding {
                 } else {
                     best.clear();
                 }
-//                return;
             }
         }
 
@@ -85,7 +81,6 @@ public class Pathfinding {
         for (depth = 1; depth <= maxDepth; depth++) {
             if (Clock.getBytecodeNum() - startBytecode > 6000 || Clock.getBytecodeNum() > 20000) break;
             best = moveTowardsDirect(rc, best.isEmpty() ? curLoc : best.get(best.size() - 1), target, best, fillWater, afraid);
-
         }
         if (best.isEmpty())
             return;
@@ -100,8 +95,8 @@ public class Pathfinding {
         if (move.b >= 0)
             best.subList(0, move.b + 1).clear();
 
-        if (rc.canFill(move.a))
-            rc.fill(move.a);
+//        if (rc.canFill(move.a))
+//            rc.fill(move.a);
 
         if (rc.canMove(curLoc.directionTo(move.a))) {
             rc.move(curLoc.directionTo(move.a));
@@ -131,13 +126,13 @@ public class Pathfinding {
         int centerx = rc.getMapWidth() / 2;
         int centery = rc.getMapHeight() / 2;
 
-        for (Direction dir : Utils.directions) {
+        for (Direction dir : directions) {
             MapLocation newLoc = curLoc.add(dir);
             newLoc = clamp(newLoc, rc);
             if (rc.canSenseRobotAtLocation(newLoc)) continue;
-            MapInfo info = map[newLoc.y][newLoc.x];
+            MapInfo info = map[newLoc.x][newLoc.y];
             if (info != null && !current.contains(newLoc) &&
-                (fillWater ? (!info.isWall() && !info.isDam()) : info.isPassable())) {
+                    (fillWater ? (!info.isWall() && !info.isDam()) : info.isPassable())) {
                 double score = calculateDistance(newLoc, target);
                 int thisVisited = visited.getOrDefault(newLoc, 0);
                 score *= (info.isWater() ? 1.35 : 1)
@@ -175,6 +170,19 @@ public class Pathfinding {
                 return new Pair<>(moves.get(i), i);
         }
         return null;
+    }
+
+    private static boolean isOnWall(RobotController rc, MapLocation loc) {
+        boolean isWallHugging = false;
+        for (Direction dir : directions) {
+            MapLocation newLoc = clamp(loc.add(dir), rc);
+            MapInfo info = map[newLoc.y][newLoc.x];
+            if (info != null && info.isWall()) {
+                isWallHugging = true;
+                break;
+            }
+        }
+        return isWallHugging;
     }
 
     public static int calculateDistance(MapLocation ml1, MapLocation ml2) {

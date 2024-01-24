@@ -1,13 +1,15 @@
-package v10_3;
+package v11;
 
 import battlecode.common.*;
+import microplayer.General;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.function.Function;
 
-import static v10_3.RobotPlayer.directions;
+import static microplayer.General.rng;
+import static v11.RobotPlayer.directions;
 
 public class Utils {
 
@@ -20,47 +22,6 @@ public class Utils {
     public static MapLocation getLocationInSharedArray(RobotController rc, int index) throws GameActionException {
         int loc = rc.readSharedArray(index);
         return (loc & (1 << 15)) == 0 ? null : new MapLocation((loc >> 6) & 63, loc & 63);
-    }
-
-    public static void storeInfoInSharedArray(RobotController rc, int index, MapInfo info) throws GameActionException {
-        if (info == null) {
-            rc.writeSharedArray(index, 0);
-            return;
-        }
-
-        rc.writeSharedArray(index, (1 << 15) // 16th bit to 1 to indicate that it's a location and not a default value (0)
-                | (1 << 14) // 15th bit to 1 to indicate that it's a map info and not a map location (0)
-                | (info.getTeamTerritory().isPlayer() ? 1 << 13 : 0) // 14th bit to 1 if it's our territory
-                | (info.isWall() || info.isDam() ? 1 << 12 : 0) // 13th bit to 1 if it's a wall or dam
-                | (info.getMapLocation().x << 6) // Bits 7-12 to x
-                | info.getMapLocation().y); // Bits 1-6 to y
-    }
-
-    public static MapInfo getInfoInSharedArray(RobotController rc, int index) throws GameActionException {
-        int info = rc.readSharedArray(index);
-        MapLocation loc = (info & (1 << 15)) == 0 ? null : new MapLocation((info >> 6) & 63, info & 63);
-        if (loc == null || (info & (1 << 14)) == 0) return null;
-        boolean isWallOrDam = (info & (1 << 12)) != 0;
-        boolean isOurTerritory = (info & (1 << 13)) != 0;
-        return new MapInfo(
-                loc,
-                isWallOrDam,
-                isWallOrDam,
-                false,
-                0,
-                false,
-                0,
-                TrapType.NONE,
-                isOurTerritory ? rc.getTeam() : rc.getTeam().opponent()
-        );
-    }
-
-    public static void storeBitInSharedArray(RobotController rc, int index, int bit /*0 is right*/, int val) throws GameActionException {
-        rc.writeSharedArray(index, val == 0 ? rc.readSharedArray(index) | 1 << bit : rc.readSharedArray(index) & ~(1 << bit));
-    }
-
-    public static int getBitInSharedArray(RobotController rc, int index, int bit /*0 is first*/) throws GameActionException {
-        return (rc.readSharedArray(index) >> bit) & 1;
     }
 
     public static MapLocation getClosest(MapLocation[] locs, MapLocation curLoc) {
@@ -231,28 +192,6 @@ public class Utils {
         return minRobot;
     }
 
-    public static boolean canBeFilled(RobotController rc, MapLocation loc) throws GameActionException {
-        boolean canBeFilled = true;
-        for (int i = 0; i < 3; i++) {
-            MapLocation flagCornerLoc = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[i]);
-            if (flagCornerLoc == null) continue;
-            if (loc.distanceSquaredTo(flagCornerLoc) < 6 || loc.equals(flagCornerLoc)) {
-                canBeFilled = false;
-                break;
-            }
-        }
-        return canBeFilled;
-//        MapLocation flag = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[0]);
-//        if (flag == null) return false;
-//        return loc.distanceSquaredTo(flag) > 2
-//                && loc.distanceSquaredTo(flag.translate(0, (flag.y == rc.getMapHeight() - 1) ? -10 : 10)) > 2
-//                && loc.distanceSquaredTo(flag.translate((flag.x == rc.getMapWidth() - 1) ? -10 : 10, 0)) > 2;
-    }
-
-    public static boolean isInMap(MapLocation loc, RobotController rc) {
-        return loc.x >= 0 && loc.x < rc.getMapWidth() && loc.y >= 0 && loc.y < rc.getMapHeight();
-    }
-
     public static MapLocation clamp(MapLocation loc, RobotController rc) {
         return new MapLocation(Math.max(1, Math.min(rc.getMapWidth() - 1, loc.x)), Math.max(1, Math.min(rc.getMapHeight() - 1, loc.y)));
     }
@@ -265,31 +204,111 @@ public class Utils {
         return -1;
     }
 
-    public static <T> T[] sort(T[] list, Function<T, Integer> valueFn) {
-        Arrays.sort(list, Comparator.comparingInt(valueFn::apply));
-        return list;
-    }
-
     public static boolean canAttack(RobotController rc, MapLocation curLoc, MapLocation target) {
         return rc.getActionCooldownTurns() < 10 && curLoc.isWithinDistanceSquared(target, 4);
     }
 
-    public static MapLocation[] semiLegalMoves(RobotController rc, MapLocation startLoc) throws GameActionException {
-        MapLocation[] moves = new MapLocation[8];
-        int i = 0;
-        for (Direction dir : directions) {
-            MapLocation newLoc = startLoc.add(dir);
-            if (newLoc.equals(rc.getLocation())) continue;
-            if (rc.canSenseLocation(newLoc)
-                    && rc.onTheMap(newLoc)
-                    && !rc.canSenseRobotAtLocation(newLoc)
-                    && rc.senseMapInfo(newLoc).isPassable()) {
-                moves[i] = newLoc;
-                i++;
+
+    public static MapLocation[] getAdjacents(MapLocation loc) {
+        return new MapLocation[] {
+                loc.add(Direction.NORTH),
+                loc.add(Direction.NORTHEAST),
+                loc.add(Direction.EAST),
+                loc.add(Direction.SOUTHEAST),
+                loc.add(Direction.SOUTH),
+                loc.add(Direction.SOUTHWEST),
+                loc.add(Direction.WEST),
+                loc.add(Direction.NORTHWEST)
+        };
+    }
+
+    public static Direction[] generateDeviations(Direction dir) {
+        // ex. if dir is NORTH, then return NORTH, NORTHWEST, NORTHEAST, EAST, WEST
+        Direction[] dirs = new Direction[5];
+        int directionIndex = indexOf(directions, dir);
+        dirs[0] = dir;
+        dirs[1] = directions[(directionIndex + 7) % 8];
+        dirs[2] = directions[(directionIndex + 1) % 8];
+        dirs[3] = directions[(directionIndex + 2) % 8];
+        dirs[4] = directions[(directionIndex + 6) % 8];
+        return dirs;
+    }
+
+    public static Direction[] getIdealMovementDirections(MapLocation start, MapLocation goal) {
+        int sx = start.x;
+        int sy = start.y;
+        int gx = goal.x;
+        int gy = goal.y;
+
+        // 13 cases
+        if (sx < gx) {  // rightwards
+            if (sy < gy) {  // upwards
+                if ((gx-sx) > (gy-sy)) {  // right > up
+                    return new Direction[]{Direction.NORTHEAST, Direction.EAST, Direction.NORTH, Direction.SOUTHEAST, Direction.NORTHWEST};
+                } else {  // up > right
+                    return new Direction[]{Direction.NORTHEAST, Direction.NORTH, Direction.EAST, Direction.NORTHWEST, Direction.SOUTHEAST};
+                }
+            } else if (sy == gy) {  // already horizontally centered
+                return new Direction[]{Direction.EAST, Direction.NORTHEAST, Direction.SOUTHEAST, Direction.NORTH, Direction.SOUTH};
+            } else {  // downwards
+                if ((gx-sx) > (sy-gy)) {  // right > down
+                    return new Direction[]{Direction.SOUTHEAST, Direction.EAST, Direction.SOUTH, Direction.NORTHEAST, Direction.SOUTHWEST};
+                } else {  // down > right
+                    return new Direction[]{Direction.SOUTHEAST, Direction.SOUTH, Direction.EAST, Direction.SOUTHWEST, Direction.NORTHEAST};
+                }
+            }
+        } else if (sx == gx) {  // already vertically centered
+            if (sy < gy) {  // upwards
+                return new Direction[]{Direction.NORTH, Direction.NORTHWEST, Direction.NORTHEAST, Direction.EAST, Direction.WEST};
+            } else if (sy == gy) {  // dont go anywhere
+                return new Direction[]{Direction.CENTER};
+            } else {  // downwards
+                return new Direction[]{Direction.SOUTH, Direction.SOUTHWEST, Direction.SOUTHEAST, Direction.WEST, Direction.EAST};
+            }
+        } else {  // leftwards
+            if (sy < gy) {  // upwards
+                if ((gx-sx) > (gy-sy)) {  // left > up
+                    return new Direction[]{Direction.NORTHWEST, Direction.WEST, Direction.NORTH, Direction.SOUTHWEST, Direction.NORTHEAST};
+                } else {  // up > left
+                    return new Direction[]{Direction.NORTHWEST, Direction.NORTH, Direction.WEST, Direction.NORTHEAST, Direction.SOUTHWEST};
+                }
+            } else if (sy == gy) {  // already horizontally centered
+                return new Direction[]{Direction.WEST, Direction.NORTHWEST, Direction.SOUTHWEST, Direction.NORTH, Direction.SOUTH};
+            } else {  // downwards
+                if ((gx-sx) > (sy-gy)) {  // left > down
+                    return new Direction[]{Direction.SOUTHWEST, Direction.WEST, Direction.SOUTH, Direction.NORTHWEST, Direction.SOUTHEAST};
+                } else {  // down > left
+                    return new Direction[]{Direction.SOUTHWEST, Direction.SOUTH, Direction.WEST, Direction.SOUTHEAST, Direction.NORTHWEST};
+                }
             }
         }
-        return moves;
     }
+
+    public static <T> T[] shuffleInPlace(T[] list) {
+        for (int i1=0; i1<list.length; i1++) {
+            int i2 = rng.nextInt(list.length);
+            T o1 = list[i1];
+            list[i1] = list[i2];
+            list[i2] = o1;
+        }
+        return list;
+    }
+
+//    public static <T> T[] sort(T[] list, Function<T, Integer> valueFn) {
+//        Arrays.sort(list, Comparator.comparingInt(valueFn::apply));
+//        return list;
+//    }
+    public static <T> T[] sort(T[] list, Function<T, Integer> valueFn) {
+        Pair<T, Integer>[] pairs = new Pair[list.length];
+        for (int i = 0; i < list.length; i++) {
+            pairs[i] = new Pair<>(list[i], valueFn.apply(list[i]));
+        }
+        Arrays.sort(pairs, Comparator.comparingInt(pair -> pair.b));
+        for (int i = 0; i < list.length; i++) {
+            list[i] = pairs[i].a;
+        }
+        return list;
+}
 
     // Pair
     public static class Pair<T, U> {
