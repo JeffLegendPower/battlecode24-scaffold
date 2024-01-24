@@ -39,6 +39,7 @@ public class Defender extends AbstractRobot {
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
         target = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[flagNumber]);
 
+
         if (target == null) {
             if (rc.getRoundNum() > 200) {
                 //retarget
@@ -65,16 +66,16 @@ public class Defender extends AbstractRobot {
 
         MapLocation globalDefenseTarget = Utils.getLocationInSharedArray(rc, Constants.SharedArray.globalDefenseTarget);
 
-        if (enemies.length > 4 && globalDefenseTarget == null) {
+        if (enemies.length > 1) {
             Utils.storeLocationInSharedArray(rc, Constants.SharedArray.globalDefenseTarget, target);
-            rc.writeSharedArray(Constants.SharedArray.numNeededDefense, enemies.length);
+            rc.writeSharedArray(Constants.SharedArray.numNeededDefense[flagNumber], enemies.length);
         }
 
         if (enemies.length == 0) {
             numTurnsWithoutEnemies++;
             if (numTurnsWithoutEnemies > 10 && globalDefenseTarget != null && globalDefenseTarget.equals(target)) {
                 Utils.storeLocationInSharedArray(rc, Constants.SharedArray.globalDefenseTarget, null);
-                rc.writeSharedArray(Constants.SharedArray.numNeededDefense, 0);
+                rc.writeSharedArray(Constants.SharedArray.numNeededDefense[flagNumber], 0);
             }
         }
         else

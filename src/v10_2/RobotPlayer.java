@@ -40,103 +40,106 @@ public strictfp class RobotPlayer {
     public static void run(RobotController rc) throws GameActionException {
 
         map = new MapInfo[rc.getMapHeight()][rc.getMapWidth()];
-
-        while (true) {
-            if (rc.readSharedArray(Constants.SharedArray.queueNum) == 50) {
-                rc.writeSharedArray(Constants.SharedArray.queueNum, 0);
-            }
-            if (rc.canBuyGlobal(GlobalUpgrade.ATTACK))
-                rc.buyGlobal(GlobalUpgrade.ATTACK);
-            else if (rc.canBuyGlobal(GlobalUpgrade.HEALING))
-                rc.buyGlobal(GlobalUpgrade.HEALING);
-            else if (rc.canBuyGlobal(GlobalUpgrade.CAPTURING))
-                rc.buyGlobal(GlobalUpgrade.CAPTURING);
-
-            if (!rc.isSpawned()) {
-                Pathfinding.visited = new HashMap<>();
-                if (type != null)
-                    type.getRobot().tickJailed(rc);
-                if (!trackedDeath) {
-                    Utils.incrementSharedArray(rc, Constants.SharedArray.deathsInLastTurn);
-                    trackedDeath = true;
+        try {
+            while (true) {
+                if (rc.readSharedArray(Constants.SharedArray.queueNum) == 50) {
+                    rc.writeSharedArray(Constants.SharedArray.queueNum, 0);
                 }
-                spawn(rc);
-            } else {
+                if (rc.canBuyGlobal(GlobalUpgrade.ATTACK))
+                    rc.buyGlobal(GlobalUpgrade.ATTACK);
+                else if (rc.canBuyGlobal(GlobalUpgrade.HEALING))
+                    rc.buyGlobal(GlobalUpgrade.HEALING);
+                else if (rc.canBuyGlobal(GlobalUpgrade.CAPTURING))
+                    rc.buyGlobal(GlobalUpgrade.CAPTURING);
 
-                trackedDeath = false;
+                if (!rc.isSpawned()) {
+                    Pathfinding.visited = new HashMap<>();
+                    if (type != null)
+                        type.getRobot().tickJailed(rc);
+                    if (!trackedDeath) {
+                        Utils.incrementSharedArray(rc, Constants.SharedArray.deathsInLastTurn);
+                        trackedDeath = true;
+                    }
+                    spawn(rc);
+                } else {
 
-                MapInfo[] nearbyMapInfo = rc.senseNearbyMapInfos();
-                for (MapInfo info : nearbyMapInfo) {
-                    MapLocation loc = info.getMapLocation();
-                    if (map[loc.y][loc.x] == null) numMapped++;
-                    map[loc.y][loc.x] = info;
-                }
+                    trackedDeath = false;
 
-                for (int i = 0; i < 12; i++) {
-                    MapInfo info = Utils.getInfoInSharedArray(rc, Constants.SharedArray.scoutInfoChannels[i]);
-                    if (info != null) {
+                    MapInfo[] nearbyMapInfo = rc.senseNearbyMapInfos();
+                    for (MapInfo info : nearbyMapInfo) {
                         MapLocation loc = info.getMapLocation();
-                        if (map[loc.y][loc.x] == null) {
-                            map[loc.y][loc.x] = info;
-                            numMapped++;
+                        if (map[loc.y][loc.x] == null) numMapped++;
+                        map[loc.y][loc.x] = info;
+                    }
+
+                    for (int i = 0; i < 12; i++) {
+                        MapInfo info = Utils.getInfoInSharedArray(rc, Constants.SharedArray.scoutInfoChannels[i]);
+                        if (info != null) {
+                            MapLocation loc = info.getMapLocation();
+                            if (map[loc.y][loc.x] == null) {
+                                map[loc.y][loc.x] = info;
+                                numMapped++;
+                            }
                         }
                     }
-                }
 
-                MapLocation curLoc = rc.getLocation();
+                    MapLocation curLoc = rc.getLocation();
 
-                if (rc.getRoundNum() < GameConstants.SETUP_ROUNDS - 50) {
-                    if (!setupBeforeSetup) {
-                        type = RobotType.CornerFinder;
-                        if (!type.getRobot().setup(rc, rc.getLocation()))
+                    if (rc.getRoundNum() < GameConstants.SETUP_ROUNDS - 50) {
+                        if (!setupBeforeSetup) {
+                            type = RobotType.CornerFinder;
+                            if (!type.getRobot().setup(rc, rc.getLocation()))
+                                type = RobotType.Default;
+                            setupBeforeSetup = true;
+                        }
+                        if (type != RobotType.Default && type.getRobot().completedTask())
                             type = RobotType.Default;
-                        setupBeforeSetup = true;
+                    } else {
+                        if (!setupAfterSetup && (type == RobotType.Default || type == RobotType.CornerFinder)) {
+                            type = RobotType.AttackerTwo;
+                            type.getRobot().setup(rc, curLoc);
+                            setupAfterSetup = true;
+                        }
                     }
-                    if (type != RobotType.Default && type.getRobot().completedTask())
-                        type = RobotType.Default;
-                } else {
-                    if (!setupAfterSetup && (type == RobotType.Default || type == RobotType.CornerFinder)) {
+
+
+                    if (rc.hasFlag() && type != RobotType.FlagPlacer) {
+                        type = RobotType.FlagCarrier;
+                        type.getRobot().setup(rc, curLoc);
+                    } else if (!rc.hasFlag() && type == RobotType.FlagCarrier) {
+                        // we used to have a flag, but now we are back to attacking
+                        type = RobotType.AttackerTwo;
+                        type.getRobot().setup(rc, curLoc);
+                    }
+
+
+                    if (type != null) {
+                        rc.setIndicatorString(type.name() + " " + (numMapped * 100) / (rc.getMapWidth() * rc.getMapHeight()) + "% mapped");
+                        type.getRobot().tick(rc, curLoc);
+                        if (type == RobotType.Scouter) {
+                            rc.setIndicatorDot(curLoc, 0, 0, 255);
+                        }
+//                    if (type == RobotType.CornerFinder) System.out.println(rc.getLocation());
+                    } else if (rc.getRoundNum() >= GameConstants.SETUP_ROUNDS - 50) {
                         type = RobotType.AttackerTwo;
                         type.getRobot().setup(rc, curLoc);
                         setupAfterSetup = true;
+                    } else {
+                        MapLocation[] nearbyCrumbs = rc.senseNearbyCrumbs(-1);
+                        if (nearbyCrumbs.length > 0)
+                            moveTowards(rc, curLoc, nearbyCrumbs[0], true);
+                        else
+                            moveTowards(rc, curLoc, curLoc.add(directions[rng.nextInt(8)]), true);
                     }
                 }
-
-
-                if (rc.hasFlag() && type != RobotType.FlagPlacer) {
-                    type = RobotType.FlagCarrier;
-                    type.getRobot().setup(rc, curLoc);
-                }
-                else if (!rc.hasFlag() && type == RobotType.FlagCarrier) {
-                    // we used to have a flag, but now we are back to attacking
-                    type = RobotType.AttackerTwo;
-                    type.getRobot().setup(rc, curLoc);
+                if (queueOrder == 49 && rc.getRoundNum() % 10 == 0) {
+                    rc.writeSharedArray(Constants.SharedArray.deathsInLastTurn, 0);
                 }
 
-
-                if (type != null) {
-                    rc.setIndicatorString(type.name() + " " + (numMapped * 100) / (rc.getMapWidth() * rc.getMapHeight()) + "% mapped");
-                    type.getRobot().tick(rc, curLoc);
-                    if (type == RobotType.Scouter) {
-                        rc.setIndicatorDot(curLoc, 0, 0, 255);
-                    }
-//                    if (type == RobotType.CornerFinder) System.out.println(rc.getLocation());
-                } else if (rc.getRoundNum() >= GameConstants.SETUP_ROUNDS - 50) {
-                     type = RobotType.AttackerTwo;
-                     type.getRobot().setup(rc, curLoc);
-                     setupAfterSetup = true;
-                } else {
-                    MapLocation[] nearbyCrumbs = rc.senseNearbyCrumbs(-1);
-                    if (nearbyCrumbs.length > 0)
-                        moveTowards(rc, curLoc, nearbyCrumbs[0], true);
-                    else
-                        moveTowards(rc, curLoc, curLoc.add(directions[rng.nextInt(8)]), true);
-                }
+                Clock.yield();
             }
-            if (queueOrder == 49 && rc.getRoundNum() % 10 == 0) {
-                rc.writeSharedArray(Constants.SharedArray.deathsInLastTurn, 0);
-            }
-
+        } catch (GameActionException e) {
+            System.out.println(e);
             Clock.yield();
         }
     }

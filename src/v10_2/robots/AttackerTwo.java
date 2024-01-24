@@ -27,10 +27,21 @@ public class AttackerTwo extends AbstractRobot {
         MapLocation globalTarget = Utils.getLocationInSharedArray(rc, Constants.SharedArray.globalAttackerTargets[attackerGroup]);
         if (globalTarget != null) return globalTarget;
 
-        MapLocation globalDefenseTarget = Utils.getLocationInSharedArray(rc, Constants.SharedArray.globalDefenseTarget);
-        int numNeededDefense = rc.readSharedArray(Constants.SharedArray.numNeededDefense);
-        if (globalDefenseTarget != null && numNeededDefense > (attackerGroup + 1) * 4) {
-            return globalDefenseTarget;
+        MapLocation[] spawnLocs = rc.getAllySpawnLocations();
+
+        int bestFlagLoc = 0;
+        int mostEnemies = 3;
+        for (int i = 0; i<3; i++) {
+            int numEnemies = rc.readSharedArray(Constants.SharedArray.numNeededDefense[i]);
+            if (numEnemies > mostEnemies) {
+                bestFlagLoc = i;
+            }
+        }
+
+        if (bestFlagLoc != 0) {
+            MapLocation target = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[bestFlagLoc]);
+            if (target != null)
+                return target;
         }
 
         MapLocation flagLoc;
@@ -40,11 +51,6 @@ public class AttackerTwo extends AbstractRobot {
                 return flagLoc;
             }
         }
-
-//        MapLocation globalDefenseTarget = Utils.getLocationInSharedArray(rc, Constants.SharedArray.globalDefenseTarget);
-//        if (globalDefenseTarget != null
-//                && rc.readSharedArray(Constants.SharedArray.numNeededDefense) > (attackerGroup + 1) * 4)
-//            return globalDefenseTarget;
 
         MapLocation[] enemyFlagsBroadcast = rc.senseBroadcastFlagLocations();
         if (enemyFlagsBroadcast.length > 0) {
@@ -201,9 +207,18 @@ public class AttackerTwo extends AbstractRobot {
             MapLocation target = lastTarget;
 
             MapLocation globalDefenseTarget = Utils.getLocationInSharedArray(rc, Constants.SharedArray.globalDefenseTarget);
-            int numNeededDefense = rc.readSharedArray(Constants.SharedArray.numNeededDefense);
-            if (globalDefenseTarget != null && numNeededDefense > 2) {
-                target = globalDefenseTarget;
+            MapLocation[] spawnLocs = rc.getAllySpawnLocations();
+
+            int bestFlagLoc = 0;
+            int mostEnemies = 0;
+            for (int i = 0; i<3; i++) {
+                int numEnemies = rc.readSharedArray(Constants.SharedArray.numNeededDefense[i]);
+                if (numEnemies > mostEnemies) {
+                    bestFlagLoc = i;
+                }
+            }
+            if (bestFlagLoc != 0) {
+                target = Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagCornerLocs[bestFlagLoc]);
             }
 
             if (target == null) {
@@ -213,7 +228,7 @@ public class AttackerTwo extends AbstractRobot {
 
 //            if (spawn != null) target = spawn;
 
-            MapLocation[] spawnLocs = rc.getAllySpawnLocations();
+
             MapLocation bestSpawn = null;
             int shortestDist = 999999999;
             for (MapLocation spawnLoc : spawnLocs) {

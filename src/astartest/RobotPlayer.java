@@ -5,8 +5,6 @@ import battlecode.common.*;
 import java.util.*;
 import java.util.concurrent.RunnableScheduledFuture;
 
-import static microplayer.General.directions;
-
 public class RobotPlayer {
     static RobotController rc;
     static MapLocation[] allySpawnLocations;

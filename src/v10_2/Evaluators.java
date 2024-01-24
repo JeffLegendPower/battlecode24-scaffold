@@ -34,10 +34,8 @@ public class Evaluators {
 
         if (nearestSpawnDist < 50 && score != 0) {
             score += 50;
-        } else if (nearestSpawnDist < 20) {
-            return loc.distanceSquaredTo(target.getLocation());
-        } else if (nearestSpawnDist < 10) {
-            return nearestSpawn.distanceSquaredTo(target.getLocation());
+        } else if (nearestSpawnDist < 10 && false) {
+            return 100-nearestSpawn.distanceSquaredTo(target.getLocation());
         }
 
         for (RobotInfo ally : allies) {
