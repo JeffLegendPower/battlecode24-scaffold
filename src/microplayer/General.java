@@ -13,6 +13,12 @@ public class General {
     public static int rngSeed = 1;
     public static int id = -1;
     public static Random rng = new Random(rngSeed);
+    public static int maxTimeThatBreadCanBeOnTheGround = 4;
+
+    public static int[][] mapped;
+    public static MapLocation previousLocationForMappingFreshLocations = null;
+    public static boolean[] possibleSymmetries = {true, true, true};  // [rotational, up/down, left/right]
+    public static boolean symmetryWasDetermined = false;
 
     public static Direction lastMovedSetupExplorationDirection = null;
     public static MapLocation[] allySpawnLocations = null;
@@ -29,7 +35,7 @@ public class General {
     public static MapLocation carrierDestination = null;
     public static int lastTimeSinceFlagCarrierMoved = 0;
     public static int flagCarrierIndex = -1;
-    public static int lastAliveRound = -1;
+    public static int lastAliveRoundNumber = -1;
     public static int lastDroppedFlagValue = -1;
     public static MapLocation[] carrierLocations = new MapLocation[3];
     public static boolean[] hasCarrierDroppedFlag = new boolean[3];
@@ -63,6 +69,7 @@ public class General {
     5 | carried flag location 2 | 0=carried 1=dropped 2,3=deposited
     6 | carried flag location 3 | 0=carried 1=dropped 2,3=deposited
     7 | 1 bit empty, 5 bits protector index 3, 5 bits protector index 2, 5 bits protector index 1
+    8 | 1 bit rotational symmetry, 1 bit up/down symmetry, 1 bit left/right symmetry, 13 bits spare
     */
 
 }

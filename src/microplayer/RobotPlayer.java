@@ -15,10 +15,10 @@ public class RobotPlayer {
         // noinspection InfiniteLoopStatement
         while (true) {
             try {
-                if (tryToSpawnDuck()) {
+                if (!tryToSpawnDuck()) {
                     continue;
                 }
-                lastAliveRound = rc.getRoundNum();
+                lastAliveRoundNumber = rc.getRoundNum();
                 buyGlobalUpgrades();
                 onTurn();
                 randomizeRng();
@@ -34,6 +34,9 @@ public class RobotPlayer {
         }
     }
 
+    /**
+     * buy global upgrades as the game goes on
+     */
     public static void buyGlobalUpgrades() throws GameActionException {
         if (rc.getRoundNum() == 600) {
             if (rc.canBuyGlobal(GlobalUpgrade.ATTACK)) {
@@ -43,6 +46,7 @@ public class RobotPlayer {
         }
         if (rc.getRoundNum() == 1200) {
             if (rc.canBuyGlobal(GlobalUpgrade.CAPTURING)) {
+                maxTimeThatBreadCanBeOnTheGround = 25;
                 rc.buyGlobal(GlobalUpgrade.CAPTURING);
                 return;
             }
@@ -54,44 +58,52 @@ public class RobotPlayer {
         }
     }
 
+    /**
+     * attempt to spawn the duck
+     * if the duck was already spawned, it returns true
+     * if the duck can spawn, then it spawns the duck and returns true
+     * if the duck cannot spawn and is not already spawned, return false
+     */
     public static boolean tryToSpawnDuck() throws GameActionException {
+        // duck is already spawned
         if (rc.isSpawned()) {
-            return false;
+            return true;
         }
 
+        // duck is protector, and died
         if (isProtector) {
+            // write to shared array that there is a big emergency ! someone has killed the protector, so spawn there for the time being
             int v = rc.readSharedArray(7);
             v |= (0b11111 << (5*protectedFlagIndex));
             rc.writeSharedArray(7, v);
             if (rc.canSpawn(myProtectedFlagLocation)) {
                 rc.spawn(myProtectedFlagLocation);
             }
-            return true;
+            return false;
         }
 
+        // duck was a carrier, but died
         if (isCarrier) {
             if (flagCarrierIndex == -1) {
                 System.out.println("big error 2 !!!");
                 isCarrier = false;
-                return true;
+                return false;
             }
             if (carrierLocations[flagCarrierIndex] == null) {
                 // System.out.println("big error 3 !!!");
                 isCarrier = false;
-                return true;
+                return false;
             }
-            rc.setIndicatorDot(enemyFlagLocations[flagCarrierIndex], 255, 0, 0);
-            rc.setIndicatorDot(carrierLocations[flagCarrierIndex], 127, 255, 0);
-            // carrier just died with flag
-            if (lastAliveRound == rc.getRoundNum()-1) {
+            // carrier just died with flag, so write that in the shared array
+            if (lastAliveRoundNumber == rc.getRoundNum()-1) {
                 System.out.println("flag " + (flagCarrierIndex+1) + " was dropped");
                 visited.clear();
                 lastDroppedFlagValue = rc.readSharedArray(flagCarrierIndex+4) & (1 << 14);
                 hasCarrierDroppedFlag[flagCarrierIndex] = true;
                 rc.writeSharedArray(flagCarrierIndex+4, lastDroppedFlagValue);
             }
-            // carrier died with the flag and 4 turns have passed
-            if (lastAliveRound == rc.getRoundNum()-5) {
+            // carrier died with the flag and 4 turns have passed, and the enemy flag is back in its original position
+            if (lastAliveRoundNumber == rc.getRoundNum()-1- maxTimeThatBreadCanBeOnTheGround) {
                 if (rc.readSharedArray(flagCarrierIndex+4) == lastDroppedFlagValue) {  // flag hasn't been picked up since
                     System.out.println("flag " + (flagCarrierIndex+1) + " was reset");
                     rc.writeSharedArray(flagCarrierIndex + 4, 0);
@@ -103,15 +115,15 @@ public class RobotPlayer {
             }
         }
 
+        // first time spawning in, write ally spawn locations, map size, duck id, center locations of each 3x3 spawn area
         if (allySpawnLocations == null) {
             allySpawnLocations = rc.getAllySpawnLocations();
         }
-
         if (mapHeight == -1 || mapWidth == -1) {
             mapWidth = rc.getMapWidth();
             mapHeight = rc.getMapHeight();
+            mapped = new int[mapWidth][mapHeight];
         }
-
         if (id == -1) {
             id = rc.readSharedArray(0);
             if (rc.canWriteSharedArray(0, id+1)) {
@@ -119,7 +131,6 @@ public class RobotPlayer {
             }
             rc.setIndicatorString("id: " + id);
         }
-
         if (centerSpawnLocations == null) {
             centerSpawnLocations = new MapLocation[3];
             int i=0;
@@ -163,41 +174,42 @@ public class RobotPlayer {
                     }
                     myProtectedFlagLocation = protectedFlagLoc;
                     isProtector = true;
-                    return false;
+                    return true;
                 }
             }
         }
 
+        // use the shared array and the centers of the 3x3 spawn areas to encourage spawning in certain areas
         int v = rc.readSharedArray(7);
-        int[] centerLocationWeights = new int[3];
+        int[] spawnWeights = new int[3];
         int total = 0;
         for (int i=0; i<3; i++) {
-            centerLocationWeights[i] = v & 0b11111;
+            spawnWeights[i] = v & 0b11111;
             total += v & 0b11111;
             v >>= 5;
         }
-        Integer[] centerSpawnLocationWeightsIndicies;
-        if (Math.max(centerLocationWeights[2], Math.max(centerLocationWeights[0], centerLocationWeights[1])) == 0) {  // no enemies nearby
+        Integer[] spawnWeightIndicies;
+        if (Math.max(spawnWeights[2], Math.max(spawnWeights[0], spawnWeights[1])) == 0) {  // no enemies nearby
             MapLocation centerOfMap = new MapLocation(mapWidth/2, mapHeight/2);
-            centerSpawnLocationWeightsIndicies = sort(new Integer[]{0, 1, 2}, (i) -> centerSpawnLocations[i].distanceSquaredTo(centerOfMap));
+            spawnWeightIndicies = sort(new Integer[]{0, 1, 2}, (i) -> centerSpawnLocations[i].distanceSquaredTo(centerOfMap));
         } else {
-            centerSpawnLocationWeightsIndicies = sort(new Integer[]{0, 1, 2}, (i) -> -centerLocationWeights[i]);
+            spawnWeightIndicies = sort(new Integer[]{0, 1, 2}, (i) -> -spawnWeights[i]);
         }
         for (int i=0; i<3; i++) {
-            if (centerLocationWeights[centerSpawnLocationWeightsIndicies[i]] < total/2) {
+            if (spawnWeights[spawnWeightIndicies[i]] < total/2) {
                 if (rng.nextInt(4) == 0) {
                     continue;
                 }
             }
-            MapLocation centerSpawnLocation = centerSpawnLocations[centerSpawnLocationWeightsIndicies[i]];
+            MapLocation centerSpawnLocation = centerSpawnLocations[spawnWeightIndicies[i]];
             for (MapLocation adjacent : getAdjacents(centerSpawnLocation)) {
                 if (rc.canSpawn(adjacent)) {
                     rc.spawn(adjacent);
-                    return false;
+                    return true;
                 }
             }
         }
-        return true;
+        return false;
     }
 
     public static void randomizeRng() throws GameActionException {
@@ -216,6 +228,8 @@ public class RobotPlayer {
     }
 
     public static void onTurn() throws GameActionException {
+        mapFreshInVisionLocations();
+        previousLocationForMappingFreshLocations = rc.getLocation();
         if (rc.getRoundNum() >= 200) {
             onGameTurn();
         } else {
@@ -226,10 +240,11 @@ public class RobotPlayer {
     public static void onGameTurn() throws GameActionException {
         MapLocation robotLoc = rc.getLocation();
 
+        // get the enemies in view
         RobotInfo[] enemyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
         sort(enemyInfos, (enemy) -> enemy.getLocation().distanceSquaredTo(robotLoc));
 
-        // read enemy flag locations from shared
+        // read enemy flag locations from shared, save them locally
         for (int i=0; i<3; i++) {
             int v = rc.readSharedArray(i+1);
             MapLocation readLoc = intIsLoc(v) ? intToLoc(v) : null;
@@ -246,7 +261,7 @@ public class RobotPlayer {
             enemyFlagIsTaken[i] = isTaken;
         }
 
-        // read carrier locations from shared
+        // read carrier locations from shared, save them locally
         for (int i=0; i<3; i++) {
             int v = rc.readSharedArray(4+i);
             MapLocation readLoc = intIsLoc(v) ? intToLoc(v) : null;
@@ -261,17 +276,22 @@ public class RobotPlayer {
             rc.setIndicatorDot(carrierLocations[i], 0, 127, 255);
         }
 
-        // flag carrier stuff
+        // flag carrier code
         if (isCarrier) {
             rc.setIndicatorString("carrying flag " + (flagCarrierIndex+1));
+
             sort(allySpawnLocations, (spawnLoc) -> spawnLoc.distanceSquaredTo(robotLoc));
-            RobotInfo[] allyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+
             MapLocation[] enemyLocations = new MapLocation[enemyInfos.length];
+
+            RobotInfo[] allyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
             MapLocation[] allyLocations = new MapLocation[allyInfos.length];
-            MapInfo[] allMapInfos = rc.senseNearbyMapInfos(4);
-            MapLocation[] trapLocations = new MapLocation[allMapInfos.length];
+
+            MapInfo[] nearbyMapInfos = rc.senseNearbyMapInfos(4);
+            MapLocation[] trapLocations = new MapLocation[nearbyMapInfos.length];
+
             int writeIndex=0;
-            for (MapInfo allMapInfo : allMapInfos) {
+            for (MapInfo allMapInfo : nearbyMapInfos) {
                 if (allMapInfo.getTrapType().equals(TrapType.STUN)) {
                     trapLocations[writeIndex++] = allMapInfo.getMapLocation();
                 }
@@ -282,7 +302,8 @@ public class RobotPlayer {
             for (int i=0; i<allyInfos.length; i++) {
                 allyLocations[i] = allyInfos[i].getLocation();
             }
-            for (MapLocation adjacent : sort(getAdjacents(robotLoc), (loc) -> {
+
+            MapLocation[] sortedMovementDirections = sort(getAdjacents(robotLoc), (loc) -> {
                 int total = 0;
                 // avoid enemies
                 for (MapLocation enemyLocation : enemyLocations) {
@@ -300,7 +321,10 @@ public class RobotPlayer {
                     total -= (trapLocation.distanceSquaredTo(loc) * 2) / 3;
                 }
                 return loc.distanceSquaredTo(carrierDestination) - total;
-            })) {
+            });
+
+            // move the flag carrier
+            for (MapLocation adjacent : sortedMovementDirections) {
                 if (visited.contains(adjacent)) {
                     continue;
                 }
@@ -320,6 +344,7 @@ public class RobotPlayer {
                     break;
                 }
             }
+
             // pass the flag if stuck
             if (rc.getMovementCooldownTurns() < 10 && rc.getActionCooldownTurns() < 10) {
                 for (MapLocation d : sort(getAdjacents(robotLoc), (loc) -> loc.distanceSquaredTo(allySpawnLocations[0]))) {
@@ -350,6 +375,7 @@ public class RobotPlayer {
                 }
             }
 
+            // this is part of checking if the flag carrier moved recently and passing the flag if it hasn't
             lastTimeSinceFlagCarrierMoved++;
             if (lastTimeSinceFlagCarrierMoved > 5) {
                 lastTimeSinceFlagCarrierMoved = 0;
@@ -358,12 +384,9 @@ public class RobotPlayer {
             return;
         }
 
-        // protector stuff
-        MapLocation[] diagonals = new MapLocation[]{
-                robotLoc.add(Direction.NORTHWEST), robotLoc.add(Direction.SOUTHEAST),
-                robotLoc.add(Direction.SOUTHWEST), robotLoc.add(Direction.NORTHEAST)
-        };
+        // flag protector code
         if (isProtector) {
+            // read the spawn suggestion array and write the danger level in the allowed bits
             int v = rc.readSharedArray(7);
             int enemiesSeen = Math.min(enemyInfos.length, 31);
             if (rc.senseNearbyFlags(1, rc.getTeam()).length == 0) {  // no flag there
@@ -379,21 +402,26 @@ public class RobotPlayer {
                 return;
             }
 
-            sort(diagonals, (loc) -> {
+            // place stun traps in the diagonals
+            MapLocation[] diagonalsToRobotLoc = new MapLocation[]{
+                    robotLoc.add(Direction.NORTHWEST), robotLoc.add(Direction.SOUTHEAST),
+                    robotLoc.add(Direction.SOUTHWEST), robotLoc.add(Direction.NORTHEAST)
+            };
+            sort(diagonalsToRobotLoc, (loc) -> {
                 int total=0;
                 for (RobotInfo enemy : enemyInfos) {
                     total += enemy.getLocation().distanceSquaredTo(robotLoc);
                 }
                 return total;
             });
-
-            for (MapLocation diag : diagonals) {
+            for (MapLocation diag : diagonalsToRobotLoc) {
                 if (rc.canBuild(TrapType.STUN, diag)) {
                     rc.build(TrapType.STUN, diag);
                     return;
                 }
             }
 
+            // attack the enemy if can do anything else
             for (RobotInfo enemy : enemyInfos) {
                 if (rc.canAttack(enemy.getLocation())) {
                     rc.attack(enemy.getLocation());
@@ -551,7 +579,7 @@ public class RobotPlayer {
                     carrierDestination = allySpawnLocations[0];
                     visited.add(robotLoc);
                     for (int i=0; i<3; i++) {
-                        if (enemyFlagLocations[i].equals(flagInfo.getLocation())) {
+                        if (flagInfo.getLocation().equals(enemyFlagLocations[i])) {
                             flagCarrierIndex = i;
                             System.out.println("flag " + (i+1) + " picked up at " + flagInfo.getLocation());
                             writeLocationToShared(4+i, robotLoc, 0, 0);
@@ -578,7 +606,7 @@ public class RobotPlayer {
 
         // no enemies nearby-ish
         if (enemyInfos.length == 0 || enemyInfos[0].getLocation().distanceSquaredTo(robotLoc) >= 16) {
-            // no enemies nearby-ish -> spam traps when no enemies in 2 step range
+            // enemies nearby but not close -> spam traps when no enemies in 2 step range
             if (enemyInfos.length > 0) {
                 rc.setIndicatorString("spamming traps");
                 if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2) {
@@ -594,7 +622,7 @@ public class RobotPlayer {
                 }
             }
 
-            // no enemies nearby-ish -> there are allies nearby
+            // no enemies nearby -> there are allies nearby
             if (allyInfos.length > 0) {
                 RobotInfo closestAlly = allyInfos[0];
                 if (closestAlly.getHealth() <= 1000 - rc.getHealAmount()) {
@@ -622,7 +650,7 @@ public class RobotPlayer {
                 }
             }
 
-            // no enemies nearby-ish -> no allies nearby
+            // no enemies nearby -> no allies nearby
             for (Direction d : getIdealMovementDirections(robotLoc, pathfindGoalLoc)) {
                 if (rc.canMove(d)) {
                     rc.move(d);
@@ -770,11 +798,9 @@ public class RobotPlayer {
                     continueInThisDirection = null;
                 }
             }
-            Direction[] idealMovementDirections = getIdealMovementDirections(robotLoc, closestCrumbLoc);
             // try to move in the ideal directions
             int i=0;
-            for (Direction idealMoveDir : idealMovementDirections) {
-                i++;
+            for (Direction idealMoveDir : getIdealMovementDirections(robotLoc, closestCrumbLoc)) {
                 if (rc.canMove(idealMoveDir)) {
                     rc.move(idealMoveDir);
                     if (i >= 3) {
@@ -787,12 +813,13 @@ public class RobotPlayer {
                         return;
                     }
                 }
+                i++;
             }
             return;
         }
 
-        // ducks 3-7 go to center
-        if ((3 <= id && id <= 7) && rc.getRoundNum() <= 78) {  // 1-78
+        // ducks with ids 3-7 go to center before round 81
+        if ((3 <= id && id <= 7) && rc.getRoundNum() <= 80) {  // 1-80
             MapLocation centerLocation = new MapLocation(mapWidth/2, mapHeight/2);
             Direction[] idealMovementDirections = getIdealMovementDirections(robotLoc, centerLocation);
             // move closer if possible
@@ -840,18 +867,15 @@ public class RobotPlayer {
 
         // stick to dam
         if (rc.getRoundNum() > 130) {
-            RobotInfo[] enemyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-            RobotInfo[] allyInfos = rc.senseNearbyRobots(-1, rc.getTeam());
             for (MapLocation ml : getAdjacents(robotLoc)) {
                 if (!rc.onTheMap(ml)) {
                     continue;
                 }
+                // build stun traps when near the dam
                 if (rc.senseMapInfo(ml).isDam()) {
-//                    if (enemyInfos.length+1 >= allyInfos.length) {
-                        if (rc.canBuild(TrapType.STUN, robotLoc)) {
-                            rc.build(TrapType.STUN, robotLoc);
-                        }
-//                    }
+                    if (rc.canBuild(TrapType.STUN, robotLoc)) {
+                        rc.build(TrapType.STUN, robotLoc);
+                    }
                     return;
                 }
             }
@@ -883,7 +907,7 @@ public class RobotPlayer {
             return;
         }
 
-        // no allies in sight, just keep moving
+        // no allies in sight, just keep bouncing around
         RobotInfo[] nearbyAllies = rc.senseNearbyRobots(-1, rc.getTeam());
         if (nearbyAllies.length == 0 && lastMovedSetupExplorationDirection != null) {
             if (rc.canMove(lastMovedSetupExplorationDirection)) {
@@ -912,6 +936,181 @@ public class RobotPlayer {
                 lastMovedSetupExplorationDirection = d;
                 break;
             }
+        }
+    }
+
+    // takes 13000+ bytecode
+    public static void debugMappedLocations() {
+        for (int x=0; x<mapWidth; x++) {
+            for (int y=0; y<mapHeight; y++) {
+                int v = mapped[x][y];
+                if (v == 0) {
+                    continue;
+                }
+                rc.setIndicatorDot(new MapLocation(x, y), ((v & 0b10) >> 1) * 255, 0, 0);
+            }
+        }
+    }
+
+    public static MapLocation[] getFreshInVisionLocations() {
+        MapLocation robotLoc = rc.getLocation();
+
+        int x = robotLoc.x;
+        int y = robotLoc.y;
+        switch (previousLocationForMappingFreshLocations.directionTo(robotLoc)) {
+            case NORTH:
+                return new MapLocation[]{
+                        new MapLocation(x-4, y+2), new MapLocation(x-3, y+3), new MapLocation(x-2, y+4),
+                        new MapLocation(x-1, y+4), new MapLocation(x, y+4), new MapLocation(x+1, y+4),
+                        new MapLocation(x+2, y+4), new MapLocation(x+3, y+3), new MapLocation(x+4, y+2)
+                };
+            case NORTHEAST:
+                return new MapLocation[]{
+                        new MapLocation(x-1, y+4), new MapLocation(x, y+4), new MapLocation(x+1, y+4),
+                        new MapLocation(x+2, y+4), new MapLocation(x+2, y+3), new MapLocation(x+3, y+3),
+                        new MapLocation(x+3, y+2), new MapLocation(x+4, y+2), new MapLocation(x+4, y+1),
+                        new MapLocation(x+4, y), new MapLocation(x+4, y-1), new MapLocation(x-2, y+4),
+                        new MapLocation(x+4, y-2)
+                };
+            case EAST:
+                return new MapLocation[]{
+                        new MapLocation(x+2, y+4), new MapLocation(x+3, y+3), new MapLocation(x+4, y+2),
+                        new MapLocation(x+4, y+1), new MapLocation(x+4, y), new MapLocation(x+4, y-1),
+                        new MapLocation(x+4, y-2), new MapLocation(x+3, y-3), new MapLocation(x+2, y-4)
+                };
+            case SOUTHEAST:
+                return new MapLocation[]{
+                        new MapLocation(x+4, y+1), new MapLocation(x+4, y), new MapLocation(x+4, y-1),
+                        new MapLocation(x+4, y-2), new MapLocation(x+3, y-2), new MapLocation(x+3, y-3),
+                        new MapLocation(x+2, y-3), new MapLocation(x+2, y-4), new MapLocation(x+1, y-4),
+                        new MapLocation(x, y-4), new MapLocation(x-1, y-4), new MapLocation(x+4, y+2),
+                        new MapLocation(x-2, y-4)
+                };
+            case SOUTH:
+                return new MapLocation[]{
+                        new MapLocation(x-4, y-2), new MapLocation(x-3, y-3), new MapLocation(x-2, y-4),
+                        new MapLocation(x-1, y-4), new MapLocation(x, y-4), new MapLocation(x+1, y-4),
+                        new MapLocation(x+2, y-4), new MapLocation(x+3, y-3), new MapLocation(x+4, y-2)
+                };
+            case SOUTHWEST:
+                return new MapLocation[]{
+                        new MapLocation(x+1,  y-4), new MapLocation(x, y-4), new MapLocation(x-1, y-4),
+                        new MapLocation(x-2, y-4), new MapLocation(x-2, y-3), new MapLocation(x-3, y-3),
+                        new MapLocation(x-3, y-2), new MapLocation(x-4, y-2), new MapLocation(x-4, y-1),
+                        new MapLocation(x-4, y), new MapLocation(x-4, y+1), new MapLocation(x-4, y+2),
+                        new MapLocation(x+2, y-4)
+                };
+            case WEST:
+                return new MapLocation[]{
+                        new MapLocation(x-2, y-4), new MapLocation(x-3, y-3), new MapLocation(x-4, y-2),
+                        new MapLocation(x-4, y-1), new MapLocation(x-4, y), new MapLocation(x-4, y+1),
+                        new MapLocation(x-4, y+2), new MapLocation(x-3, y+3), new MapLocation(x-2, y+4)
+                };
+            case NORTHWEST:
+                return new MapLocation[]{
+                        new MapLocation(x-4, y-1), new MapLocation(x-4, y), new MapLocation(x-4, y+1),
+                        new MapLocation(x-4, y+2), new MapLocation(x-3, y+2), new MapLocation(x-3, y+3),
+                        new MapLocation(x-2, y+3), new MapLocation(x-2, y+4), new MapLocation(x-1, y+4),
+                        new MapLocation(x, y+4), new MapLocation(x+1, y+4), new MapLocation(x-4, y-2),
+                        new MapLocation(x+2, y+4)
+                };
+        }
+        System.out.println("big issue 1 !!!");
+        return new MapLocation[0];
+    }
+
+    public static void mapFreshInVisionLocations() throws GameActionException {
+        // scan symmetries from shared array
+        int invalidSymmetriesFromSharedArray = rc.readSharedArray(8);
+        for (int i=0; i<3; i++) {
+            boolean isInvalidSymmetry = (invalidSymmetriesFromSharedArray & (1 << (15-i))) > 0;
+            if (isInvalidSymmetry) {
+                possibleSymmetries[i] = false;
+            }
+        }
+        rc.setIndicatorString(Arrays.toString(possibleSymmetries));
+        if (!symmetryWasDetermined) {
+            checkIfSymmetryIsDetermined();
+        }
+
+        // just spawned in
+        if (previousLocationForMappingFreshLocations == null) {
+            MapInfo[] nearbyInfos = rc.senseNearbyMapInfos();
+            for (MapInfo info : nearbyInfos) {
+                MapLocation loc = info.getMapLocation();
+                if (0 <= loc.x && loc.x < mapWidth && 0 <= loc.y & loc.y < mapHeight) {
+                    mapped[loc.x][loc.y] = info.isPassable() ? 0b01 : 0b11;
+                }
+            }
+            return;
+        }
+
+        if (previousLocationForMappingFreshLocations.equals(rc.getLocation())) {  // did not move since last turn
+            rc.setIndicatorString(previousLocationForMappingFreshLocations + " | " + rc.getLocation());
+            return;
+        }
+
+        // did move since last turn, scan new locations
+        for (MapLocation l : getFreshInVisionLocations()) {
+            if (0 <= l.x && l.x < mapWidth && 0 <= l.y && l.y < mapHeight) {
+                if (mapped[l.x][l.y] == 0) {
+                    boolean isWall = rc.senseMapInfo(l).isWall();
+                    mapped[l.x][l.y] = isWall ? 0b01 : 0b11;
+                    if (!symmetryWasDetermined) {
+                        int rotationalSymmetryValue = mapped[mapWidth - 1 - l.x][mapHeight - 1 - l.y];
+                        int upDownSymmetryValue = mapped[l.x][mapHeight - 1 - l.y];
+                        int rightLeftSymmetryValue = mapped[mapWidth - 1 - l.x][l.y];
+                        if ((rotationalSymmetryValue & 0b1) == 0b1) {  // already seen rotational symmetry value
+                            if ((rotationalSymmetryValue & 0b11) != mapped[l.x][l.y]) {  // rotational symmetry value is not a wall
+                                possibleSymmetries[0] = false;
+                                checkIfSymmetryIsDetermined();
+                            }
+                        }
+                        if ((upDownSymmetryValue & 0b1) == 0b1) {
+                            if ((upDownSymmetryValue & 0b11) != mapped[l.x][l.y]) {
+                                possibleSymmetries[1] = false;
+                                checkIfSymmetryIsDetermined();
+                            }
+                        }
+                        if ((rightLeftSymmetryValue & 0b1) == 0b1) {
+                            if ((rightLeftSymmetryValue & 0b11) != mapped[l.x][l.y]) {
+                                possibleSymmetries[2] = false;
+                                checkIfSymmetryIsDetermined();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public static void checkIfSymmetryIsDetermined() throws GameActionException {
+        int validSymmetryCount = 0;
+        int lastValidIndex = 0;
+        int newSharedArrayValue = 0;
+        for (int i = 0; i < 3; i++) {
+            newSharedArrayValue <<= 1;
+            newSharedArrayValue |= possibleSymmetries[i] ? 0 : 1;
+            if (possibleSymmetries[i]) {
+                validSymmetryCount += 1;
+                lastValidIndex = i;
+            }
+        }
+        newSharedArrayValue <<= 13;
+        if (validSymmetryCount == 1) {
+            symmetryWasDetermined = true;
+        }
+        if (rc.readSharedArray(8) != newSharedArrayValue) {
+            if (validSymmetryCount == 1) {
+                if (lastValidIndex == 0) {
+                    System.out.println("ROTATIONAL SYMMETRY");
+                } else if (lastValidIndex == 1) {
+                    System.out.println("UP/DOWN SYMMETRY");
+                } else {
+                    System.out.println("LEFT/RIGHT SYMMETRY");
+                }
+            }
+            rc.writeSharedArray(8, newSharedArrayValue);
         }
     }
 }
