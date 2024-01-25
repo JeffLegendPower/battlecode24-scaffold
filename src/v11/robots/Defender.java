@@ -57,11 +57,11 @@ public class Defender extends AbstractRobot {
                 rc.build(TrapType.STUN, ahead);
         }
 
-        for (Direction direction : RobotPlayer.directions) {
-            MapLocation ahead = curLoc.add(direction);
-            if (rc.canBuild(TrapType.EXPLOSIVE, ahead))
-                rc.build(TrapType.EXPLOSIVE, ahead);
-        }
+//        for (Direction direction : RobotPlayer.directions) {
+//            MapLocation ahead = curLoc.add(direction);
+//            if (rc.canBuild(TrapType.EXPLOSIVE, ahead))
+//                rc.build(TrapType.EXPLOSIVE, ahead);
+//        }
 
 
         for (RobotInfo enemy : enemies) {

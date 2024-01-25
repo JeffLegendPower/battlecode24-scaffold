@@ -12,6 +12,7 @@ public strictfp class RobotPlayer {
 
     public static final Random rng = new Random();
     public static MapInfo[][] map;
+    public static MapInfo[][] lastMap;
     private static AbstractRobot robot = null;
     private static AbstractRobot flagRobot = null;
 
@@ -32,6 +33,7 @@ public strictfp class RobotPlayer {
     @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
         map = new MapInfo[rc.getMapWidth()][rc.getMapHeight()];
+        lastMap = new MapInfo[rc.getMapWidth()][rc.getMapHeight()];
 
         MapLocation[] spawns = rc.getAllySpawnLocations();
 
@@ -98,6 +100,11 @@ public strictfp class RobotPlayer {
                         robot.setupTick(rc, rc.getLocation());
                     else
                         robot.tick(rc, rc.getLocation());
+                }
+
+                for (MapInfo info : nearbyMapInfo) {
+                    MapLocation loc = info.getMapLocation();
+                    lastMap[loc.x][loc.y] = info;
                 }
             } else {
                 Pathfinding.visited.clear();

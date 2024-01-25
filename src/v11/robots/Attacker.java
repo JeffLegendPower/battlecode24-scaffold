@@ -2,25 +2,22 @@ package v11.robots;
 
 import battlecode.common.*;
 import v11.*;
-
-import java.util.Random;
-
-import static v10_2.Evaluators.staticLocEval;
+import v11.Pathfinding;
 
 public class Attacker extends AbstractRobot {
 
     private Direction continueInThisDirection = null;
 
-    // If a deviant, go to a different flag than the one being targeted by everyone else
-    private boolean deviant = false;
+    private MapLocation defenderTarget = null;
 
     private MapLocation lastTarget = null;
     private MapLocation flagTarget;
 
     @Override
     public boolean setup(RobotController rc) throws GameActionException {
-        if (RobotPlayer.rng.nextInt(10) == 0)
-            deviant = true;
+//        if (RobotPlayer.rng.nextInt(10) == 0)
+//            deviant = true;
+
         spawn(rc);
         return true;
     }
@@ -28,62 +25,54 @@ public class Attacker extends AbstractRobot {
     @Override
     public void spawn(RobotController rc) throws GameActionException {
         flagTarget = null;
-        if (deviant) {
-            for (int i = 2; i >= 0; i--) {
+
+        int v = rc.readSharedArray(Constants.SharedArray.defenderAlert);
+        int[] centerLocationWeights = new int[3];
+        int total = 0;
+        for (int i=0; i<3; i++) {
+            centerLocationWeights[i] = v & 0b11111;
+            total += v & 0b11111;
+            v >>= 5;
+        }
+
+        Integer[] centerSpawnLocationWeightsIndicies = Utils.sort(new Integer[] {0, 1, 2}, (i) -> -centerLocationWeights[i]);
+        for (int i=0; i<3; i++) {
+            if (centerLocationWeights[centerSpawnLocationWeightsIndicies[i]] < total / 2) {
+                if (RobotPlayer.rng.nextInt(3) == 1) {
+                    continue;
+                }
+            }
+            MapLocation centerSpawnLocation = RobotPlayer.allyFlagSpawnLocs[centerSpawnLocationWeightsIndicies[i]];
+            for (MapLocation adjacent : Utils.getAdjacents(centerSpawnLocation)) {
+                if (rc.canSpawn(adjacent)) {
+                    rc.spawn(adjacent);
+                    return;
+                }
+            }
+        }
+
+        if (lastTarget != null) {
+            int bestDist = 999999;
+            MapLocation bestLoc = null;
+            for (MapLocation spawnLoc : rc.getAllySpawnLocations()) {
+                int dist = spawnLoc.distanceSquaredTo(lastTarget);
+                if (rc.canSpawn(spawnLoc) && dist < bestDist) {
+                    bestDist = dist;
+                    bestLoc = spawnLoc;
+                }
+            }
+
+            if (bestLoc != null) rc.spawn(bestLoc);
+        } else {
+            for (int i = 0; i < 3; i++) {
                 MapLocation flagLoc = Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]);
                 if (flagLoc != null) {
                     flagTarget = flagLoc;
                     break;
                 }
             }
-        } else {
-            int v = rc.readSharedArray(Constants.SharedArray.defenderAlert);
-            int[] centerLocationWeights = new int[3];
-            int total = 0;
-            for (int i=0; i<3; i++) {
-                centerLocationWeights[i] = v & 0b11111;
-                total += v & 0b11111;
-                v >>= 5;
-            }
-
-            Integer[] centerSpawnLocationWeightsIndicies = Utils.sort(new Integer[] {0, 1, 2}, (i) -> -centerLocationWeights[i]);
-            for (int i=0; i<3; i++) {
-                if (centerLocationWeights[centerSpawnLocationWeightsIndicies[i]] < total / 2) {
-                    if (RobotPlayer.rng.nextInt(3) == 1) {
-                        continue;
-                    }
-                }
-                MapLocation centerSpawnLocation = RobotPlayer.allyFlagSpawnLocs[centerSpawnLocationWeightsIndicies[i]];
-                for (MapLocation adjacent : Utils.getAdjacents(centerSpawnLocation)) {
-                    if (rc.canSpawn(adjacent)) {
-                        rc.spawn(adjacent);
-                        return;
-                    }
-                }
-            }
-
-            if (lastTarget != null) {
-                int bestDist = 999999;
-                MapLocation bestLoc = null;
-                for (MapLocation spawnLoc : rc.getAllySpawnLocations()) {
-                    int dist = spawnLoc.distanceSquaredTo(lastTarget);
-                    if (rc.canSpawn(spawnLoc) && dist < bestDist) {
-                        bestDist = dist;
-                        bestLoc = spawnLoc;
-                    }
-                }
-
-                if (bestLoc != null) rc.spawn(bestLoc);
-            } else {
-                for (int i = 0; i < 3; i++) {
-                    MapLocation flagLoc = Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]);
-                    if (flagLoc != null) {
-                        flagTarget = flagLoc;
-                        break;
-                    }
-                }
-            }
         }
+
 
         if (flagTarget == null) {
             super.spawn(rc);
@@ -105,6 +94,7 @@ public class Attacker extends AbstractRobot {
     @Override
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
         // First do some quick flag detection stuff
+
         FlagInfo[] nearbyFlags = Utils.sort(rc.senseNearbyFlags(-1, rc.getTeam().opponent()),
                 (flag) -> flag.getLocation().distanceSquaredTo(curLoc));
         detectAndPickupFlags(rc, nearbyFlags);
@@ -146,29 +136,18 @@ public class Attacker extends AbstractRobot {
 
         MapLocation target = null;
         int bestDist = 999999;
-        if (deviant) {
-            for (int i = 0; i < 3; i++) {
-                MapLocation flagLoc = Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]);
-                if (flagLoc != null) {
-                    int dist = flagLoc.distanceSquaredTo(flagTarget);
-                    if (dist < bestDist) {
-                        target = flagLoc;
-                        bestDist = dist;
-                    }
-                }
-            }
-        } else {
-            for (int i = 0; i < 3; i++) {
-                MapLocation flag = enemyFlagLocs[i];
-                if (flag != null) {
-                    int dist = flag.distanceSquaredTo(curLoc);
-                    if (dist < bestDist) {
-                        target = flag;
-                        bestDist = dist;
-                    }
+
+        for (int i = 0; i < 3; i++) {
+            MapLocation flag = enemyFlagLocs[i];
+            if (flag != null) {
+                int dist = flag.distanceSquaredTo(curLoc);
+                if (dist < bestDist) {
+                    target = flag;
+                    bestDist = dist;
                 }
             }
         }
+
 
         lastTarget = target;
 
@@ -255,25 +234,31 @@ public class Attacker extends AbstractRobot {
         if (allyInfos.length >= enemyInfos.length - 3) {  // more allies than enemies, attack
             int distToClosestEnemy = curLoc.distanceSquaredTo(closestEnemy.getLocation());
 
-            MapLocation bestTarget = Evals.Action.getBestTarget(rc);
-            if (bestTarget != null && rc.canAttack(bestTarget))
-                rc.attack(bestTarget);
+//            MapLocation bestTarget = Evals.Action.getBestTarget(rc);
+//            if (bestTarget != null && rc.canAttack(bestTarget))
+//                rc.attack(bestTarget);
+            if (rc.canAttack(closestEnemyLoc))
+                rc.attack(closestEnemyLoc);
 
             MicroAttacker microAttacker = new MicroAttacker(rc);
             microAttacker.doMicro();
 
-            bestTarget = Evals.Action.getBestTarget(rc);
-            if (bestTarget != null && rc.canAttack(bestTarget))
-                rc.attack(bestTarget);
+            MapLocation newClosestEnemyLoc = Utils.getClosest(enemyInfos, rc.getLocation()).location;
+            if (rc.canAttack(newClosestEnemyLoc))
+                rc.attack(newClosestEnemyLoc);
 
-            // If an ally really needs healing, heal them
-            if (rc.isActionReady() && numTraps >= 6) {
-                for (RobotInfo ally : allyInfos) {
-                    if (ally.health <= 700 && rc.canHeal(ally.getLocation())) {
-                        rc.heal(ally.getLocation());
-                    }
-                }
-            }
+//            bestTarget = Evals.Action.getBestTarget(rc);
+//            if (bestTarget != null && rc.canAttack(bestTarget))
+//                rc.attack(bestTarget);
+
+//            // If an ally really needs healing, heal them
+//            if (rc.isActionReady() && numTraps >= 6) {
+//                for (RobotInfo ally : allyInfos) {
+//                    if (ally.health <= 700 && rc.canHeal(ally.getLocation())) {
+//                        rc.heal(ally.getLocation());
+//                    }
+//                }
+//            }
 
             // spam traps if we still have some action cooldown remaining
             if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2 && rc.isActionReady()) {
@@ -375,16 +360,17 @@ public class Attacker extends AbstractRobot {
                 }
             }
             MapLocation centerLoc = new MapLocation(mapWidth / 2, mapHeight / 2);
-            for (Direction d : Utils.getIdealMovementDirections(curLoc, centerLoc)) {
-                if (rc.canMove(d)) {
-                    rc.move(d);
-                } else {
-                    MapLocation newLoc = curLoc.add(d);
-                    if (rc.canFill(newLoc)) {
-                        rc.fill(newLoc);
-                    }
-                }
-            }
+//            for (Direction d : Utils.getIdealMovementDirections(curLoc, centerLoc)) {
+//                if (rc.canMove(d)) {
+//                    rc.move(d);
+//                } else {
+//                    MapLocation newLoc = curLoc.add(d);
+//                    if (rc.canFill(newLoc)) {
+//                        rc.fill(newLoc);
+//                    }
+//                }
+//            }
+            Pathfinding.moveTowards(rc, curLoc, centerLoc, true);
         } else {
             Direction dir = RobotPlayer.directions[RobotPlayer.rng.nextInt(8)];
             if (rc.canMove(dir)) {

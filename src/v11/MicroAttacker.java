@@ -7,21 +7,18 @@ public class MicroAttacker {
     static int MAX_MICRO_BYTECODE_REMAINING = 2000;
 
     final int INF = 1000000;
-    boolean attacker = false;
     boolean shouldPlaySafe = false;
     boolean alwaysInRange = false;
-    boolean hurt = false; //TODO: if hurt we want to go back to archon
+    boolean hurt = false;
     static int myRange;
     static int myVisionRange;
     static double myDPS;
     boolean severelyHurt = false;
 
     double[] DPS = new double[]{0, 0, 0, 0, 0, 0, 0};
-    int[] rangeExtended = new int[]{0, 0, 0, 0, 0, 0, 0};
     RobotController rc;
 
     public MicroAttacker(RobotController rc) {
-        attacker = true;
         myRange = 2;
         myVisionRange = 20;
 
@@ -167,11 +164,17 @@ public class MicroAttacker {
         double alliesTargeting = 0;
         boolean canMove = true;
         int distToEnemyFlagHolder = INF;
+        int distToNearestAllySpawn = INF;
 
         public MicroInfo(Direction dir) throws GameActionException {
             this.dir = dir;
             this.location = rc.getLocation().add(dir);
             if (dir != Direction.CENTER && !rc.canMove(dir)) canMove = false;
+
+            for (MapLocation spawn : RobotPlayer.allyFlagSpawnLocs) {
+                int dist = spawn.distanceSquaredTo(location);
+                if (dist < distToNearestAllySpawn) distToNearestAllySpawn = dist;
+            }
 
 //            RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
 //            RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
@@ -228,6 +231,7 @@ public class MicroAttacker {
 
         int safe(){
             if (!canMove) return -1;
+            if (distToNearestAllySpawn <= 25) return 1; // TODO this is what i changed
             if (DPSreceived > 0) return 0;
             if (enemiesTargeting > alliesTargeting) return 1;
             return 2;
@@ -241,7 +245,7 @@ public class MicroAttacker {
         //equal => true
         boolean isBetter(MicroInfo M) {
 
-            if (distToEnemyFlagHolder < M.distToEnemyFlagHolder) return true;
+            if (distToEnemyFlagHolder < M.distToEnemyFlagHolder) return true; // TODO this is what i changed
 
             if (safe() > M.safe()) return true;
             if (safe() < M.safe()) return false;
