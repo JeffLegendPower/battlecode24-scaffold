@@ -25,6 +25,7 @@ public class General {
     public static MapLocation[] centerSpawnLocations = null;
     public static MapLocation[] visitedForSetupPathfinding = new MapLocation[30];
     public static int visitedForSetupPathfindingIndex = 0;
+    public static MapLocation lastSeenDamLocationDuringSetup = null;
 
     public static MapLocation broadcastFlagPathfindLoc = null;
     public static MapLocation[] enemyFlagLocations = new MapLocation[3];
