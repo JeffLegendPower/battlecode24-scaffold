@@ -166,7 +166,7 @@ public class MicroAttacker {
         double enemiesTargeting = 0;
         double alliesTargeting = 0;
         boolean canMove = true;
-//        int rubble = 0;
+        int distToEnemyFlagHolder = INF;
 
         public MicroInfo(Direction dir) throws GameActionException {
             this.dir = dir;
@@ -212,7 +212,11 @@ public class MicroAttacker {
         void updateEnemy(RobotInfo unit) {
             if (!canMove) return;
             int dist = unit.getLocation().distanceSquaredTo(location);
-            if (dist < minDistanceToEnemy)  minDistanceToEnemy = dist;
+            if (dist < minDistanceToEnemy) {
+                if (unit.hasFlag)
+                    distToEnemyFlagHolder = dist;
+                minDistanceToEnemy = dist;
+            }
             if (dist <= currentActionRadius) DPSreceived += DPS[unit.attackLevel];
             if (dist <= currentRangeExtended) enemiesTargeting += DPS[unit.attackLevel];
         }
@@ -236,6 +240,8 @@ public class MicroAttacker {
 
         //equal => true
         boolean isBetter(MicroInfo M) {
+
+            if (distToEnemyFlagHolder < M.distToEnemyFlagHolder) return true;
 
             if (safe() > M.safe()) return true;
             if (safe() < M.safe()) return false;

@@ -74,6 +74,7 @@ public class Evals {
         RobotInfo best = null;
         int bestScore = -9999999;
         for (RobotInfo enemy : enemies) {
+            if (!rc.canAttack(enemy.getLocation())) continue;
             int score = staticAttackEval(rc, enemy, loc);
             if (score > bestScore) {
                 bestScore = score;

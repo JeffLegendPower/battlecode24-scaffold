@@ -196,6 +196,7 @@ public class Attacker extends AbstractRobot {
                 Pathfinding.moveTowards(rc, curLoc, closestFlag, true);
             }
         }
+
         // no enemies close enough to attack even if they run in
         if (enemyInfos.length == 0 || enemyInfos[0].getLocation().distanceSquaredTo(curLoc) >= 16) {
             // no enemies nearby-ish -> spam traps when no enemies in 2-step range
