@@ -199,6 +199,19 @@ public class Utility {
         }
     }
 
+    public static MapLocation[] get2ndSquareRingAroundLocation(MapLocation l) {
+        int x = l.x;
+        int y = l.y;
+        return new MapLocation[]{
+                new MapLocation(x-2, y), new MapLocation(x-2, y+1), new MapLocation(x-2, y+2),
+                new MapLocation(x-1, y+2), new MapLocation(x, y+2), new MapLocation(x+1, y+2),
+                new MapLocation(x+2, y+2), new MapLocation(x+2, y+1), new MapLocation(x+2, y),
+                new MapLocation(x+2, y-1), new MapLocation(x+2, y-2), new MapLocation(x+1, y-2),
+                new MapLocation(x, y-2), new MapLocation(x-1, y-2), new MapLocation(x-2, y-2),
+                new MapLocation(x-2, y-1)
+        };
+    }
+
     public static MapLocation[] genBugNavAroundPath(MapLocation robotStart, MapLocation wallStart, MapLocation goal) {
         ArrayDeque<MapLocation> seen = new ArrayDeque<>();
         Direction dirLeft = robotStart.directionTo(wallStart);
@@ -223,10 +236,16 @@ public class Utility {
             }
             break;
         }
-        Direction d = robotStart.add(dirLeft).distanceSquaredTo(goal) > robotStart.add(dirRight).distanceSquaredTo(goal) ? dirRight : dirLeft;
+        Direction d;
+        if (bugNavGoingClockwise == null) {
+            d = robotStart.add(dirLeft).distanceSquaredTo(goal) > robotStart.add(dirRight).distanceSquaredTo(goal) ? dirRight : dirLeft;
+            bugNavGoingClockwise = d == dirLeft;
+        } else {
+            d = bugNavGoingClockwise ? dirLeft : dirRight;
+        }
         MapLocation robotCurrent = robotStart.add(d);
         Direction prevDirection = d;
-        if (d == dirLeft) {  // clockwise
+        if (bugNavGoingClockwise) {  // clockwise
             for (int i = 0; i < 200; i++) {
                 for (int j = 0; j < 8; j++) {  // rotate right until is a wall
                     MapLocation added = robotCurrent.add(d);

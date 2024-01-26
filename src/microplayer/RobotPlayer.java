@@ -324,6 +324,7 @@ public class RobotPlayer {
             });
 
             // move the flag carrier
+            MapLocation newRobotLoc = null;
             for (MapLocation adjacent : sortedMovementDirections) {
                 if (visited.contains(adjacent)) {
                     continue;
@@ -331,6 +332,7 @@ public class RobotPlayer {
                 Direction d = robotLoc.directionTo(adjacent);
                 if (rc.canMove(d)) {
                     rc.move(d);
+                    newRobotLoc = robotLoc.add(d);
                     lastTimeSinceFlagCarrierMoved = 0;
                     if (!rc.hasFlag()) {  // flag deposited
                         System.out.println("deposited flag " + (flagCarrierIndex+1));
@@ -345,33 +347,76 @@ public class RobotPlayer {
                 }
             }
 
-            // pass the flag if stuck
-            if (rc.getMovementCooldownTurns() < 10 && rc.getActionCooldownTurns() < 10) {
-                for (MapLocation d : sort(getAdjacents(robotLoc), (loc) -> loc.distanceSquaredTo(allySpawnLocations[0]))) {
-                    if (!rc.onTheMap(d)) {
+            // pass the flag if an ally is in the 2nd ring
+            // todo take into account health of current robot and ally robots and pass always when on low health and also enemies
+            // todo pass to the closest duck to the ally spawn instead of just any duck
+            if (rc.getActionCooldownTurns() < 10 && newRobotLoc != null) {
+                for (MapLocation ringLoc : get2ndSquareRingAroundLocation(newRobotLoc)) {
+                    if (ringLoc.distanceSquaredTo(allySpawnLocations[0]) >= newRobotLoc.distanceSquaredTo(allySpawnLocations[0])) {  // further away
                         continue;
                     }
-                    RobotInfo ally = rc.senseRobotAtLocation(d);
-                    if (ally == null) {
+                    if (!rc.onTheMap(ringLoc)) {  // not on the map
                         continue;
                     }
-                    if (!ally.getTeam().equals(rc.getTeam())) {
+                    if ((mapped[ringLoc.x][ringLoc.y] & 0b10) == 0) {  // wall is there
                         continue;
                     }
-                    if (ally.hasFlag()) {
+                    RobotInfo other = rc.senseRobotAtLocation(ringLoc);
+                    if (other == null) {  // no robot there
+                        rc.setIndicatorDot(ringLoc, 255, 0, 0);
                         continue;
                     }
-                    if (!rc.canDropFlag(ally.getLocation())) {
+                    if (other.team != rc.getTeam()) {  // robot is an enemy
+                        continue;
+                    }
+                    if (other.hasFlag) {  // the other guy has a flag
+                        continue;
+                    }
+                    System.out.println("passing flag");
+                    MapLocation locToDrop = newRobotLoc.add(newRobotLoc.directionTo(other.location));
+                    if (!rc.canDropFlag(locToDrop)) {
                         break;
                     }
-                    rc.dropFlag(ally.getLocation());
+                    rc.dropFlag(locToDrop);
                     isCarrier = false;
                     transferCooldown = 4;
-                    rc.writeSharedArray(flagCarrierIndex+4, locToInt(ally.getLocation(), 1, 0));
+                    rc.writeSharedArray(flagCarrierIndex + 4, locToInt(locToDrop, 1, 0));
                     hasCarrierDroppedFlag[flagCarrierIndex] = true;
                     lastDroppedFlagValue = -1;
                     flagCarrierIndex = -1;
-                    break;
+                    return;
+                }
+            }
+
+            // pass the flag if stuck
+            if (rc.isSpawned()) {
+                if (rc.getMovementCooldownTurns() < 10 && rc.getActionCooldownTurns() < 10) {
+                    for (MapLocation d : sort(getAdjacents(robotLoc), (loc) -> loc.distanceSquaredTo(allySpawnLocations[0]))) {
+                        if (!rc.onTheMap(d)) {
+                            continue;
+                        }
+                        RobotInfo ally = rc.senseRobotAtLocation(d);
+                        if (ally == null) {
+                            continue;
+                        }
+                        if (!ally.getTeam().equals(rc.getTeam())) {
+                            continue;
+                        }
+                        if (ally.hasFlag()) {
+                            continue;
+                        }
+                        if (!rc.canDropFlag(ally.getLocation())) {
+                            break;
+                        }
+                        rc.dropFlag(ally.getLocation());
+                        isCarrier = false;
+                        transferCooldown = 4;
+                        rc.writeSharedArray(flagCarrierIndex+4, locToInt(ally.getLocation(), 1, 0));
+                        hasCarrierDroppedFlag[flagCarrierIndex] = true;
+                        lastDroppedFlagValue = -1;
+                        flagCarrierIndex = -1;
+                        break;
+                    }
                 }
             }
 
@@ -872,6 +917,8 @@ public class RobotPlayer {
                 }
                 if (!wallInTheWay) {
                     doingBugNav = false;
+                    rc.setIndicatorString("stopping bugnav");
+                    bugNavGoingClockwise = null;
                 }
 
                 MapLocation nextBugNavLocation = bugNavVertices[bugNavVertexIndex];
@@ -888,6 +935,8 @@ public class RobotPlayer {
                 }
                 if (bugNavVertexIndex == bugNavVertices.length) {
                     doingBugNav = false;
+                    rc.setIndicatorString("stopping bugnav");
+                    bugNavGoingClockwise = null;
                     return;
                 }
                 for (Direction d : getIdealMovementDirections(robotLoc, bugNavVertices[bugNavVertexIndex])) {
@@ -970,6 +1019,7 @@ public class RobotPlayer {
             }
 
             // cannot move, bug nav
+            rc.setIndicatorString("starting bugnav");
             doingBugNav = true;
             MapLocation centerOfMap = new MapLocation(mapWidth/2, mapHeight/2);
             bugNavVertices = genBugNavAroundPath(robotLoc, bugNavWallLocation, centerOfMap);

@@ -28,6 +28,7 @@ public class General {
     public static boolean doingBugNav = false;
     public static MapLocation[] bugNavVertices = null;
     public static int bugNavVertexIndex = -1;
+    public static Boolean bugNavGoingClockwise = null;
 
     public static Direction lastMovedSetupExplorationDirection = null;
     public static MapLocation[] allySpawnLocations = null;
