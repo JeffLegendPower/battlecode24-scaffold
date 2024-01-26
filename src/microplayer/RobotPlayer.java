@@ -476,7 +476,8 @@ public class RobotPlayer {
                 rng.nextInt(robotLoc.x * 359 + robotLoc.y * 5995 + 1);
                 double theta = rng.nextDouble() * Math.PI * 2;
                 double distance = rng.nextInt(3)+7;
-                broadcastFlagPathfindLoc = broadcasted[rng.nextInt(broadcasted.length)].translate((int) (Math.sin(theta)*distance), (int) (Math.cos(theta)*distance));
+                broadcastFlagPathfindLoc = broadcasted[rng.nextInt(broadcasted.length)]
+                        .translate((int) (Math.sin(theta)*distance), (int) (Math.cos(theta)*distance));
             }
         }
         MapLocation pathfindGoalLoc = broadcastFlagPathfindLoc;
@@ -847,9 +848,17 @@ public class RobotPlayer {
             return;
         }
 
-        // stick to dam
+        // go to dam
         if (rc.getRoundNum() > 130) {
-            if (rc.getRoundNum() > 196) {  // 197-199
+            // bug nav
+            if (doingBugNav) {
+                if (bugNavVertices[bugNavVertexIndex].distanceSquaredTo(robotLoc) < 3) {  // if close to this vertex, go to the next one
+                    bugNavVertexIndex += 1;
+                }
+                return;
+            }
+
+            if (rc.getRoundNum() > 195) {  // 196-199
                 if (lastSeenDamLocationDuringSetup != null) {
                     for (Direction d : getIdealMovementDirections(lastSeenDamLocationDuringSetup, robotLoc)) {
                         if (rc.canMove(d)) {
@@ -859,6 +868,7 @@ public class RobotPlayer {
                     }
                 }
             }
+            // go to the dam (stay near it) and place stun traps
             for (MapLocation ml : getAdjacents(robotLoc)) {
                 if (!rc.onTheMap(ml)) {
                     continue;
@@ -886,18 +896,42 @@ public class RobotPlayer {
                     }
                 }
             }
+
+            // if cannot see dam, going to the center is a good idea
             MapLocation centerLoc = new MapLocation(mapWidth/2, mapHeight/2);
             rc.setIndicatorLine(robotLoc, centerLoc, 128, 0, 255);
-            for (Direction d : getIdealMovementDirections(robotLoc, centerLoc)) {
+            MapLocation bugNavWallLocation = null;
+            for (Direction d : getTrulyIdealMovementDirections(robotLoc, centerLoc)) {
                 if (rc.canMove(d)) {
                     rc.move(d);
                 } else {
                     MapLocation newLoc = robotLoc.add(d);
                     if (rc.canFill(newLoc)) {
                         rc.fill(newLoc);
+                        return;
+                    }
+                    if ((mapped[newLoc.x][newLoc.y] & 0b10) == 0) {  // is wall
+                        bugNavWallLocation = newLoc;
                     }
                 }
             }
+
+            // cannot move but it is because ducks are in the way, so just shift around a little
+            if (bugNavWallLocation == null) {
+                shuffleInPlace(directions);
+                for (Direction d : directions) {
+                    if (rc.canMove(d)) {
+                        rc.move(d);
+                        return;
+                    }
+                }
+                return;
+            }
+
+            // cannot move, bug nav
+            doingBugNav = true;
+            bugNavVertices = bugNavAroundPath(robotLoc, bugNavWallLocation);
+            bugNavVertexIndex = 0;
             return;
         }
 
@@ -1032,7 +1066,7 @@ public class RobotPlayer {
             for (MapInfo info : nearbyInfos) {
                 MapLocation loc = info.getMapLocation();
                 if (0 <= loc.x && loc.x < mapWidth && 0 <= loc.y & loc.y < mapHeight) {
-                    mapped[loc.x][loc.y] = info.isPassable() ? 0b01 : 0b11;
+                    mapped[loc.x][loc.y] = info.isWall() ? 0b01 : 0b11;
                 }
             }
             return;

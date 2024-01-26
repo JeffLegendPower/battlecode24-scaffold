@@ -15,10 +15,19 @@ public class General {
     public static Random rng = new Random(rngSeed);
     public static int maxTimeThatBreadCanBeOnTheGround = 4;
 
-    public static int[][] mapped;
-    public static MapLocation previousLocationForMappingFreshLocations = null;
     public static boolean[] possibleSymmetries = {true, true, true};  // [rotational, up/down, left/right]
     public static boolean symmetryWasDetermined = false;
+    public static MapLocation previousLocationForMappingFreshLocations = null;
+    public static int[][] mapped;
+    /*
+    bit usage for each int in mapped
+    0 | 0=unseen 1=explored
+    1 | 0=wall 1=not
+    */
+
+    public static boolean doingBugNav = false;
+    public static MapLocation[] bugNavVertices = null;
+    public static int bugNavVertexIndex = -1;
 
     public static Direction lastMovedSetupExplorationDirection = null;
     public static MapLocation[] allySpawnLocations = null;

@@ -5,8 +5,7 @@ import battlecode.common.GameActionException;
 import battlecode.common.MapLocation;
 import battlecode.common.RobotInfo;
 
-import java.util.Arrays;
-import java.util.Comparator;
+import java.util.*;
 import java.util.function.Function;
 
 import static microplayer.General.*;
@@ -147,5 +146,105 @@ public class Utility {
                 }
             }
         }
+    }
+
+    static Direction[] getTrulyIdealMovementDirections(MapLocation start, MapLocation goal) {
+        // like the above but the duck moves closer 100% of the time
+        int sx = start.x;
+        int sy = start.y;
+        int gx = goal.x;
+        int gy = goal.y;
+
+        // 13 cases
+        if (sx < gx) {  // rightwards
+            if (sy < gy) {  // upwards
+                if ((gx-sx) > (gy-sy)) {  // right > up
+                    return new Direction[]{Direction.NORTHEAST, Direction.EAST, Direction.NORTH};
+                } else {  // up > right
+                    return new Direction[]{Direction.NORTHEAST, Direction.NORTH, Direction.EAST};
+                }
+            } else if (sy == gy) {  // already horizontally centered
+                return new Direction[]{Direction.EAST, Direction.NORTHEAST, Direction.SOUTHEAST};
+            } else {  // downwards
+                if ((gx-sx) > (sy-gy)) {  // right > down
+                    return new Direction[]{Direction.SOUTHEAST, Direction.EAST, Direction.SOUTH};
+                } else {  // down > right
+                    return new Direction[]{Direction.SOUTHEAST, Direction.SOUTH, Direction.EAST};
+                }
+            }
+        } else if (sx == gx) {  // already vertically centered
+            if (sy < gy) {  // upwards
+                return new Direction[]{Direction.NORTH, Direction.NORTHWEST, Direction.NORTHEAST};
+            } else if (sy == gy) {  // dont go anywhere
+                return new Direction[]{Direction.CENTER};
+            } else {  // downwards
+                return new Direction[]{Direction.SOUTH, Direction.SOUTHWEST, Direction.SOUTHEAST};
+            }
+        } else {  // leftwards
+            if (sy < gy) {  // upwards
+                if ((gx-sx) > (gy-sy)) {  // left > up
+                    return new Direction[]{Direction.NORTHWEST, Direction.WEST, Direction.NORTH};
+                } else {  // up > left
+                    return new Direction[]{Direction.NORTHWEST, Direction.NORTH, Direction.WEST};
+                }
+            } else if (sy == gy) {  // already horizontally centered
+                return new Direction[]{Direction.WEST, Direction.NORTHWEST, Direction.SOUTHWEST};
+            } else {  // downwards
+                if ((gx-sx) > (sy-gy)) {  // left > down
+                    return new Direction[]{Direction.SOUTHWEST, Direction.WEST, Direction.SOUTH};
+                } else {  // down > left
+                    return new Direction[]{Direction.SOUTHWEST, Direction.SOUTH, Direction.WEST};
+                }
+            }
+        }
+    }
+
+    public static MapLocation[] bugNavAroundPath(MapLocation robotStart, MapLocation wallStart) {
+        ArrayDeque<MapLocation> seen = new ArrayDeque<>();
+        Direction d = robotStart.directionTo(wallStart);
+        for (int i=0; i<8; i++) {
+            MapLocation added = robotStart.add(d);
+            int nx = added.x;
+            int ny = added.y;
+            if ((!rc.onTheMap(added)) || (mapped[nx][ny] & 0b10) == 0) { // not on the map, or is a wall
+                d = d.rotateLeft();
+                continue;
+            }
+            break;
+        }
+        MapLocation robotCurrent = robotStart.add(d);
+        Direction prevDirection = d;
+        for (int i=0; i<200; i++) {
+            for (int j=0; j<8; j++) {  // rotate right until is a wall
+                MapLocation added = robotCurrent.add(d);
+                int nx = added.x;
+                int ny = added.y;
+                if (rc.onTheMap(added) && (mapped[nx][ny] & 0b11) != 0b01) { // on the map, and not a wall
+                    d = d.rotateRight();
+                    continue;
+                }
+                d = d.rotateLeft();
+                break;
+            }
+            for (int j=0; j<8; j++) {  // rotate left until is not a wall
+                MapLocation added = robotCurrent.add(d);
+                int nx = added.x;
+                int ny = added.y;
+                if (rc.onTheMap(added) && (mapped[nx][ny] & 0b11) == 0b01) { // on the map, and is a wall
+                    d = d.rotateLeft();
+                    continue;
+                }
+                break;
+            }
+            if (d != prevDirection) {
+                seen.add(robotCurrent);
+                prevDirection = d;
+            }
+            robotCurrent = robotCurrent.add(d);
+            if (robotCurrent.equals(robotStart)) {
+                break;
+            }
+        }
+        return seen.toArray(new MapLocation[0]);
     }
 }
