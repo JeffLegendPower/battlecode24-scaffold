@@ -89,7 +89,7 @@ public class Evals {
 
         if (target.health <= dmg) return 999999;
 
-        if (target.hasFlag) return 999999;
+        if (target.hasFlag) return 9999999;
 
 //        return -(target.getLocation().distanceSquaredTo(loc) * 1000 / (target.health - dmg)); //* target.attackLevel / 2;
         return (4 - target.getLocation().distanceSquaredTo(loc)) + 1000 / (target.health - dmg);

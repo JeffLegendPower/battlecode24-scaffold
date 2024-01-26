@@ -199,7 +199,7 @@ public class Utils {
     public static <T> int indexOf(T[] array, T element) {
         // Create a new array and manually copy elements from the original array
         for (int i = 0; i < array.length; i++) {
-            if (array[i].equals(element)) return i;
+            if (array[i] != null && array[i].equals(element)) return i;
         }
         return -1;
     }
