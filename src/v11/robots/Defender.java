@@ -40,10 +40,14 @@ public class Defender extends AbstractRobot {
         int v = rc.readSharedArray(Constants.SharedArray.defenderAlert);
         int enemiesSeen = Math.min(enemies.length, 31);
         if (rc.senseNearbyFlags(1, rc.getTeam()).length == 0) {  // no flag there
-            enemiesSeen = Math.max(enemiesSeen-7, 0);
+            enemiesSeen = Math.max(enemiesSeen - 7, 0);
         }
-        int newSafetyLevel = enemiesSeen << (5*protectedFlagIndex);
+//        int mask = 0b11111 << (5 * protectedFlagIndex);
+//        v &= ~mask;
+
+        int newSafetyLevel = enemiesSeen << (5 * protectedFlagIndex);
         int newV = (v ^ (v & (0b11111 << (5*protectedFlagIndex)))) | newSafetyLevel;
+//        int newV = v | newSafetyLevel;
         rc.setIndicatorString("protect " + v + " " + newV);
         rc.writeSharedArray(Constants.SharedArray.defenderAlert, newV);
 
@@ -86,15 +90,24 @@ public class Defender extends AbstractRobot {
     }
 
     @Override
+    public void tickJailed(RobotController rc) throws GameActionException {
+        // Reset defender alert for the specific flag
+        int v = rc.readSharedArray(Constants.SharedArray.defenderAlert);
+
+        int mask = 0b11111 << (5 * protectedFlagIndex);
+        rc.writeSharedArray(Constants.SharedArray.defenderAlert, v & ~mask);
+        spawn(rc);
+    }
+
+    @Override
     public void spawn(RobotController rc) throws GameActionException {
-        if (protectedFlagIndex != -1) {
-            int v = rc.readSharedArray(Constants.SharedArray.defenderAlert);
-            v |= (0b11111 << (5*protectedFlagIndex));
-            rc.writeSharedArray(Constants.SharedArray.defenderAlert, v);
+        if (protectedFlagIndex != -1 && rc.canSpawn(spawn)) {
+//            int v = rc.readSharedArray(Constants.SharedArray.defenderAlert);
+//            v |= (0b11111 << (5*protectedFlagIndex));
+//            rc.writeSharedArray(Constants.SharedArray.defenderAlert, v);
 
             if (spawn != null) {
-                if (rc.canSpawn(spawn))
-                    rc.spawn(spawn);
+                rc.spawn(spawn);
             }
         } else {
             int i = 0;
@@ -108,32 +121,10 @@ public class Defender extends AbstractRobot {
                 i++;
             }
 
-            int v = rc.readSharedArray(Constants.SharedArray.defenderAlert);
-            v |= (0b11111 << (5*protectedFlagIndex));
-            rc.writeSharedArray(Constants.SharedArray.defenderAlert, v);
+//            int v = rc.readSharedArray(Constants.SharedArray.defenderAlert);
+//            v |= (0b11111 << (5*protectedFlagIndex));
+//            rc.writeSharedArray(Constants.SharedArray.defenderAlert, v);
         }
-
-//        MapLocation[] spawns = rc.getAllySpawnLocations();
-//
-//        spawner:
-//        for (MapLocation spawn : spawns) {
-//            MapLocation[] test = new MapLocation[] {
-//                spawn.add(Direction.NORTH),
-//                spawn.add(Direction.SOUTH),
-//                spawn.add(Direction.EAST),
-//                spawn.add(Direction.WEST)
-//            };
-//            for (MapLocation loc : test) {
-//                if (Utils.indexOf(spawns, loc) == -1)
-//                    continue spawner;
-//            }
-//
-//            if (rc.canSpawn(spawn)) {
-//                rc.spawn(spawn);
-//                super.spawn = spawn;
-//                break;
-//            }
-//        }
     }
 
     @Override

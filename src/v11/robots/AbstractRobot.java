@@ -61,6 +61,9 @@ public abstract class AbstractRobot {
                 continue;
             int index = Utils.indexOf(enemyFlagIDs, info.getID());
             int lastNotSeenFlag = Utils.indexOf(enemyFlagIDs, -1);
+            int enemyFlagLocIndex = Utils.indexOf(enemyFlagLocs, info.getLocation());
+            if (enemyFlagLocIndex != -1)
+                lastNotSeenFlag = enemyFlagLocIndex;
             if (index == -1) {
                 System.out.println("v11 " + name() + " found flag " + info.getID() + " at " + info.getLocation());
                 rc.writeSharedArray(Constants.SharedArray.enemyFlagIDs[lastNotSeenFlag], info.getID() + 1);
@@ -82,13 +85,15 @@ public abstract class AbstractRobot {
         }
 
 
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 3; i++) {
             enemyFlagLocs[i] = Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]);
+        }
 
         // delete flags that aren't there anymore
         for (int i = 0; i < 3; i++) {
             MapLocation flagLoc = Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]);
             if (flagLoc != null && rc.canSenseLocation(flagLoc)) {
+//                System.out.println(flagLoc + " e");
                 FlagInfo flag = null;
                 for (FlagInfo info : nearbyFlags) {
                     if (info.getLocation().equals(flagLoc)) {

@@ -1,6 +1,7 @@
 package v11.robots;
 
 import battlecode.common.*;
+import v11.Pathfinding;
 import v11.Utils;
 import v11.Constants;
 
@@ -80,38 +81,40 @@ public class FlagCarrier extends AbstractRobot {
             enemyLocations[i] = enemyInfos[i].getLocation();
         }
 
-        for (MapLocation adjacent : sort(getAdjacents(curLoc), (loc) -> {
-            // Sort by best location to move to
-            int total = 0;
+        Pathfinding.moveTowards(rc, curLoc, spawns[0], false);
 
-            // Avoid enemies
-            for (MapLocation enemyLocation : enemyLocations) {
-                total += enemyLocation.distanceSquaredTo(loc);
-            }
-
-            // Go towards ally stun traps
-            for (MapLocation trapLocation : trapLocations) {
-                if (trapLocation == null) {
-                    break;
-                }
-                total -= (trapLocation.distanceSquaredTo(loc) * 2) / 3;
-            }
-            return loc.distanceSquaredTo(spawns[0]) - total;
-        })) {
-            if (visited.contains(adjacent)) {
-                continue;
-            }
-            Direction d = curLoc.directionTo(adjacent);
-            if (rc.canMove(d)) {
-                rc.move(d);
-                if (!rc.hasFlag()) {
-                    flagID = -1;
-                    break;
-                }
-                visited.add(adjacent);
-                break;
-            }
-        }
+//        for (MapLocation adjacent : sort(getAdjacents(curLoc), (loc) -> {
+//            // Sort by best location to move to
+//            int total = 0;
+//
+//            // Avoid enemies
+//            for (MapLocation enemyLocation : enemyLocations) {
+//                total += enemyLocation.distanceSquaredTo(loc);
+//            }
+//
+//            // Go towards ally stun traps
+//            for (MapLocation trapLocation : trapLocations) {
+//                if (trapLocation == null) {
+//                    break;
+//                }
+//                total -= (trapLocation.distanceSquaredTo(loc) * 2) / 3;
+//            }
+//            return loc.distanceSquaredTo(spawns[0]) - total;
+//        })) {
+//            if (visited.contains(adjacent)) {
+//                continue;
+//            }
+//            Direction d = curLoc.directionTo(adjacent);
+//            if (rc.canMove(d)) {
+//                rc.move(d);
+//                if (!rc.hasFlag()) {
+//                    flagID = -1;
+//                    break;
+//                }
+//                visited.add(adjacent);
+//                break;
+//            }
+//        }
     }
 
     @Override

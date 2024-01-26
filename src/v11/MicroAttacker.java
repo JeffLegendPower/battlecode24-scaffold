@@ -14,6 +14,8 @@ public class MicroAttacker {
     static int myVisionRange;
     static double myDPS;
     boolean severelyHurt = false;
+    boolean enemiesTriggeredTrap = false;
+    int timeSinceLastTrigger = 0;
 
     double[] DPS = new double[]{0, 0, 0, 0, 0, 0, 0};
     RobotController rc;
@@ -48,11 +50,29 @@ public class MicroAttacker {
     public boolean doMicro() {
         try {
             if (!rc.isMovementReady()) return false;
-            shouldPlaySafe = false;
+            shouldPlaySafe = true;
             severelyHurt = rc.getHealth() < 300;
             RobotInfo[] units = rc.senseNearbyRobots(myVisionRange, rc.getTeam().opponent());
             if (units.length == 0) return false;
             canAttack = rc.isActionReady();
+
+            timeSinceLastTrigger++;
+            if (timeSinceLastTrigger > 4)
+                enemiesTriggeredTrap = false;
+
+            for (Direction dir : RobotPlayer.directions) {
+                MapLocation newLoc = rc.getLocation().add(dir);
+                if (!rc.onTheMap(newLoc)) continue;
+                MapInfo info = RobotPlayer.map[newLoc.x][newLoc.y];
+                MapInfo lastInfo = RobotPlayer.lastMap[newLoc.x][newLoc.y];
+                if (info == null || lastInfo == null) continue;
+
+                if (lastInfo.getTrapType() == TrapType.STUN && info.getTrapType() == TrapType.NONE) {
+                    enemiesTriggeredTrap = true;
+                    timeSinceLastTrigger = 0;
+                    break;
+                }
+            }
 
 //            int uIndex = units.length;
 //            while (uIndex-- > 0){
@@ -215,9 +235,9 @@ public class MicroAttacker {
         void updateEnemy(RobotInfo unit) {
             if (!canMove) return;
             int dist = unit.getLocation().distanceSquaredTo(location);
+            if (unit.hasFlag)
+                distToEnemyFlagHolder = dist;
             if (dist < minDistanceToEnemy) {
-                if (unit.hasFlag)
-                    distToEnemyFlagHolder = dist;
                 minDistanceToEnemy = dist;
             }
             if (dist <= currentActionRadius) DPSreceived += DPS[unit.attackLevel];
@@ -227,13 +247,16 @@ public class MicroAttacker {
         void updateAlly(RobotInfo unit) {
             if (!canMove) return;
             alliesTargeting += DPS[unit.attackLevel];
+            // TODO test if this actually gains 1 by 1
+            if (unit.location.distanceSquaredTo(location) <= currentActionRadius)
+                DPSreceived -= DPS[unit.healLevel];
         }
 
         int safe(){
             if (!canMove) return -1;
-            if (distToNearestAllySpawn <= 25) return 1; // TODO this is what i changed
-            if (DPSreceived > 0) return 0;
-            if (enemiesTargeting > alliesTargeting) return 1;
+            if (DPSreceived > 0 && severelyHurt) return 0; // TODO test if adding severelyHurt actually gains 1 by 1
+            if (enemiesTargeting < alliesTargeting && shouldPlaySafe) return 1; // TODO test if adding shouldPlaySafe actually gains 1 by 1
+            if (enemiesTargeting > alliesTargeting && (!shouldPlaySafe)) return 1; // TODO i think this is never called?
             return 2;
         }
 
@@ -244,8 +267,8 @@ public class MicroAttacker {
 
         //equal => true
         boolean isBetter(MicroInfo M) {
-
-            if (distToEnemyFlagHolder < M.distToEnemyFlagHolder) return true; // TODO this is what i changed
+            if (distToEnemyFlagHolder < M.distToEnemyFlagHolder) return true;
+//            System.out.println("a");
 
             if (safe() > M.safe()) return true;
             if (safe() < M.safe()) return false;
@@ -253,12 +276,14 @@ public class MicroAttacker {
             if (inRange() && !M.inRange()) return true;
             if (!inRange() && M.inRange()) return false;
 
-            if (!severelyHurt) {
+            if (alliesTargeting > M.alliesTargeting + 6) return true; // TODO test if this actually gains 1 by 1
+            if (alliesTargeting < M.alliesTargeting - 6) return false; // TODO test if this actually gains 1 by 1
+            if (severelyHurt) {
                 if (alliesTargeting > M.alliesTargeting) return true;
                 if (alliesTargeting < M.alliesTargeting) return false;
             }
 
-            if (inRange()) return minDistanceToEnemy >= M.minDistanceToEnemy;
+            if (inRange() && distToNearestAllySpawn > 25) return minDistanceToEnemy >= M.minDistanceToEnemy;
             else return minDistanceToEnemy <= M.minDistanceToEnemy;
         }
     }
