@@ -3,10 +3,6 @@ package v11.robots;
 import battlecode.common.*;
 import v11.Constants;
 import v11.RobotPlayer;
-import v11.Utils;
-
-import static microplayer.General.protectedFlagIndex;
-import static microplayer.General.rc;
 
 public class Defender extends AbstractRobot {
 

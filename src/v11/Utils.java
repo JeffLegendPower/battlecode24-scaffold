@@ -1,15 +1,14 @@
 package v11;
 
 import battlecode.common.*;
-import microplayer.General;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.function.Function;
 
-import static microplayer.General.rng;
 import static v11.RobotPlayer.directions;
+import static v11.RobotPlayer.rng;
 
 public class Utils {
 
