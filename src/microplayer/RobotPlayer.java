@@ -242,7 +242,7 @@ public class RobotPlayer {
 
         // get the enemies in view
         RobotInfo[] enemyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-        sort(enemyInfos, (enemy) -> enemy.getLocation().distanceSquaredTo(robotLoc));
+        sort(enemyInfos, (enemy) -> enemy.getLocation().distanceSquaredTo(robotLoc) - (enemy.hasFlag() ? 999999 : 0));
 
         // read enemy flag locations from shared, save them locally
         for (int i=0; i<3; i++) {
@@ -852,8 +852,49 @@ public class RobotPlayer {
         if (rc.getRoundNum() > 130) {
             // bug nav
             if (doingBugNav) {
-                if (bugNavVertices[bugNavVertexIndex].distanceSquaredTo(robotLoc) < 3) {  // if close to this vertex, go to the next one
+                MapLocation centerOfMap = new MapLocation(mapWidth/2, mapHeight/2);
+
+                // bresenham algo
+                boolean wallInTheWay = false;
+                rc.setIndicatorLine(robotLoc, centerOfMap, 255, 0, 255);
+                int x0 = Math.min(robotLoc.x, centerOfMap.x);
+                int x1 = Math.max(robotLoc.x, centerOfMap.x);
+                int y0 = robotLoc.y;
+                int y1 = centerOfMap.y;
+                double m = ((double) (y1 - y0)) / (x1-x0);
+                for (int x=x0; x<=x1; x++) {
+                    int y = (int) Math.round(m*(x-x0) + y0);
+                    // todo: refine the below to use only the shape is being bugnav'd around instead of the entire map
+                    if ((mapped[x][y] & 0b11) == 0b01) {  // there is a wall in the way
+                        wallInTheWay = true;
+                        break;
+                    }
+                }
+                if (!wallInTheWay) {
+                    doingBugNav = false;
+                }
+
+                MapLocation nextBugNavLocation = bugNavVertices[bugNavVertexIndex];
+                if ((mapped[nextBugNavLocation.x][nextBugNavLocation.y] & 0b11) == 0b01) {  // actually it is a wall, redo bugnav
+                    bugNavVertices = genBugNavAroundPath(robotLoc, nextBugNavLocation, centerOfMap);
+                    bugNavVertexIndex = 0;
+                    nextBugNavLocation = bugNavVertices[bugNavVertexIndex];
+                }
+                for (int i=bugNavVertexIndex; i<bugNavVertices.length; i++) {
+                    rc.setIndicatorDot(bugNavVertices[i], 255, 255, 0);
+                }
+                if (nextBugNavLocation.distanceSquaredTo(robotLoc) < 3) {  // if close to this vertex, go to the next one
                     bugNavVertexIndex += 1;
+                }
+                if (bugNavVertexIndex == bugNavVertices.length) {
+                    doingBugNav = false;
+                    return;
+                }
+                for (Direction d : getIdealMovementDirections(robotLoc, bugNavVertices[bugNavVertexIndex])) {
+                    if (rc.canMove(d)) {
+                        rc.move(d);
+                        break;
+                    }
                 }
                 return;
             }
@@ -930,7 +971,8 @@ public class RobotPlayer {
 
             // cannot move, bug nav
             doingBugNav = true;
-            bugNavVertices = bugNavAroundPath(robotLoc, bugNavWallLocation);
+            MapLocation centerOfMap = new MapLocation(mapWidth/2, mapHeight/2);
+            bugNavVertices = genBugNavAroundPath(robotLoc, bugNavWallLocation, centerOfMap);
             bugNavVertexIndex = 0;
             return;
         }

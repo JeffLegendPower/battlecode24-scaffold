@@ -199,50 +199,96 @@ public class Utility {
         }
     }
 
-    public static MapLocation[] bugNavAroundPath(MapLocation robotStart, MapLocation wallStart) {
+    public static MapLocation[] genBugNavAroundPath(MapLocation robotStart, MapLocation wallStart, MapLocation goal) {
         ArrayDeque<MapLocation> seen = new ArrayDeque<>();
-        Direction d = robotStart.directionTo(wallStart);
+        Direction dirLeft = robotStart.directionTo(wallStart);
         for (int i=0; i<8; i++) {
-            MapLocation added = robotStart.add(d);
+            MapLocation added = robotStart.add(dirLeft);
             int nx = added.x;
             int ny = added.y;
             if ((!rc.onTheMap(added)) || (mapped[nx][ny] & 0b10) == 0) { // not on the map, or is a wall
-                d = d.rotateLeft();
+                dirLeft = dirLeft.rotateLeft();
                 continue;
             }
             break;
         }
+        Direction dirRight = robotStart.directionTo(wallStart);
+        for (int i=0; i<8; i++) {
+            MapLocation added = robotStart.add(dirRight);
+            int nx = added.x;
+            int ny = added.y;
+            if ((!rc.onTheMap(added)) || (mapped[nx][ny] & 0b10) == 0) { // not on the map, or is a wall
+                dirRight = dirRight.rotateRight();
+                continue;
+            }
+            break;
+        }
+        Direction d = robotStart.add(dirLeft).distanceSquaredTo(goal) > robotStart.add(dirRight).distanceSquaredTo(goal) ? dirRight : dirLeft;
         MapLocation robotCurrent = robotStart.add(d);
         Direction prevDirection = d;
-        for (int i=0; i<200; i++) {
-            for (int j=0; j<8; j++) {  // rotate right until is a wall
-                MapLocation added = robotCurrent.add(d);
-                int nx = added.x;
-                int ny = added.y;
-                if (rc.onTheMap(added) && (mapped[nx][ny] & 0b11) != 0b01) { // on the map, and not a wall
-                    d = d.rotateRight();
-                    continue;
-                }
-                d = d.rotateLeft();
-                break;
-            }
-            for (int j=0; j<8; j++) {  // rotate left until is not a wall
-                MapLocation added = robotCurrent.add(d);
-                int nx = added.x;
-                int ny = added.y;
-                if (rc.onTheMap(added) && (mapped[nx][ny] & 0b11) == 0b01) { // on the map, and is a wall
+        if (d == dirLeft) {  // clockwise
+            for (int i = 0; i < 200; i++) {
+                for (int j = 0; j < 8; j++) {  // rotate right until is a wall
+                    MapLocation added = robotCurrent.add(d);
+                    int nx = added.x;
+                    int ny = added.y;
+                    if (rc.onTheMap(added) && (mapped[nx][ny] & 0b11) != 0b01) { // on the map, and not a wall
+                        d = d.rotateRight();
+                        continue;
+                    }
                     d = d.rotateLeft();
-                    continue;
+                    break;
                 }
-                break;
+                for (int j = 0; j < 8; j++) {  // rotate left until is not a wall
+                    MapLocation added = robotCurrent.add(d);
+                    int nx = added.x;
+                    int ny = added.y;
+                    if (rc.onTheMap(added) && (mapped[nx][ny] & 0b11) == 0b01) { // on the map, and is a wall
+                        d = d.rotateLeft();
+                        continue;
+                    }
+                    break;
+                }
+                if (d != prevDirection) {
+                    seen.add(robotCurrent);
+                    prevDirection = d;
+                }
+                robotCurrent = robotCurrent.add(d);
+                if (robotCurrent.equals(robotStart)) {
+                    break;
+                }
             }
-            if (d != prevDirection) {
-                seen.add(robotCurrent);
-                prevDirection = d;
-            }
-            robotCurrent = robotCurrent.add(d);
-            if (robotCurrent.equals(robotStart)) {
-                break;
+        } else {  // counter clockwise
+            for (int i = 0; i < 200; i++) {
+                for (int j = 0; j < 8; j++) {  // rotate left until is a wall
+                    MapLocation added = robotCurrent.add(d);
+                    int nx = added.x;
+                    int ny = added.y;
+                    if (rc.onTheMap(added) && (mapped[nx][ny] & 0b11) != 0b01) { // on the map, and not a wall
+                        d = d.rotateLeft();
+                        continue;
+                    }
+                    d = d.rotateRight();
+                    break;
+                }
+                for (int j = 0; j < 8; j++) {  // rotate right until is not a wall
+                    MapLocation added = robotCurrent.add(d);
+                    int nx = added.x;
+                    int ny = added.y;
+                    if (rc.onTheMap(added) && (mapped[nx][ny] & 0b11) == 0b01) { // on the map, and is a wall
+                        d = d.rotateRight();
+                        continue;
+                    }
+                    break;
+                }
+                if (d != prevDirection) {
+                    seen.add(robotCurrent);
+                    prevDirection = d;
+                }
+                robotCurrent = robotCurrent.add(d);
+                if (robotCurrent.equals(robotStart)) {
+                    break;
+                }
             }
         }
         return seen.toArray(new MapLocation[0]);
