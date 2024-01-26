@@ -2,8 +2,6 @@ package v11;
 
 import battlecode.common.*;
 
-import java.util.Random;
-
 import static v11.RobotPlayer.directions;
 
 public class Evals {
