@@ -605,23 +605,8 @@ public class RobotPlayer {
         sort(allyInfos, (ally) -> (ally.getLocation().distanceSquaredTo(robotLoc) - rc.getHealth() / 100 - (rc.hasFlag() ? 10000 : 0)));
 
         // no enemies nearby-ish
+        // no enemies nearby-ish
         if (enemyInfos.length == 0 || enemyInfos[0].getLocation().distanceSquaredTo(robotLoc) >= 16) {
-            // enemies nearby but not close -> spam traps when no enemies in 2 step range
-            if (enemyInfos.length > 0) {
-                rc.setIndicatorString("spamming traps");
-                if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2) {
-                    for (Direction direction : Direction.allDirections()) {
-                        MapLocation newLoc = robotLoc.add(direction);
-                        if (rc.getCrumbs() > 5000 || (robotLoc.x+robotLoc.y) % 2 == 0) {
-                            if (rc.canBuild(TrapType.STUN, newLoc)) {
-                                rc.build(TrapType.STUN, newLoc);
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-
             // no enemies nearby -> there are allies nearby
             if (allyInfos.length > 0) {
                 RobotInfo closestAlly = allyInfos[0];
@@ -731,19 +716,16 @@ public class RobotPlayer {
             return;
         }
 
-        // More enemies than allies by a bit, spam traps
+        // more enemies than allies by a bit, spam traps
         if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2) {
             for (Direction direction : Direction.allDirections()) {
-                MapLocation newLoc = robotLoc.add(direction);
-                if ((newLoc.x + newLoc.y) % 2 == 0) {
-                    if (rc.canBuild(TrapType.STUN, robotLoc.add(direction))) {
-                        rc.build(TrapType.STUN, robotLoc.add(direction));
-                        break;
-                    }
+                if (rc.canBuild(TrapType.STUN, robotLoc.add(direction))) {
+                    rc.build(TrapType.STUN, robotLoc.add(direction));
+                    break;
                 }
             }
         }
-        // Can safely flee
+        // can safely flee
         if (closestEnemyLoc.distanceSquaredTo(robotLoc) >= 16) {
             MapLocation finalPathfindGoalLoc = pathfindGoalLoc;
             for (Direction d : sort(getIdealMovementDirections(closestEnemyLoc, robotLoc), (dir) -> robotLoc.add(dir).distanceSquaredTo(finalPathfindGoalLoc))) {
@@ -867,6 +849,16 @@ public class RobotPlayer {
 
         // stick to dam
         if (rc.getRoundNum() > 130) {
+            if (rc.getRoundNum() > 196) {  // 197-199
+                if (lastSeenDamLocationDuringSetup != null) {
+                    for (Direction d : getIdealMovementDirections(lastSeenDamLocationDuringSetup, robotLoc)) {
+                        if (rc.canMove(d)) {
+                            rc.move(d);
+                            return;
+                        }
+                    }
+                }
+            }
             for (MapLocation ml : getAdjacents(robotLoc)) {
                 if (!rc.onTheMap(ml)) {
                     continue;
@@ -883,6 +875,7 @@ public class RobotPlayer {
             for (MapInfo sensed : shuffleInPlace(rc.senseNearbyMapInfos(-1))) {
                 if (sensed.isDam()) {
                     damLocation = sensed.getMapLocation();
+                    lastSeenDamLocationDuringSetup = damLocation;
                     break;
                 }
             }
@@ -894,6 +887,7 @@ public class RobotPlayer {
                 }
             }
             MapLocation centerLoc = new MapLocation(mapWidth/2, mapHeight/2);
+            rc.setIndicatorLine(robotLoc, centerLoc, 128, 0, 255);
             for (Direction d : getIdealMovementDirections(robotLoc, centerLoc)) {
                 if (rc.canMove(d)) {
                     rc.move(d);
@@ -1028,7 +1022,6 @@ public class RobotPlayer {
                 possibleSymmetries[i] = false;
             }
         }
-        rc.setIndicatorString(Arrays.toString(possibleSymmetries));
         if (!symmetryWasDetermined) {
             checkIfSymmetryIsDetermined();
         }
@@ -1046,7 +1039,6 @@ public class RobotPlayer {
         }
 
         if (previousLocationForMappingFreshLocations.equals(rc.getLocation())) {  // did not move since last turn
-            rc.setIndicatorString(previousLocationForMappingFreshLocations + " | " + rc.getLocation());
             return;
         }
 
