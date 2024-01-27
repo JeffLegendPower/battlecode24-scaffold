@@ -408,11 +408,11 @@ public class Attacker extends AbstractRobot {
                     continue;
 
                 if (rc.senseMapInfo(ml).isDam()) {
-                    if ((curLoc.x + curLoc.y) % 2 == 0) {
-                        if (rc.canBuild(TrapType.STUN, curLoc)) {
-                            rc.build(TrapType.STUN, curLoc);
-                        }
-                    }
+//                    if ((curLoc.x + curLoc.y) % 2 == 0) {
+//                        if (rc.canBuild(TrapType.STUN, curLoc)) {
+//                            rc.build(TrapType.STUN, curLoc);
+//                        }
+//                    }
 
                     RobotInfo closestAlly = Utils.getClosest(rc.senseNearbyRobots(-1, rc.getTeam()), curLoc);
                     if (closestAlly == null) return;

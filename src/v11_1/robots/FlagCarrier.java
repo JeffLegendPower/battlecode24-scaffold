@@ -51,7 +51,9 @@ public class FlagCarrier extends AbstractRobot {
 //            }
         }
 
+//        System.out.println("a " + Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[0]) + " " + Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[1]) + " " + Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[2]));
         Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[index], null);
+//        System.out.println("b " + Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[0]) + " " + Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[1]) + " " + Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[2]));
         rc.writeSharedArray(Constants.SharedArray.ignoreEnemyFlagIDs[index], 0);
 
         return true;

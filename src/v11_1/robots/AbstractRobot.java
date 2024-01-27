@@ -61,12 +61,12 @@ public abstract class AbstractRobot {
                 continue;
 
             boolean ignore = false;
-            for (int i = 0; i < 3; i++) {
-                if (info.getID() == rc.readSharedArray(Constants.SharedArray.ignoreEnemyFlagIDs[i])) {
-                    ignore = true;
-                    break;
-                }
-            }
+//            for (int i = 0; i < 3; i++) {
+//                if (info.getID() == rc.readSharedArray(Constants.SharedArray.ignoreEnemyFlagIDs[i])) {
+//                    ignore = true;
+//                    break;
+//                }
+//            }
 
 //            if (ignore) {
 //                if (rc.canPickupFlag(info.getLocation()) && rc.getRoundNum() > RobotPlayer.flagChainDropTurn + 1)
@@ -77,10 +77,27 @@ public abstract class AbstractRobot {
             int index = Utils.indexOf(enemyFlagIDs, info.getID());
             int lastNotSeenFlag = Utils.indexOf(enemyFlagIDs, -1);
             int enemyFlagLocIndex = Utils.indexOf(enemyFlagLocs, info.getLocation());
+
+            // Sometimes the map symmetry is not reflectional (what we predict) and it leads to overwriting flag locations
+            // This should fix that
+            if (index == -1) {
+                int closest = 9999999;
+                for (int i = 0; i < 3; i++) {
+                    MapLocation flagLoc = Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]);
+                    if (flagLoc == null) continue;
+                    int dist = flagLoc.distanceSquaredTo(rc.getLocation());
+                    if (dist < closest) {
+                        closest = dist;
+                        enemyFlagLocIndex = i;
+                    }
+                }
+            }
+
             if (enemyFlagLocIndex != -1)
                 lastNotSeenFlag = enemyFlagLocIndex;
+
             if (index == -1) {
-                System.out.println("v11 " + name() + " found flag " + info.getID() + " at " + info.getLocation());
+                System.out.println("v11.1 " + name() + " found flag " + info.getID() + " at " + info.getLocation());
                 rc.writeSharedArray(Constants.SharedArray.enemyFlagIDs[lastNotSeenFlag], info.getID() + 1);
                 Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagOrigins[lastNotSeenFlag], info.getLocation());
                 Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[lastNotSeenFlag], info.getLocation());
@@ -120,9 +137,10 @@ public abstract class AbstractRobot {
                 }
                 if (flag == null && flagLoc.equals(Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagOrigins[i])))
                     continue;
-                if (flag == null)
+                if (flag == null) {
                     Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i],
                             Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagOrigins[i]));
+                }
             }
         }
     }
