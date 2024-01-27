@@ -169,7 +169,7 @@ public class Attacker extends AbstractRobot {
         for (int i = 0; i < 3; i++) {
             if (centerLocationWeights[i] < total * .65) continue; // TODO: Test if this actually is doing something
             rc.setIndicatorDot(RobotPlayer.allyFlagSpawnLocs[i], 0, 255, 0);
-            suicide = true;
+            suicide = false;
             break;
         }
 

@@ -281,9 +281,9 @@ public class Attacker extends AbstractRobot {
 //                rc.attack(bestTarget);
             if (rc.canAttack(closestEnemyLoc))
                 rc.attack(closestEnemyLoc);
-
-            MicroAttacker microAttacker = new MicroAttacker(rc);
-            microAttacker.doMicro();
+//
+//            MicroAttacker microAttacker = new MicroAttacker(rc);
+//            microAttacker.doMicro();
 
             MapLocation newClosestEnemyLoc = Utils.getClosest(enemyInfos, rc.getLocation()).location;
             if (rc.canAttack(newClosestEnemyLoc))
