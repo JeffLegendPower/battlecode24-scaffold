@@ -11,5 +11,7 @@ public class Constants {
 
         public static final int numDefenders = 9;
         public static final int defenderAlert = 10;
+        public static final int[] coordinatedAttacks = {11, 12, 13, 14, 15, 16};
+        public static final int[] ignoreEnemyFlagIDs = {17, 18, 19};
     }
 }

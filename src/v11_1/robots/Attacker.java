@@ -1,6 +1,7 @@
 package v11_1.robots;
 
 import battlecode.common.*;
+import com.sun.tools.internal.jxc.ap.Const;
 import v11_1.*;
 import v11_1.Pathfinding;
 
@@ -263,20 +264,41 @@ public class Attacker extends AbstractRobot {
         }
 
         // enemies nearby
+        RobotInfo weakestEnemy = Utils.lowestHealth(enemyInfos);
         RobotInfo closestEnemy = enemyInfos[0];
-        MapLocation closestEnemyLoc = closestEnemy.getLocation();
+        MapLocation bestEnemyLoc = weakestEnemy.getLocation();
 
 
-
-        if (allyInfos.length >= enemyInfos.length - 3) {  // more allies than enemies, attack
-            int distToClosestEnemy = curLoc.distanceSquaredTo(closestEnemy.getLocation());
+        if (allyInfos.length >= enemyInfos.length - 6) {  // more allies than enemies, attack
+            int distToClosestEnemy = curLoc.distanceSquaredTo(weakestEnemy.getLocation());
 
 //            MapLocation bestTarget = Evals.Action.getBestTarget(rc);
 //            if (bestTarget != null && rc.canAttack(bestTarget))
 //                rc.attack(bestTarget);
-            if (rc.canAttack(closestEnemyLoc)) {
-                rc.setIndicatorDot(closestEnemyLoc, 9, 9, 255);
-                rc.attack(closestEnemyLoc);
+//            int idx = Constants.SharedArray.coordinatedAttacks[0];
+//            for (; idx <= Constants.SharedArray.coordinatedAttacks[5]; idx++) {
+//                MapLocation loc = Utils.getLocationInSharedArray(rc, idx);
+//                if (loc != null && Utils.numWithinRadius(allyInfos, loc, 4) >= 3 && rc.canAttack(loc)) {
+//                    rc.setIndicatorDot(bestEnemyLoc, 9, 9, 255);
+//                    rc.attack(bestEnemyLoc);
+//                    break;
+//                } else if (loc == null) {
+//                    Utils.storeLocationInSharedArray(rc, idx, bestEnemyLoc);
+//                    if (rc.canAttack(bestEnemyLoc)) {
+//                        rc.setIndicatorDot(bestEnemyLoc, 9, 9, 255);
+//                        rc.attack(bestEnemyLoc);
+//                        break;
+//                    }
+//                }
+//            }
+//            if (idx > Constants.SharedArray.coordinatedAttacks[5] && rc.canAttack(bestEnemyLoc)) {
+//                rc.setIndicatorDot(bestEnemyLoc, 9, 9, 255);
+//                rc.attack(bestEnemyLoc);
+//            }
+
+            if (rc.canAttack(bestEnemyLoc)) {
+                rc.setIndicatorDot(bestEnemyLoc, 9, 9, 255);
+                rc.attack(bestEnemyLoc);
             }
 
             MicroAttacker microAttacker = new MicroAttacker(rc);
@@ -347,9 +369,9 @@ public class Attacker extends AbstractRobot {
             }
         }
 
-        if (closestEnemyLoc.distanceSquaredTo(curLoc) >= 16) {  // can safely flee
+        if (bestEnemyLoc.distanceSquaredTo(curLoc) >= 16) {  // can safely flee
             MapLocation finalPathfindGoalLoc = target;
-            for (Direction d : Utils.sort(Utils.getIdealMovementDirections(closestEnemyLoc, curLoc), (dir) -> curLoc.add(dir).distanceSquaredTo(finalPathfindGoalLoc))) {
+            for (Direction d : Utils.sort(Utils.getIdealMovementDirections(bestEnemyLoc, curLoc), (dir) -> curLoc.add(dir).distanceSquaredTo(finalPathfindGoalLoc))) {
                 if (rc.canMove(d)) {
                     rc.move(d);
 //                    rc.setIndicatorString("fleeing");
@@ -363,11 +385,11 @@ public class Attacker extends AbstractRobot {
         }
 
         // die a hero
-        if (rc.canAttack(closestEnemyLoc)) {
-            rc.setIndicatorDot(closestEnemyLoc, 9, 9, 255);
-            rc.attack(closestEnemyLoc);
+        if (rc.canAttack(bestEnemyLoc)) {
+            rc.setIndicatorDot(bestEnemyLoc, 9, 9, 255);
+            rc.attack(bestEnemyLoc);
         }
-        for (Direction d : Utils.getIdealMovementDirections(closestEnemyLoc, curLoc)) {
+        for (Direction d : Utils.getIdealMovementDirections(bestEnemyLoc, curLoc)) {
             if (rc.canMove(d)) {
                 rc.move(d);
                 break;

@@ -29,6 +29,7 @@ public strictfp class RobotPlayer {
 
     public static MapLocation[] allyFlagSpawnLocs = new MapLocation[3];
     public static MapLocation[] enemyFlagLocs;
+    public static int flagChainDropTurn = -1;
 
     @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
@@ -78,6 +79,12 @@ public strictfp class RobotPlayer {
             tryBuyGlobalUpgrades(rc);
 
             if (rc.isSpawned()) {
+                if (Utils.getLocationInSharedArray(rc, Constants.SharedArray.coordinatedAttacks[0]) == null) {
+                    for(int attack : Constants.SharedArray.coordinatedAttacks) {
+                        Utils.storeLocationInSharedArray(rc, attack, null);
+                    }
+                }
+
                 MapInfo[] nearbyMapInfo = rc.senseNearbyMapInfos();
                 for (MapInfo info : nearbyMapInfo) {
                     MapLocation loc = info.getMapLocation();

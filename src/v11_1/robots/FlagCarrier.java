@@ -35,18 +35,24 @@ public class FlagCarrier extends AbstractRobot {
         flagID = rc.senseNearbyFlags(0)[0].getID();
         visited.clear();
 
-        int closest = 9999999;
+//        int closest = 9999999;
         for (int i = 0; i < 3; i++) {
-            MapLocation flagLoc = Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]);
-            if (flagLoc == null) continue;
-            int dist = flagLoc.distanceSquaredTo(rc.getLocation());
-            if (dist < closest) {
-                closest = dist;
+            int flagID = rc.readSharedArray(Constants.SharedArray.enemyFlagIDs[i]) - 1;
+//            System.out.println(flagID + " " + this.flagID);
+            if (flagID == this.flagID) {
                 index = i;
+                break;
             }
+//            if (flagLoc == null) continue;
+//            int dist = flagLoc.distanceSquaredTo(rc.getLocation());
+//            if (dist < closest) {
+//                closest = dist;
+//                index = i;
+//            }
         }
 
         Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[index], null);
+        rc.writeSharedArray(Constants.SharedArray.ignoreEnemyFlagIDs[index], 0);
 
         return true;
     }
@@ -57,6 +63,7 @@ public class FlagCarrier extends AbstractRobot {
         if (index == -1) System.out.println("error??");
         Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[index],
                 Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagOrigins[index]));
+        rc.writeSharedArray(Constants.SharedArray.ignoreEnemyFlagIDs[index], 0);
         spawn(rc);
     }
 
@@ -65,8 +72,10 @@ public class FlagCarrier extends AbstractRobot {
         RobotInfo[] enemyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
         FlagInfo[] enemyFlags = rc.senseNearbyFlags(-1, rc.getTeam().opponent());
         detectAndPickupFlags(rc, enemyFlags);
+        RobotInfo[] allyInfos = rc.senseNearbyRobots(4, rc.getTeam());
 
         sort(spawns, (spawnLoc) -> spawnLoc.distanceSquaredTo(curLoc));
+        sort(allyInfos, (allyInfo) -> allyInfo.getLocation().distanceSquaredTo(spawns[0]));
 
         MapLocation[] enemyLocations = new MapLocation[enemyInfos.length];
         MapInfo[] allMapInfos = rc.senseNearbyMapInfos(4);
@@ -82,35 +91,15 @@ public class FlagCarrier extends AbstractRobot {
             enemyLocations[i] = enemyInfos[i].getLocation();
         }
 
-//        int v = rc.readSharedArray(Constants.SharedArray.defenderAlert);
-//        int[] centerLocationWeights = new int[3];
-//        int total = 0;
-//        for (int i=0; i<3; i++) {
-//            centerLocationWeights[i] = v & 0b11111;
-//            total += v & 0b11111;
-//            v >>= 5;
-//        }
-//
-//        Integer[] centerSpawnLocationWeightsIndicies = Utils.sort(new Integer[] {0, 1, 2}, (i) -> -centerLocationWeights[i]);
-//
-//        for (int i = 0; i < 3; i++) {
-//            if (centerLocationWeights[centerSpawnLocationWeightsIndicies[i]] <= 0) continue;
-//            if (centerLocationWeights[centerSpawnLocationWeightsIndicies[i]] < total / 2) {
-//                if (RobotPlayer.rng.nextInt(3) == 1) {
-//                    continue;
-//                }
-//            }
-//            MapLocation centerSpawnLocation = RobotPlayer.allyFlagSpawnLocs[centerSpawnLocationWeightsIndicies[i]];
-//            for (MapLocation adjacent : Utils.getAdjacents(centerSpawnLocation)) {
-//                if (rc.canSpawn(adjacent)) {
-//                    rc.spawn(adjacent);
-//                    spawn = adjacent;
-//                    return;
-//                }
-//            }
-//        }
-
         Pathfinding.moveTowards(rc, curLoc, spawns[0], false);
+
+//        MapLocation dropLoc = rc.getLocation().add(rc.getLocation().directionTo(spawns[0]));
+//        if (allyInfos.length > 0 && allyInfos[0].location.distanceSquaredTo(rc.getLocation()) <= 4 && rc.canDropFlag(dropLoc)) {
+//            rc.dropFlag(dropLoc);
+//            RobotPlayer.flagChainDropTurn = rc.getRoundNum();
+//
+//            rc.writeSharedArray(Constants.SharedArray.ignoreEnemyFlagIDs[index], flagID);
+//        }
 
 //        for (MapLocation adjacent : sort(getAdjacents(curLoc), (loc) -> {
 //            // Sort by best location to move to

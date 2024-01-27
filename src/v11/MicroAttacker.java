@@ -157,7 +157,7 @@ public class MicroAttacker {
 
             MicroInfo bestMicro = microInfo[8];
             for (int i = 0; i < 8; ++i) {
-                if (microInfo[i].isBetter(bestMicro)) bestMicro = microInfo[i];
+//                if (microInfo[i].isBetter(bestMicro)) bestMicro = microInfo[i];
             }
 
             if (bestMicro.dir == Direction.CENTER) return true;

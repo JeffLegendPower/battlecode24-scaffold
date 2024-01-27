@@ -59,26 +59,43 @@ public abstract class AbstractRobot {
         for (FlagInfo info : nearbyFlags) {
             if (info.isPickedUp())
                 continue;
+
+            boolean ignore = false;
+            for (int i = 0; i < 3; i++) {
+                if (info.getID() == rc.readSharedArray(Constants.SharedArray.ignoreEnemyFlagIDs[i])) {
+                    ignore = true;
+                    break;
+                }
+            }
+
+//            if (ignore) {
+//                if (rc.canPickupFlag(info.getLocation()) && rc.getRoundNum() > RobotPlayer.flagChainDropTurn + 1)
+//                    rc.pickupFlag(info.getLocation());
+//                continue;
+//            }
+
             int index = Utils.indexOf(enemyFlagIDs, info.getID());
             int lastNotSeenFlag = Utils.indexOf(enemyFlagIDs, -1);
             int enemyFlagLocIndex = Utils.indexOf(enemyFlagLocs, info.getLocation());
             if (enemyFlagLocIndex != -1)
                 lastNotSeenFlag = enemyFlagLocIndex;
             if (index == -1) {
-                System.out.println("v11_1 " + name() + " found flag " + info.getID() + " at " + info.getLocation());
+                System.out.println("v11 " + name() + " found flag " + info.getID() + " at " + info.getLocation());
                 rc.writeSharedArray(Constants.SharedArray.enemyFlagIDs[lastNotSeenFlag], info.getID() + 1);
                 Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagOrigins[lastNotSeenFlag], info.getLocation());
                 Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[lastNotSeenFlag], info.getLocation());
                 index = lastNotSeenFlag;
             } else {
-                Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[index], info.getLocation());
+                if (!ignore)
+                    Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[index], info.getLocation());
                 // Since we default flag locations to their spawn zones and if the flags are not there then this is just making sure that
                 // we not putting the flag origins in the wrong place
                 if (Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagOrigins[index]) == null)
                     Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagOrigins[index], info.getLocation());
             }
 
-            if (rc.canPickupFlag(info.getLocation())) {
+            // Prevents the flag dropper from picking up the flag again so we can do a flag chain
+            if (rc.canPickupFlag(info.getLocation()) && rc.getRoundNum() > RobotPlayer.flagChainDropTurn + 1) {
                 // Transition into FlagCarrier robotType
                 rc.pickupFlag(info.getLocation());
             }

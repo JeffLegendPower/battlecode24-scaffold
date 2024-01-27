@@ -23,6 +23,15 @@ public class Utils {
         return (loc & (1 << 15)) == 0 ? null : new MapLocation((loc >> 6) & 63, loc & 63);
     }
 
+    public static int numWithinRadius(RobotInfo[] robots, MapLocation loc, int radiusSquared) {
+        int num = 0;
+        for(RobotInfo robot : robots) {
+            if (robot.getLocation().distanceSquaredTo(loc) <= radiusSquared)
+                num++;
+        }
+        return num;
+    }
+
     public static MapLocation getClosest(MapLocation[] locs, MapLocation curLoc) {
         MapLocation closest = null;
         int closestDist = 999999;
