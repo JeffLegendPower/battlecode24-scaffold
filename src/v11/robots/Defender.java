@@ -35,7 +35,18 @@ public class Defender extends AbstractRobot {
 
         int v = rc.readSharedArray(Constants.SharedArray.defenderAlert);
         int enemiesSeen = Math.min(enemies.length, 31);
-        if (rc.senseNearbyFlags(1, rc.getTeam()).length == 0) {  // no flag there
+
+        boolean enemiesHaveFlag = false;
+        for (RobotInfo enemy : enemies) {
+            if (enemy.hasFlag) {
+                enemiesHaveFlag = true;
+                break;
+            }
+        }
+
+        if (enemiesHaveFlag) {
+            enemiesSeen = Math.min(enemiesSeen + 7, 31);
+        } else if (rc.senseNearbyFlags(1, rc.getTeam()).length == 0) {  // no flag there
             enemiesSeen = Math.max(enemiesSeen - 7, 0);
         }
 //        int mask = 0b11111 << (5 * protectedFlagIndex);

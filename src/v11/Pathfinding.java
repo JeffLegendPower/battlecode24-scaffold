@@ -132,6 +132,7 @@ public class Pathfinding {
             if (rc.canSenseRobotAtLocation(newLoc)) continue;
             MapInfo info = map[newLoc.x][newLoc.y];
             if (info != null && !current.contains(newLoc) &&
+//                    (fillWater ? (!info.isWall() && !info.isDam() && (newLoc.x + newLoc.y) % 2 == 0) : info.isPassable())) {
                     (fillWater ? (!info.isWall() && !info.isDam()) : info.isPassable())) {
                 double score = calculateDistance(newLoc, target);
                 int thisVisited = visited.getOrDefault(newLoc, 0);

@@ -107,41 +107,6 @@ public class Attacker extends AbstractRobot {
                 (flag) -> flag.getLocation().distanceSquaredTo(curLoc));
         detectAndPickupFlags(rc, nearbyFlags);
 
-        // If we see crumbs go for them real quick
-        MapLocation[] crumbLocs = rc.senseNearbyCrumbs(-1);
-        if (crumbLocs.length > 0) {
-            Utils.sort(crumbLocs, (crumbLoc) -> crumbLoc.distanceSquaredTo(curLoc));
-            MapLocation closestCrumbLoc = crumbLocs[0];
-            if (continueInThisDirection != null) {
-                if (rc.canMove(continueInThisDirection)) {
-                    rc.move(continueInThisDirection);
-                }
-
-                if (RobotPlayer.rng.nextInt(7) == 0)
-                    continueInThisDirection = null;
-            }
-
-            Direction[] idealMovementDirections = Utils.getIdealMovementDirections(curLoc, closestCrumbLoc);
-            int i = 0;
-            for (Direction idealMoveDir : idealMovementDirections) {
-                i++;
-                if (rc.canMove(idealMoveDir)) {
-                    if (i >= 3) {
-                        continueInThisDirection = idealMoveDir;
-                    }
-                    rc.move(idealMoveDir);
-                    return;
-                } else {
-                    if (rc.canFill(curLoc.add(idealMoveDir))) {
-                        rc.fill(curLoc.add(idealMoveDir));
-                        return;
-                    }
-                }
-            }
-
-            return;
-        }
-
         MapLocation target = null;
         int bestDist = 999999;
 
@@ -236,7 +201,7 @@ public class Attacker extends AbstractRobot {
             }
 
             // no enemies nearby-ish -> there are allies nearby
-            if (allyInfos.length > 0) {
+            else if (allyInfos.length > 0) {
                 RobotInfo weakestAlly = allyInfos[0];
                 if (weakestAlly.getHealth() <= 1000 - rc.getHealAmount()) {
                     for (Direction d : Utils.sort(
@@ -426,6 +391,40 @@ public class Attacker extends AbstractRobot {
 //            }
             Pathfinding.moveTowards(rc, curLoc, centerLoc, true);
         } else {
+            MapLocation[] crumbLocs = rc.senseNearbyCrumbs(-1);
+            if (crumbLocs.length > 0) {
+                Utils.sort(crumbLocs, (crumbLoc) -> crumbLoc.distanceSquaredTo(curLoc));
+                MapLocation closestCrumbLoc = crumbLocs[0];
+                if (continueInThisDirection != null) {
+                    if (rc.canMove(continueInThisDirection)) {
+                        rc.move(continueInThisDirection);
+                    }
+
+                    if (RobotPlayer.rng.nextInt(7) == 0)
+                        continueInThisDirection = null;
+                }
+
+                Direction[] idealMovementDirections = Utils.getIdealMovementDirections(curLoc, closestCrumbLoc);
+                int i = 0;
+                for (Direction idealMoveDir : idealMovementDirections) {
+                    i++;
+                    if (rc.canMove(idealMoveDir)) {
+                        if (i >= 3) {
+                            continueInThisDirection = idealMoveDir;
+                        }
+                        rc.move(idealMoveDir);
+                        return;
+                    } else {
+                        if (rc.canFill(curLoc.add(idealMoveDir))) {
+                            rc.fill(curLoc.add(idealMoveDir));
+                            return;
+                        }
+                    }
+                }
+
+                return;
+            }
+
             Direction dir = RobotPlayer.directions[RobotPlayer.rng.nextInt(8)];
             if (rc.canMove(dir)) {
                 rc.move(dir);
