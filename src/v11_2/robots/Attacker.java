@@ -1,9 +1,7 @@
-package v11_1.robots;
+package v11_2.robots;
 
 import battlecode.common.*;
-import com.sun.tools.internal.jxc.ap.Const;
-import v11_1.*;
-import v11_1.Pathfinding;
+import v11_2.*;
 
 import java.util.Random;
 
@@ -16,12 +14,15 @@ public class Attacker extends AbstractRobot {
     private MapLocation lastTarget = null;
     private MapLocation flagTarget;
 
+    private MicroAttacker microAttacker;
+
     @Override
     public boolean setup(RobotController rc) throws GameActionException {
 //        if (RobotPlayer.rng.nextInt(10) == 0)
 //            deviant = true;
 
         defendOn = RobotPlayer.rng.nextInt(10) + 5;
+        microAttacker = new MicroAttacker(rc);
 
         spawn(rc);
         return true;
@@ -45,7 +46,7 @@ public class Attacker extends AbstractRobot {
         for (int i = 0; i < 3; i++) {
             if (centerLocationWeights[centerSpawnLocationWeightsIndicies[i]] <= 0) continue;
             if (centerLocationWeights[centerSpawnLocationWeightsIndicies[i]] < total / 2) {
-                if (RobotPlayer.rng.nextInt(3) == 1) {
+                    if (RobotPlayer.rng.nextInt(3) == 1) {
                     continue;
                 }
             }
@@ -172,7 +173,7 @@ public class Attacker extends AbstractRobot {
         for (int i = 0; i < 3; i++) {
             if (centerLocationWeights[i] < total * .65) continue; // TODO: Test if this actually is doing something
             rc.setIndicatorDot(RobotPlayer.allyFlagSpawnLocs[i], 0, 255, 0);
-            suicide = false;
+            suicide = true;
             break;
         }
 
@@ -309,8 +310,7 @@ public class Attacker extends AbstractRobot {
                 rc.setIndicatorDot(bestEnemyLoc, 9, 9, 255);
                 rc.attack(bestEnemyLoc);
             }
-
-            MicroAttacker microAttacker = new MicroAttacker(rc);
+            
             microAttacker.doMicro(suicide);
 
             MapLocation newClosestEnemyLoc = Utils.getClosest(enemyInfos, rc.getLocation()).location;

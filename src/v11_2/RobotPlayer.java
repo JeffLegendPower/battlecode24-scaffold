@@ -1,10 +1,10 @@
-package v11_1;
+package v11_2;
 
 import battlecode.common.*;
-import v11_1.robots.AbstractRobot;
-import v11_1.robots.Attacker;
-import v11_1.robots.Defender;
-import v11_1.robots.FlagCarrier;
+import v11_2.robots.AbstractRobot;
+import v11_2.robots.Attacker;
+import v11_2.robots.Defender;
+import v11_2.robots.FlagCarrier;
 
 import java.util.Random;
 

@@ -1,6 +1,9 @@
-package v11_1.robots;
+package v11_2.robots;
 
-import battlecode.common.*;
+import battlecode.common.FlagInfo;
+import battlecode.common.GameActionException;
+import battlecode.common.MapLocation;
+import battlecode.common.RobotController;
 import v11_1.Constants;
 import v11_1.RobotPlayer;
 import v11_1.Utils;
