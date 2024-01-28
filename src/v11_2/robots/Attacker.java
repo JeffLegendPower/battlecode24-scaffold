@@ -310,8 +310,10 @@ public class Attacker extends AbstractRobot {
                 rc.setIndicatorDot(bestEnemyLoc, 9, 9, 255);
                 rc.attack(bestEnemyLoc);
             }
-            
-            microAttacker.doMicro(suicide);
+
+            int b4 = Clock.getBytecodeNum();
+            microAttacker.doMicro(suicide, curLoc.distanceSquaredTo(target));
+            int af = Clock.getBytecodeNum();
 
             MapLocation newClosestEnemyLoc = Utils.getClosest(enemyInfos, rc.getLocation()).location;
 

@@ -2,6 +2,8 @@ package v11_2;
 
 import battlecode.common.*;
 
+import java.util.Random;
+
 public class MicroAttacker {
 
     static int MAX_MICRO_BYTECODE_REMAINING = 2000;
@@ -48,12 +50,19 @@ public class MicroAttacker {
     static boolean canAttack;
 
     static boolean gainTerritoryMode;
+    static int distToTarget;
 
     final static int MAX_RUBBLE_DIFF = 5;
 
-    public boolean doMicro(boolean suicide) {
+    public boolean doMicro(boolean suicide, int distToTarget2) {
         try {
             if (!rc.isMovementReady()) return false;
+
+            distToTarget = distToTarget2;
+
+
+            // TODO: TUNE THIS!!!!!
+            shouldPlaySafe = distToTarget > 80 && rc.getRoundNum() > 250;
 
             severelyHurt = rc.getHealth() < 300;
             RobotInfo[] enemies = rc.senseNearbyRobots(myVisionRange, rc.getTeam().opponent());
@@ -84,7 +93,11 @@ public class MicroAttacker {
             if (severelyHurt) alwaysInRange = true;
 
             MicroInfo[] microInfo = new MicroInfo[9];
-            for (int i = 0; i < 9; ++i) microInfo[i] = new MicroInfo(Direction.values()[i]);
+            int nPossible = 0;
+            for (int i = 0; i < 9; ++i) {
+                microInfo[i] = new MicroInfo(Direction.values()[i]);
+                nPossible += microInfo[i].canMove ? 1 : 0;
+            }
 
 //            boolean danger = rc.senseMapInfo(rc.getLocation()).getTeamTerritory() != rc.getTeam();
 
@@ -159,6 +172,7 @@ public class MicroAttacker {
 
             MicroInfo bestMicro = microInfo[8];
             for (int i = 0; i < 8; ++i) {
+//                if (nPossible < 4 && microInfo[i].dir.equals(Direction.CENTER)) continue; // dont allow it to stand still if there arent many locations to go
                 if (microInfo[i].isBetter(bestMicro)) bestMicro = microInfo[i];
             }
 
@@ -235,12 +249,12 @@ public class MicroAttacker {
         }
 
         int safe() {
+            if (minDistanceToEnemy <= 2 && shouldPlaySafe) return -2;
             if (!canMove) return -1;
-
+            if (!canAttack) return -1;
             if (DPSreceived > 0 && severelyHurt) return 0; // TODO test if adding severelyHurt actually gains 1 by 1
-            if (enemiesTargeting < alliesTargeting && shouldPlaySafe) return 1; // TODO test if adding shouldPlaySafe actually gains 1 by 1
-            if (enemiesTargeting > alliesTargeting && (!shouldPlaySafe)) return 1; // TODO i think this is never called?
-            return 2;
+            if (enemiesTargeting < alliesTargeting) return 2; // TODO test if adding shouldPlaySafe actually gains 1 by 1
+            return 3;
         }
 
         boolean inRange(){
@@ -250,44 +264,17 @@ public class MicroAttacker {
 
         //equal => true
         boolean isBetter(MicroInfo M) {
-//            int mygood = 0;
-//            int theirgood = 0;
-//
-//            if (distToEnemyFlagHolder < M.distToEnemyFlagHolder) mygood += 3;
-//            if (distToEnemyFlagHolder > M.distToEnemyFlagHolder) theirgood += 3;
-////            System.out.println("a");
-//
-//            if (safe() > M.safe()) mygood += 2;
-//            if (safe() < M.safe()) theirgood += 2;
-//
-//            if (inRange() && !M.inRange()) mygood += 2;
-//            if (!inRange() && M.inRange()) theirgood += 2;
-//
-//            if (alliesTargeting > M.alliesTargeting + 6) mygood += 1; // TODO test if this actually gains 1 by 1
-//            if (alliesTargeting < M.alliesTargeting - 6) theirgood += 1; // TODO test if this actually gains 1 by 1
-//            if (severelyHurt) {
-//                if (alliesTargeting > M.alliesTargeting) mygood += 1;
-//                if (alliesTargeting < M.alliesTargeting) theirgood += 1;
-//            }
-//
-//            if (inRange() && distToNearestAllySpawn > 25) {
-//                if (minDistanceToEnemy >= M.minDistanceToEnemy)
-//                    mygood += 1;
-//                else
-//                    theirgood += 1;
-//            } else {
-//                if (minDistanceToEnemy <= M.minDistanceToEnemy)
-//                    mygood += 1;
-//                else
-//                    theirgood += 1;
-//            }
-//            return mygood > theirgood;
+
             if (distToEnemyFlagHolder < M.distToEnemyFlagHolder) return true;
             if (M.distToEnemyFlagHolder < distToEnemyFlagHolder) return false;
 //            System.out.println("a");
 
             if (safe() > M.safe()) return true;
             if (safe() < M.safe()) return false;
+
+//            // TODO: do these gain?
+            if (!canAttack && inRange() && !M.inRange() && distToTarget > 80) return false;
+            if (!canAttack && !inRange() && M.inRange() && distToTarget > 80) return true;
 
             if (inRange() && !M.inRange()) return true;
             if (!inRange() && M.inRange()) return false;

@@ -80,14 +80,10 @@ public class FlagCarrier extends AbstractRobot {
         MapInfo[] allMapInfos = rc.senseNearbyMapInfos(4);
         MapLocation[] trapLocations = new MapLocation[allMapInfos.length];
 
-        int writeIndex=0;
-        for (MapInfo allMapInfo : allMapInfos) {
-            if (allMapInfo.getTrapType().equals(TrapType.STUN)) {
-                trapLocations[writeIndex++] = allMapInfo.getMapLocation();
-            }
-        }
-        for (int i=0; i<enemyInfos.length; i++) {
-            enemyLocations[i] = enemyInfos[i].getLocation();
+        RobotInfo closestEnemy = Utils.getClosest(enemyInfos, curLoc);
+
+        if (closestEnemy != null && closestEnemy.getLocation().distanceSquaredTo(curLoc) <= 4) {
+            Pathfinding.moveAway(rc, curLoc, closestEnemy.getLocation(), false);
         }
 
         Pathfinding.moveTowards(rc, curLoc, spawns[0], false);
