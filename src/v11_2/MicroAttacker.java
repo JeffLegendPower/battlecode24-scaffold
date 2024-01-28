@@ -62,7 +62,7 @@ public class MicroAttacker {
 
 
             // TODO: TUNE THIS!!!!!
-            shouldPlaySafe = distToTarget > 80 && rc.getRoundNum() > 250;
+            shouldPlaySafe = distToTarget > 80 && rc.getRoundNum() > 250 && rc.getRoundNum() % 6 < 3;
 
             severelyHurt = rc.getHealth() < 300;
             RobotInfo[] enemies = rc.senseNearbyRobots(myVisionRange, rc.getTeam().opponent());
