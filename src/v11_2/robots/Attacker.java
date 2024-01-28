@@ -187,6 +187,8 @@ public class Attacker extends AbstractRobot {
             MapLocation[] enemyFlagBroadcasts = Utils.sort(rc.senseBroadcastFlagLocations(), (loc) -> loc.distanceSquaredTo(curLoc));
             if (enemyFlagBroadcasts.length > 0) {
                 target = enemyFlagBroadcasts[0];
+            } else {
+                target = RobotPlayer.allyFlagSpawnLocs[new Random().nextInt(3)];
             }
         }
 
@@ -242,17 +244,34 @@ public class Attacker extends AbstractRobot {
             // no enemies nearby-ish -> there are allies nearby
             if (allyInfos.length > 0) {
                 RobotInfo weakestAlly = allyInfos[0];
-                if (weakestAlly.getHealth() <= 1000 - rc.getHealAmount()) {
+                if (weakestAlly.hasFlag()) {
+                    v = rc.readSharedArray(Constants.SharedArray.defenderAlert);
+                    centerLocationWeights = new int[3];
+                    total = 0;
+                    for (int i=0; i<3; i++) {
+                        centerLocationWeights[i] = v & 0b11111;
+                        total += v & 0b11111;
+                        v >>= 5;
+                    }
+
+
+                    int[] finalCenterLocationWeights = centerLocationWeights;
+                    Integer[] centerSpawnLocationWeightsIndicies = Utils.sort(new Integer[] {0, 1, 2}, (i) -> finalCenterLocationWeights[i]);
+
+                    MapLocation bestSpawn = RobotPlayer.allyFlagSpawnLocs[centerSpawnLocationWeightsIndicies[0]];
+
+                    rc.setIndicatorLine(curLoc, allyInfos[0].getLocation(), 255,0,0);
+                    Pathfinding.moveTowards(rc, curLoc, bestSpawn, true);
+                }
+                else if (weakestAlly.getHealth() <= 1000 - rc.getHealAmount()) {
                     for (Direction d : Utils.sort(
                             Utils.getIdealMovementDirections(curLoc, target),
                             (d) -> curLoc.add(d).distanceSquaredTo(weakestAlly.getLocation()))
                     ) {
                         if (rc.canMove(d)) {
                             rc.move(d);
-//                            rc.setIndicatorString("moved towards goal & ally");
                             if (rc.canHeal(weakestAlly.getLocation())) {
                                 rc.heal(weakestAlly.getLocation());
-//                                rc.setIndicatorString("healed a guy");
                             }
                             return;
                         } else {
@@ -267,9 +286,9 @@ public class Attacker extends AbstractRobot {
                 }
             }
 
-            // no enemies nearby-ish -> no allies nearby
-            // Stronger pathfinding to prevent getting stuck
+
             Pathfinding.moveTowards(rc, curLoc, target, true);
+
             return;
         }
 
@@ -282,37 +301,13 @@ public class Attacker extends AbstractRobot {
         if (allyInfos.length >= enemyInfos.length - 6) {  // more allies than enemies, attack
             int distToClosestEnemy = curLoc.distanceSquaredTo(weakestEnemy.getLocation());
 
-//            MapLocation bestTarget = Evals.Action.getBestTarget(rc);
-//            if (bestTarget != null && rc.canAttack(bestTarget))
-//                rc.attack(bestTarget);
-//            int idx = Constants.SharedArray.coordinatedAttacks[0];
-//            for (; idx <= Constants.SharedArray.coordinatedAttacks[5]; idx++) {
-//                MapLocation loc = Utils.getLocationInSharedArray(rc, idx);
-//                if (loc != null && Utils.numWithinRadius(allyInfos, loc, 4) >= 3 && rc.canAttack(loc)) {
-//                    rc.setIndicatorDot(bestEnemyLoc, 9, 9, 255);
-//                    rc.attack(bestEnemyLoc);
-//                    break;
-//                } else if (loc == null) {
-//                    Utils.storeLocationInSharedArray(rc, idx, bestEnemyLoc);
-//                    if (rc.canAttack(bestEnemyLoc)) {
-//                        rc.setIndicatorDot(bestEnemyLoc, 9, 9, 255);
-//                        rc.attack(bestEnemyLoc);
-//                        break;
-//                    }
-//                }
-//            }
-//            if (idx > Constants.SharedArray.coordinatedAttacks[5] && rc.canAttack(bestEnemyLoc)) {
-//                rc.setIndicatorDot(bestEnemyLoc, 9, 9, 255);
-//                rc.attack(bestEnemyLoc);
-//            }
-
             if (rc.canAttack(bestEnemyLoc)) {
                 rc.setIndicatorDot(bestEnemyLoc, 9, 9, 255);
                 rc.attack(bestEnemyLoc);
             }
 
             int b4 = Clock.getBytecodeNum();
-            microAttacker.doMicro(suicide, curLoc.distanceSquaredTo(target));
+            microAttacker.doMicro(suicide, curLoc.distanceSquaredTo(target), curLoc.distanceSquaredTo(Utils.getClosest(rc.getAllySpawnLocations(), curLoc)));
             int af = Clock.getBytecodeNum();
 
             MapLocation newClosestEnemyLoc = Utils.getClosest(enemyInfos, rc.getLocation()).location;
@@ -325,19 +320,6 @@ public class Attacker extends AbstractRobot {
                 rc.setIndicatorDot(newClosestEnemyLoc, 9, 9, 255);
                 rc.attack(newClosestEnemyLoc);
             }
-
-//            bestTarget = Evals.Action.getBestTarget(rc);
-//            if (bestTarget != null && rc.canAttack(bestTarget))
-//                rc.attack(bestTarget);
-
-//            // If an ally really needs healing, heal them
-//            if (rc.isActionReady() && numTraps >= 6) {
-//                for (RobotInfo ally : allyInfos) {
-//                    if (ally.health <= 700 && rc.canHeal(ally.getLocation())) {
-//                        rc.heal(ally.getLocation());
-//                    }
-//                }
-//            }
 
             // spam traps if we still have some action cooldown remaining
             if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2 && rc.isActionReady()) {
@@ -401,6 +383,7 @@ public class Attacker extends AbstractRobot {
             rc.attack(bestEnemyLoc);
         }
         for (Direction d : Utils.getIdealMovementDirections(bestEnemyLoc, curLoc)) {
+//            System.out.println("Im moving stupidly");
             if (rc.canMove(d)) {
                 rc.move(d);
                 break;

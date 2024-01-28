@@ -3,21 +3,21 @@ package v11_2.robots;
 import battlecode.common.*;
 import v11_2.Constants;
 import v11_2.Pathfinding;
+import v11_2.RobotPlayer;
 import v11_2.Utils;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import static v11_2.Utils.sort;
 
 public class FlagCarrier extends AbstractRobot {
 
-    private MapLocation[] spawns;
+    private MapLocation bestSpawn;
     private int flagID = -1;
     public int index = -1;
     private int turnsSinceDroppedFlag = 0;
     // TODO replace with an array to optimize bytecode
-    private ArrayList<MapLocation> visited = new ArrayList<>();
-
     @Override
     public boolean setup(RobotController rc) throws GameActionException {
         if (!rc.isSpawned() || !rc.hasFlag()) {
@@ -25,15 +25,39 @@ public class FlagCarrier extends AbstractRobot {
             return false;
         }
 
-        MapLocation[] mySpawns = rc.getAllySpawnLocations();
-        spawns = new MapLocation[] {
-                new MapLocation(mySpawns[0].x, mySpawns[0].y),
-                new MapLocation(mySpawns[1*9+4].x, mySpawns[1*9+4].y),
-                new MapLocation(mySpawns[2*9+4].x, mySpawns[2*9+4].y),
-        };
+
+        int v = rc.readSharedArray(Constants.SharedArray.defenderAlert);
+        int[] centerLocationWeights = new int[3];
+        int[] centerLocationDists = new int[3];
+        int largestWeight = -1;
+        int largestLocDist = -1;
+        int total = 0;
+        for (int i=0; i<3; i++) {
+            centerLocationWeights[i] = v & 0b11111;
+            centerLocationDists[i] = RobotPlayer.allyFlagSpawnLocs[i].distanceSquaredTo(rc.getLocation());
+            if (centerLocationWeights[i] > largestWeight)
+                largestWeight = centerLocationWeights[i];
+            if (centerLocationDists[i] > largestLocDist)
+                largestLocDist = centerLocationDists[i];
+            total += v & 0b11111;
+            v >>= 5;
+        }
+
+        if (largestLocDist == 0)
+            largestLocDist += 1;
+        if (largestWeight == 0)
+            largestWeight += 1;
+
+        System.out.println(centerLocationWeights[0] + " " + centerLocationWeights[1] + " " + centerLocationWeights[2]);
+
+
+        int finalLargestWeight = largestWeight;
+        int finalLargestLocDist = largestLocDist;
+        Integer[] centerSpawnLocationWeightsIndicies = Utils.sort(new Integer[] {0, 1, 2}, (i) -> (centerLocationWeights[i] / finalLargestWeight + centerLocationDists[i] / finalLargestLocDist));
+
+        bestSpawn = RobotPlayer.allyFlagSpawnLocs[centerSpawnLocationWeightsIndicies[0]];
 
         flagID = rc.senseNearbyFlags(0)[0].getID();
-        visited.clear();
 
 //        int closest = 9999999;
         for (int i = 0; i < 3; i++) {
@@ -68,58 +92,12 @@ public class FlagCarrier extends AbstractRobot {
 
     @Override
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
-        RobotInfo[] enemyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+//        RobotInfo[] enemyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
         FlagInfo[] enemyFlags = rc.senseNearbyFlags(-1, rc.getTeam().opponent());
         detectAndPickupFlags(rc, enemyFlags);
-        RobotInfo[] allyInfos = rc.senseNearbyRobots(4, rc.getTeam());
+        rc.setIndicatorLine(curLoc, bestSpawn, 0, 100, 255);
+        Pathfinding.moveTowards(rc, curLoc, bestSpawn, false);
 
-        sort(spawns, (spawnLoc) -> spawnLoc.distanceSquaredTo(curLoc));
-        sort(allyInfos, (allyInfo) -> allyInfo.getLocation().distanceSquaredTo(spawns[0]));
-
-        MapLocation[] enemyLocations = new MapLocation[enemyInfos.length];
-        MapInfo[] allMapInfos = rc.senseNearbyMapInfos(4);
-        MapLocation[] trapLocations = new MapLocation[allMapInfos.length];
-
-        RobotInfo closestEnemy = Utils.getClosest(enemyInfos, curLoc);
-
-        if (closestEnemy != null && closestEnemy.getLocation().distanceSquaredTo(curLoc) <= 4) {
-            Pathfinding.moveAway(rc, curLoc, closestEnemy.getLocation(), false);
-        }
-
-        Pathfinding.moveTowards(rc, curLoc, spawns[0], false);
-
-//        for (MapLocation adjacent : sort(getAdjacents(curLoc), (loc) -> {
-//            // Sort by best location to move to
-//            int total = 0;
-//
-//            // Avoid enemies
-//            for (MapLocation enemyLocation : enemyLocations) {
-//                total += enemyLocation.distanceSquaredTo(loc);
-//            }
-//
-//            // Go towards ally stun traps
-//            for (MapLocation trapLocation : trapLocations) {
-//                if (trapLocation == null) {
-//                    break;
-//                }
-//                total -= (trapLocation.distanceSquaredTo(loc) * 2) / 3;
-//            }
-//            return loc.distanceSquaredTo(spawns[0]) - total;
-//        })) {
-//            if (visited.contains(adjacent)) {
-//                continue;
-//            }
-//            Direction d = curLoc.directionTo(adjacent);
-//            if (rc.canMove(d)) {
-//                rc.move(d);
-//                if (!rc.hasFlag()) {
-//                    flagID = -1;
-//                    break;
-//                }
-//                visited.add(adjacent);
-//                break;
-//            }
-//        }
     }
 
     @Override

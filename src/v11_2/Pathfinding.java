@@ -143,7 +143,7 @@ public class Pathfinding {
                         * (dir == lastDir.opposite() ? 1.2 : 1);
 
                 if (afraid) {
-                    score *= (enemiesNearby(rc, newLoc) ? 1.6 : 1);
+                    score *= (double) (enemiesNearby(rc, newLoc) + 1);
 //                    int centerdist = Math.max(Math.abs(centerx - newLoc.x), Math.abs(centery - newLoc.y));
 //                    score *= (centerdist <= Math.min(rc.getMapWidth(), rc.getMapHeight()) / 4 ? 2 : 1);
 
@@ -191,20 +191,7 @@ public class Pathfinding {
         return ml1.distanceSquaredTo(ml2); // Euclidean distance squared
     }
 
-    private static boolean enemiesNearby(RobotController rc, MapLocation loc) throws GameActionException {
-        // Check in 3x3 area around loc
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dy = -1; dy <= 1; dy++) {
-                if (dx == 0 && dy == 0) continue; // Don't check the center loc
-                MapLocation newLoc = loc.translate(dx, dy);
-                if (rc.canSenseRobotAtLocation(newLoc)) {
-                    RobotInfo robot = rc.senseRobotAtLocation(newLoc);
-                    if (robot != null && robot.getTeam().equals(rc.getTeam().opponent())) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
+    private static int enemiesNearby(RobotController rc, MapLocation loc) throws GameActionException {
+        return rc.senseNearbyRobots(-1, rc.getTeam().opponent()).length;
     }
 }
