@@ -11,8 +11,8 @@ public class Constants {
 
         public static final int numDefenders = 9;
         public static final int defenderAlert = 10;
-        public static final int[] coordinatedAttacks = {11, 12, 13, 14, 15, 16, 17, 18};
-        public static final int[] carriedFlagIDs = {19, 20, 21};
+        public static final int[] coordinatedAttacks = {11, 12, 13, 14, 15, 16};
+        public static final int[] carriedFlagIDs = {17, 18, 19};
 
         // 0: Unknown
         // 1: Symmetric by rotation

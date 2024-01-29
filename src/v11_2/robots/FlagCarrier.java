@@ -17,7 +17,6 @@ public class FlagCarrier extends AbstractRobot {
     private int flagID = -1;
     public int index = -1;
     private int turnsSinceDroppedFlag = 0;
-    private MapLocation lastLoc = null;
     // TODO replace with an array to optimize bytecode
     @Override
     public boolean setup(RobotController rc) throws GameActionException {
@@ -49,7 +48,7 @@ public class FlagCarrier extends AbstractRobot {
         if (largestWeight == 0)
             largestWeight += 1;
 
-        //System.out.println(centerLocationWeights[0] + " " + centerLocationWeights[1] + " " + centerLocationWeights[2]);
+        System.out.println(centerLocationWeights[0] + " " + centerLocationWeights[1] + " " + centerLocationWeights[2]);
 
 
         int finalLargestWeight = largestWeight;
@@ -85,14 +84,9 @@ public class FlagCarrier extends AbstractRobot {
     public void tickJailed(RobotController rc) throws GameActionException {
 //        int index = Utils.indexOf(enemyFlagIDs, flagID);
         if (index == -1) System.out.println("error??");
-        if (lastLoc == null ||turnsSinceDroppedFlag >= 4)
-            Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[index],
-                    Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagOrigins[index]));
-        else
-            Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[index], lastLoc);
-
+        Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[index],
+                Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagOrigins[index]));
         rc.writeSharedArray(Constants.SharedArray.carriedFlagIDs[index], 0);
-        turnsSinceDroppedFlag++;
         spawn(rc);
     }
 
@@ -103,7 +97,7 @@ public class FlagCarrier extends AbstractRobot {
         detectAndPickupFlags(rc, enemyFlags);
         rc.setIndicatorLine(curLoc, bestSpawn, 0, 100, 255);
         Pathfinding.moveTowards(rc, curLoc, bestSpawn, false);
-        lastLoc = curLoc;
+
     }
 
     @Override

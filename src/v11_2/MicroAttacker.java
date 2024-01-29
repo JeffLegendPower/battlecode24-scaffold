@@ -58,7 +58,7 @@ public class MicroAttacker {
             distToTarget = distToTarget2;
             shouldPlaySafe = distToTarget > 80 && rc.getRoundNum() > 250 && rc.getRoundNum() % 4 < 2;
 
-            severelyHurt = rc.getHealth() < 300;
+            severelyHurt = rc.getHealth() < 250;
             RobotInfo[] enemies = rc.senseNearbyRobots(myVisionRange, rc.getTeam().opponent());
             if (enemies.length == 0) return false;
             canAttack = rc.isActionReady();
@@ -210,7 +210,7 @@ public class MicroAttacker {
                 minDistanceToEnemy = dist;
             }
 
-            if (dist <= currentActionRadius) DPSreceived += DPS[unit.attackLevel] / (enemiesTriggeredTrap ? 2 : 1);
+            if (dist <= currentActionRadius) DPSreceived += DPS[unit.attackLevel];
             if (dist <= currentRangeExtended) enemiesTargeting += DPS[unit.attackLevel];
         }
 
@@ -253,7 +253,7 @@ public class MicroAttacker {
 //            System.out.println("a");
 
             if (alliesTargeting > M.alliesTargeting + 1) return true; // TODO test if this actually gains 1 by 1
-            if (alliesTargeting < M.alliesTargeting - 3) return false; // TODO test if this actually gains 1 by 1
+            if (alliesTargeting < M.alliesTargeting - 4) return false; // TODO test if this actually gains 1 by 1
 
             if (safe() > M.safe()) return true;
             if (safe() < M.safe()) return false;
@@ -264,8 +264,6 @@ public class MicroAttacker {
 
             if (inRange() && !M.inRange()) return true;
             if (!inRange() && M.inRange()) return false;
-
-
             if (severelyHurt) {
                 if (alliesTargeting > M.alliesTargeting) return true;
                 if (alliesTargeting < M.alliesTargeting) return false;

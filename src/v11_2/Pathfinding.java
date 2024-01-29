@@ -5,25 +5,23 @@ import battlecode.common.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Random;
 
 import static v11_2.RobotPlayer.directions;
 import static v11_2.RobotPlayer.map;
 import static v11_2.Utils.Pair;
 import static v11_2.Utils.clamp;
 public class Pathfinding {
-//    private static List<MapLocation> best = new ArrayList<>();
-    private static MapLocation[] best = new MapLocation[51];
+    private static List<MapLocation> best = new ArrayList<>();
     public static MapLocation currentTarget = null;
 
     public static void moveTowards(RobotController rc, MapLocation curLoc, MapLocation target, boolean fillWater) throws GameActionException {
-        IterativeGreedy(rc, curLoc, target, 50, fillWater, false);
+        IterativeGreedy(rc, curLoc, target, 10, fillWater, false);
 //        rc.setIndicatorString("Target: " + target);
     }
 
     // Will avoid robots
     public static void moveTowardsAfraid(RobotController rc, MapLocation curLoc, MapLocation target, boolean fillWater) throws GameActionException {
-        IterativeGreedy(rc, curLoc, target, 50, fillWater, true);
+        IterativeGreedy(rc, curLoc, target, 10, fillWater, true);
 //        rc.setIndicatorString("Target: " + target);
     }
 
@@ -39,13 +37,11 @@ public class Pathfinding {
         if (curLoc.equals(target)) return;
 
         currentTarget = target;
-        lastDir = Direction.CENTER;
 
         if (lastTarget != null && !lastTarget.isWithinDistanceSquared(target, 10))
             visited.clear();
         if (lastTarget == null || !lastTarget.equals(target)) {
-//            best.clear();
-            best = new MapLocation[51];
+            best.clear();
             lastTarget = target;
         }
 
@@ -58,21 +54,18 @@ public class Pathfinding {
                 visited.put(curLoc, visited.getOrDefault(curLoc, 0) + 1);
                 return;
             } else {
-//                best.clear();
-                best = new MapLocation[51];
+                best.clear();
             }
         }
 
         target = clamp(target, rc);
 
-//        if (!best.isEmpty()) {
-        if (best[0] != null) {
+        if (!best.isEmpty()) {
             Pair<MapLocation, Integer> move = getLastAdjacent(curLoc, best);
 
             if (move != null) {
                 if (move.b >= 0)
-                    System.arraycopy(best, move.b + 1, best, 0, best.length - move.b - 1);
-
+                    best.subList(0, move.b + 1).clear();
 
                 if (rc.canFill(move.a))
                     rc.fill(move.a);
@@ -80,41 +73,29 @@ public class Pathfinding {
                     rc.move(curLoc.directionTo(move.a));
                     visited.put(curLoc, visited.getOrDefault(curLoc, 0) + 1);
                 } else {
-//                    best.clear();
-                    best = new MapLocation[51];
+                    best.clear();
                 }
             }
         }
 
         int depth;
         int startBytecode = Clock.getBytecodeNum();
-
-//        MapLocation lastLoc = curLoc;
-        int idx = -1;
-        for (int i = 0; i < best.length; i++) {
-            if (best[i] == null) break;
-            idx = i;
-        }
-
         for (depth = 1; depth <= maxDepth; depth++) {
-            if ((Clock.getBytecodeNum() - startBytecode > 6000 || Clock.getBytecodeNum() > 20000)) break;
-            MapLocation lastLoc = idx == -1 ? curLoc : best[idx];
-            if (lastLoc == null || idx + 1 >= best.length) break;
-            best = moveTowardsDirect(rc, lastLoc, target, best, ++idx, fillWater, afraid);
+            if (Clock.getBytecodeNum() - startBytecode > 6000 || Clock.getBytecodeNum() > 20000) break;
+            best = moveTowardsDirect(rc, best.isEmpty() ? curLoc : best.get(best.size() - 1), target, best, fillWater, afraid);
         }
-
-        if (best[0] == null)
+        if (best.isEmpty())
             return;
 
         Pair<MapLocation, Integer> move = getLastAdjacent(curLoc, best);
 
         if (move == null) {
-            best = new MapLocation[51];
+            best.clear();
             return;
         }
 
         if (move.b >= 0)
-            System.arraycopy(best, move.b + 1, best, 0, best.length - move.b - 1);
+            best.subList(0, move.b + 1).clear();
 
         if (rc.canFill(move.a))
             rc.fill(move.a);
@@ -123,31 +104,21 @@ public class Pathfinding {
             rc.move(curLoc.directionTo(move.a));
             visited.put(curLoc, visited.getOrDefault(curLoc, 0) + 1);
         } else {
-            best = new MapLocation[51];
+            best.clear();
         }
 
         // DEBUG
-//        if (new Random().nextInt(5) == 0) {
-//            MapLocation prevLoc = curLoc;
-//            int curDist = curLoc.distanceSquaredTo(target);
-//            for (MapLocation loc : best) {
-//                if (loc == null) continue;
-////                rc.setIndicatorDot(loc, 255, 0, 0);
-//                // Have a color gradient from gray to black/red, gray is same as current dist, red is closer, black is farther
-//                int dist = loc.distanceSquaredTo(target);
-//                int r = (int) (255 * (1 - (double) dist / curDist));
-//                int g = 0;
-//                int b = (int) (255 * ((double) dist / curDist));
-//                rc.setIndicatorDot(loc, r, g, b);
-//                rc.setIndicatorLine(prevLoc, loc, 0, 255, 0);
-//                prevLoc = loc;
-//            }
+//        MapLocation lastLoc = curLoc;
+//        for (MapLocation loc : best) {
+//            rc.setIndicatorDot(loc, 255, 0, 0);
+//            rc.setIndicatorLine(lastLoc, loc, 0, 255, 0);
+//            lastLoc = loc;
 //        }
     }
 
     private static Direction lastDir = Direction.CENTER;
 
-    public static MapLocation[] moveTowardsDirect(RobotController rc, MapLocation curLoc, MapLocation target, MapLocation[] current, int idx, boolean fillWater, boolean afraid) throws GameActionException {
+    public static List<MapLocation> moveTowardsDirect(RobotController rc, MapLocation curLoc, MapLocation target, List<MapLocation> current, boolean fillWater, boolean afraid) throws GameActionException {
         if (curLoc.equals(target)) return current;
 
         double minScore = 999999;
@@ -159,25 +130,17 @@ public class Pathfinding {
 
         for (Direction dir : directions) {
             MapLocation newLoc = curLoc.add(dir);
-            if (!rc.onTheMap(newLoc)) continue;
             newLoc = clamp(newLoc, rc);
-
-            Direction opposite = lastDir.opposite();
-            if (dir == opposite || dir == opposite.rotateLeft() || dir == opposite.rotateRight()) continue;
-
-//            if (numOverlap(adjacents(rc, newLoc), current) >= 5) continue;
-
             if (rc.canSenseRobotAtLocation(newLoc)) continue;
             MapInfo info = map[newLoc.x][newLoc.y];
-            if (info != null && Utils.indexOf(current, newLoc) == -1 &&
+            if (info != null && !current.contains(newLoc) &&
                     (fillWater ? (!info.isWall() && !info.isDam()) : info.isPassable())) {
-                double score = newLoc.distanceSquaredTo(target);
+                double score = calculateDistance(newLoc, target);
                 int thisVisited = visited.getOrDefault(newLoc, 0);
-
-//                Direction opposite = dir.opposite();
-
                 score *= (info.isWater() ? 1.35 : 1)
-                        * ((thisVisited == 0) ? 1 : thisVisited * 1.5);
+//                        * (isOnWall(rc, newLoc) ? 1 : 1.1)
+                        * ((thisVisited == 0) ? 1 : thisVisited * 1.1)
+                        * (dir == lastDir.opposite() ? 1.2 : 1);
 
                 if (afraid) {
                     score *= (double) (enemiesNearby(rc, newLoc) + 1);
@@ -197,17 +160,16 @@ public class Pathfinding {
 
         if (bestMove == null) return current;
 
-        current[idx] = bestMove;
+        current.add(bestMove);
 
         return current;
     }
 
-    private static Pair<MapLocation, Integer> getLastAdjacent(MapLocation curLoc, MapLocation[] moves) {
+    private static Pair<MapLocation, Integer> getLastAdjacent(MapLocation curLoc, List<MapLocation> moves) {
         if (moves == null) return null;
-        for (int i = moves.length - 1; i >= 0; i--) {
-            if (moves[i] == null) continue;
-            if (moves[i].isAdjacentTo(curLoc))
-                return new Pair<>(moves[i], i);
+        for (int i = moves.size() - 1; i >= 0; i--) {
+            if (moves.get(i).isAdjacentTo(curLoc))
+                return new Pair<>(moves.get(i), i);
         }
         return null;
     }
