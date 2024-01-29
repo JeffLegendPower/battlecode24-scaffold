@@ -1,20 +1,21 @@
-package v11.robots;
+package v11_1.robots;
 
 import battlecode.common.*;
-import v11.Pathfinding;
-import v11.RobotPlayer;
-import v11.Utils;
-import v11.Constants;
+import v11_1.Pathfinding;
+import v11_1.RobotPlayer;
+import v11_1.Utils;
+import v11_1.Constants;
 
 import java.util.ArrayList;
 
-import static v11.Utils.*;
+import static v11_1.Utils.*;
 
 public class FlagCarrier extends AbstractRobot {
 
     private MapLocation[] spawns;
     private int flagID = -1;
-    private int index = -1;
+    public int index = -1;
+    private int turnsSinceDroppedFlag = 0;
     // TODO replace with an array to optimize bytecode
     private ArrayList<MapLocation> visited = new ArrayList<>();
 
@@ -52,7 +53,6 @@ public class FlagCarrier extends AbstractRobot {
         }
 
         Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[index], null);
-        rc.writeSharedArray(Constants.SharedArray.ignoreEnemyFlagIDs[index], 0);
 
         return true;
     }
@@ -63,7 +63,7 @@ public class FlagCarrier extends AbstractRobot {
         if (index == -1) System.out.println("error??");
         Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[index],
                 Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagOrigins[index]));
-        rc.writeSharedArray(Constants.SharedArray.ignoreEnemyFlagIDs[index], 0);
+        rc.writeSharedArray(Constants.SharedArray.carriedFlagIDs[index], 0);
         spawn(rc);
     }
 
@@ -92,14 +92,6 @@ public class FlagCarrier extends AbstractRobot {
         }
 
         Pathfinding.moveTowards(rc, curLoc, spawns[0], false);
-
-        MapLocation dropLoc = rc.getLocation().add(rc.getLocation().directionTo(spawns[0]));
-        if (allyInfos.length > 0 && allyInfos[0].location.distanceSquaredTo(rc.getLocation()) <= 4 && rc.canDropFlag(dropLoc)) {
-            rc.dropFlag(dropLoc);
-            RobotPlayer.flagChainDropTurn = rc.getRoundNum();
-
-            rc.writeSharedArray(Constants.SharedArray.ignoreEnemyFlagIDs[index], flagID);
-        }
 
 //        for (MapLocation adjacent : sort(getAdjacents(curLoc), (loc) -> {
 //            // Sort by best location to move to

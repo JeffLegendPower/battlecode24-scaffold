@@ -1,8 +1,11 @@
-package v11.robots;
+package v11_1.robots;
 
 import battlecode.common.*;
-import v11.*;
-import v11.Pathfinding;
+import com.sun.tools.internal.jxc.ap.Const;
+import v11_1.*;
+import v11_1.Pathfinding;
+
+import java.util.Random;
 
 public class Attacker extends AbstractRobot {
 
@@ -107,6 +110,41 @@ public class Attacker extends AbstractRobot {
                 (flag) -> flag.getLocation().distanceSquaredTo(curLoc));
         detectAndPickupFlags(rc, nearbyFlags);
 
+        // If we see crumbs go for them real quick
+        MapLocation[] crumbLocs = rc.senseNearbyCrumbs(-1);
+        if (crumbLocs.length > 0) {
+            Utils.sort(crumbLocs, (crumbLoc) -> crumbLoc.distanceSquaredTo(curLoc));
+            MapLocation closestCrumbLoc = crumbLocs[0];
+            if (continueInThisDirection != null) {
+                if (rc.canMove(continueInThisDirection)) {
+                    rc.move(continueInThisDirection);
+                }
+
+                if (RobotPlayer.rng.nextInt(7) == 0)
+                    continueInThisDirection = null;
+            }
+
+            Direction[] idealMovementDirections = Utils.getIdealMovementDirections(curLoc, closestCrumbLoc);
+            int i = 0;
+            for (Direction idealMoveDir : idealMovementDirections) {
+                i++;
+                if (rc.canMove(idealMoveDir)) {
+                    if (i >= 3) {
+                        continueInThisDirection = idealMoveDir;
+                    }
+                    rc.move(idealMoveDir);
+                    return;
+                } else {
+                    if (rc.canFill(curLoc.add(idealMoveDir))) {
+                        rc.fill(curLoc.add(idealMoveDir));
+                        return;
+                    }
+                }
+            }
+
+            return;
+        }
+
         MapLocation target = null;
         int bestDist = 999999;
 
@@ -121,27 +159,20 @@ public class Attacker extends AbstractRobot {
             }
         }
 
+        boolean suicide = false;
         int v = rc.readSharedArray(Constants.SharedArray.defenderAlert);
         int[] centerLocationWeights = new int[3];
-        for (int i = 0; i < 3; i++) {
+        int total = 0;
+        for (int i=0; i<3; i++) {
             centerLocationWeights[i] = v & 0b11111;
+            total += v & 0b11111;
             v >>= 5;
         }
 
-        Integer[] centerSpawnLocationWeightsIndicies = Utils.sort(new Integer[] {0, 1, 2}, (i) -> -centerLocationWeights[i]);
-
         for (int i = 0; i < 3; i++) {
-            if (centerLocationWeights[centerSpawnLocationWeightsIndicies[i]] < defendOn) continue;
-//            if (centerLocationWeights[centerSpawnLocationWeightsIndicies[i]] < total / 2) {
-//                if (RobotPlayer.rng.nextInt(3) == 1) {
-//                    continue;
-//                }
-//            }
-
-//            if (centerLocationWeights[centerSpawnLocationWeightsIndicies[i]] > defendOn * 2) throw new RuntimeException("FORCE CALLING DEFENDER");
-
-            target = RobotPlayer.allyFlagSpawnLocs[centerSpawnLocationWeightsIndicies[i]];
-//            System.out.println(target + " " + centerLocationWeights[centerSpawnLocationWeightsIndicies[i]] + " " + defendOn);
+            if (centerLocationWeights[i] < total * .65) continue; // TODO: Test if this actually is doing something
+            rc.setIndicatorDot(RobotPlayer.allyFlagSpawnLocs[i], 0, 255, 0);
+            suicide = false;
             break;
         }
 
@@ -149,7 +180,14 @@ public class Attacker extends AbstractRobot {
         lastTarget = target;
 
         // TODO if theres no enemy flags then we stop moving i think or ally flags idk
-        if (target == null) target = new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
+        if (target == null) {
+            target = new MapLocation(rc.getMapWidth() / 2, rc.getMapHeight() / 2);
+
+            MapLocation[] enemyFlagBroadcasts = Utils.sort(rc.senseBroadcastFlagLocations(), (loc) -> loc.distanceSquaredTo(curLoc));
+            if (enemyFlagBroadcasts.length > 0) {
+                target = enemyFlagBroadcasts[0];
+            }
+        }
 
         RobotInfo[] allyInfos = rc.senseNearbyRobots(-1, rc.getTeam());
         RobotInfo[] enemyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
@@ -201,7 +239,7 @@ public class Attacker extends AbstractRobot {
             }
 
             // no enemies nearby-ish -> there are allies nearby
-            else if (allyInfos.length > 0) {
+            if (allyInfos.length > 0) {
                 RobotInfo weakestAlly = allyInfos[0];
                 if (weakestAlly.getHealth() <= 1000 - rc.getHealAmount()) {
                     for (Direction d : Utils.sort(
@@ -210,10 +248,10 @@ public class Attacker extends AbstractRobot {
                     ) {
                         if (rc.canMove(d)) {
                             rc.move(d);
-                            rc.setIndicatorString("moved towards goal & ally");
+//                            rc.setIndicatorString("moved towards goal & ally");
                             if (rc.canHeal(weakestAlly.getLocation())) {
                                 rc.heal(weakestAlly.getLocation());
-                                rc.setIndicatorString("healed a guy");
+//                                rc.setIndicatorString("healed a guy");
                             }
                             return;
                         } else {
@@ -235,24 +273,56 @@ public class Attacker extends AbstractRobot {
         }
 
         // enemies nearby
+        RobotInfo weakestEnemy = Utils.lowestHealth(enemyInfos);
         RobotInfo closestEnemy = enemyInfos[0];
-        MapLocation closestEnemyLoc = closestEnemy.getLocation();
+        MapLocation bestEnemyLoc = weakestEnemy.getLocation();
 
-        if (allyInfos.length >= enemyInfos.length - 3) {  // more allies than enemies, attack
-            int distToClosestEnemy = curLoc.distanceSquaredTo(closestEnemy.getLocation());
+
+        if (allyInfos.length >= enemyInfos.length - 6) {  // more allies than enemies, attack
+            int distToClosestEnemy = curLoc.distanceSquaredTo(weakestEnemy.getLocation());
 
 //            MapLocation bestTarget = Evals.Action.getBestTarget(rc);
 //            if (bestTarget != null && rc.canAttack(bestTarget))
 //                rc.attack(bestTarget);
-            if (rc.canAttack(closestEnemyLoc))
-                rc.attack(closestEnemyLoc);
-//
+//            int idx = Constants.SharedArray.coordinatedAttacks[0];
+//            for (; idx <= Constants.SharedArray.coordinatedAttacks[5]; idx++) {
+//                MapLocation loc = Utils.getLocationInSharedArray(rc, idx);
+//                if (loc != null && Utils.numWithinRadius(allyInfos, loc, 4) >= 3 && rc.canAttack(loc)) {
+//                    rc.setIndicatorDot(bestEnemyLoc, 9, 9, 255);
+//                    rc.attack(bestEnemyLoc);
+//                    break;
+//                } else if (loc == null) {
+//                    Utils.storeLocationInSharedArray(rc, idx, bestEnemyLoc);
+//                    if (rc.canAttack(bestEnemyLoc)) {
+//                        rc.setIndicatorDot(bestEnemyLoc, 9, 9, 255);
+//                        rc.attack(bestEnemyLoc);
+//                        break;
+//                    }
+//                }
+//            }
+//            if (idx > Constants.SharedArray.coordinatedAttacks[5] && rc.canAttack(bestEnemyLoc)) {
+//                rc.setIndicatorDot(bestEnemyLoc, 9, 9, 255);
+//                rc.attack(bestEnemyLoc);
+//            }
+
+            if (rc.canAttack(bestEnemyLoc)) {
+                rc.setIndicatorDot(bestEnemyLoc, 9, 9, 255);
+                rc.attack(bestEnemyLoc);
+            }
+
             MicroAttacker microAttacker = new MicroAttacker(rc);
-            microAttacker.doMicro();
+            microAttacker.doMicro(suicide);
 
             MapLocation newClosestEnemyLoc = Utils.getClosest(enemyInfos, rc.getLocation()).location;
-            if (rc.canAttack(newClosestEnemyLoc))
+
+            allyInfos = rc.senseNearbyRobots(-1, rc.getTeam());
+            enemyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+
+
+            if (rc.canAttack(newClosestEnemyLoc)) {
+                rc.setIndicatorDot(newClosestEnemyLoc, 9, 9, 255);
                 rc.attack(newClosestEnemyLoc);
+            }
 
 //            bestTarget = Evals.Action.getBestTarget(rc);
 //            if (bestTarget != null && rc.canAttack(bestTarget))
@@ -295,7 +365,7 @@ public class Attacker extends AbstractRobot {
         }
 
         // more enemies than allies by a bit, spam traps
-        rc.setIndicatorString("spamming traps");
+//        rc.setIndicatorString("spamming traps");
         if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2) {
             for (Direction direction : Direction.allDirections()) {
                 MapLocation newLoc = curLoc.add(direction);
@@ -308,12 +378,12 @@ public class Attacker extends AbstractRobot {
             }
         }
 
-        if (closestEnemyLoc.distanceSquaredTo(curLoc) >= 16) {  // can safely flee
+        if (bestEnemyLoc.distanceSquaredTo(curLoc) >= 16) {  // can safely flee
             MapLocation finalPathfindGoalLoc = target;
-            for (Direction d : Utils.sort(Utils.getIdealMovementDirections(closestEnemyLoc, curLoc), (dir) -> curLoc.add(dir).distanceSquaredTo(finalPathfindGoalLoc))) {
+            for (Direction d : Utils.sort(Utils.getIdealMovementDirections(bestEnemyLoc, curLoc), (dir) -> curLoc.add(dir).distanceSquaredTo(finalPathfindGoalLoc))) {
                 if (rc.canMove(d)) {
                     rc.move(d);
-                    rc.setIndicatorString("fleeing");
+//                    rc.setIndicatorString("fleeing");
                     return;
                 } else {
                     if (rc.canFill(curLoc.add(d))) {
@@ -324,10 +394,11 @@ public class Attacker extends AbstractRobot {
         }
 
         // die a hero
-        if (rc.canAttack(closestEnemyLoc)) {
-            rc.attack(closestEnemyLoc);
+        if (rc.canAttack(bestEnemyLoc)) {
+            rc.setIndicatorDot(bestEnemyLoc, 9, 9, 255);
+            rc.attack(bestEnemyLoc);
         }
-        for (Direction d : Utils.getIdealMovementDirections(closestEnemyLoc, curLoc)) {
+        for (Direction d : Utils.getIdealMovementDirections(bestEnemyLoc, curLoc)) {
             if (rc.canMove(d)) {
                 rc.move(d);
                 break;
@@ -346,11 +417,11 @@ public class Attacker extends AbstractRobot {
                     continue;
 
                 if (rc.senseMapInfo(ml).isDam()) {
-                    if ((curLoc.x + curLoc.y) % 2 == 0) {
-                        if (rc.canBuild(TrapType.STUN, curLoc)) {
-                            rc.build(TrapType.STUN, curLoc);
-                        }
-                    }
+//                    if ((curLoc.x + curLoc.y) % 2 == 0) {
+//                        if (rc.canBuild(TrapType.STUN, curLoc)) {
+//                            rc.build(TrapType.STUN, curLoc);
+//                        }
+//                    }
 
                     RobotInfo closestAlly = Utils.getClosest(rc.senseNearbyRobots(-1, rc.getTeam()), curLoc);
                     if (closestAlly == null) return;
@@ -386,45 +457,11 @@ public class Attacker extends AbstractRobot {
 //                    MapLocation newLoc = curLoc.add(d);
 //                    if (rc.canFill(newLoc)) {
 //                        rc.fill(newLoc);
-//                    }
+//                    }m
 //                }
 //            }
             Pathfinding.moveTowards(rc, curLoc, centerLoc, true);
         } else {
-            MapLocation[] crumbLocs = rc.senseNearbyCrumbs(-1);
-            if (crumbLocs.length > 0) {
-                Utils.sort(crumbLocs, (crumbLoc) -> crumbLoc.distanceSquaredTo(curLoc));
-                MapLocation closestCrumbLoc = crumbLocs[0];
-                if (continueInThisDirection != null) {
-                    if (rc.canMove(continueInThisDirection)) {
-                        rc.move(continueInThisDirection);
-                    }
-
-                    if (RobotPlayer.rng.nextInt(7) == 0)
-                        continueInThisDirection = null;
-                }
-
-                Direction[] idealMovementDirections = Utils.getIdealMovementDirections(curLoc, closestCrumbLoc);
-                int i = 0;
-                for (Direction idealMoveDir : idealMovementDirections) {
-                    i++;
-                    if (rc.canMove(idealMoveDir)) {
-                        if (i >= 3) {
-                            continueInThisDirection = idealMoveDir;
-                        }
-                        rc.move(idealMoveDir);
-                        return;
-                    } else {
-                        if (rc.canFill(curLoc.add(idealMoveDir))) {
-                            rc.fill(curLoc.add(idealMoveDir));
-                            return;
-                        }
-                    }
-                }
-
-                return;
-            }
-
             Direction dir = RobotPlayer.directions[RobotPlayer.rng.nextInt(8)];
             if (rc.canMove(dir)) {
                 rc.move(dir);

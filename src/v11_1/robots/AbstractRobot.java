@@ -1,9 +1,9 @@
-package v11.robots;
+package v11_1.robots;
 
 import battlecode.common.*;
-import v11.Constants;
-import v11.RobotPlayer;
-import v11.Utils;
+import v11_1.Constants;
+import v11_1.RobotPlayer;
+import v11_1.Utils;
 
 public abstract class AbstractRobot {
 
@@ -52,35 +52,63 @@ public abstract class AbstractRobot {
     public void detectAndPickupFlags(RobotController rc, FlagInfo[] nearbyFlags) throws GameActionException {
 
         // If it sees a flag, add it to the global tracking array
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 3; i++) {
             enemyFlagIDs[i] = rc.readSharedArray(Constants.SharedArray.enemyFlagIDs[i]) - 1;
 
+            // If this guessed location doesn't have a flag, get rid of it
+            // Ignore flags which have been properly indexed
+            if (enemyFlagIDs[i] == -1) {
+                MapLocation flagLoc = Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]);
+                if (flagLoc != null && flagLoc.isWithinDistanceSquared(rc.getLocation(), 4) && nearbyFlags.length == 0) {
+                    Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i], null);
+                }
+            }
+        }
 
         for (FlagInfo info : nearbyFlags) {
             if (info.isPickedUp())
                 continue;
 
+
+
             boolean ignore = false;
             for (int i = 0; i < 3; i++) {
-                if (info.getID() == rc.readSharedArray(Constants.SharedArray.ignoreEnemyFlagIDs[i])) {
+                if (info.getID() == rc.readSharedArray(Constants.SharedArray.carriedFlagIDs[i]) >> 1) {
                     ignore = true;
                     break;
                 }
             }
 
-//            if (ignore) {
-//                if (rc.canPickupFlag(info.getLocation()) && rc.getRoundNum() > RobotPlayer.flagChainDropTurn + 1)
-//                    rc.pickupFlag(info.getLocation());
-//                continue;
-//            }
+            if (ignore) {
+                if (rc.canPickupFlag(info.getLocation()) && rc.getRoundNum() > RobotPlayer.flagChainDropTurn + 1)
+                    rc.pickupFlag(info.getLocation());
+                continue;
+            }
 
             int index = Utils.indexOf(enemyFlagIDs, info.getID());
             int lastNotSeenFlag = Utils.indexOf(enemyFlagIDs, -1);
-            int enemyFlagLocIndex = Utils.indexOf(enemyFlagLocs, info.getLocation());
+//            int enemyFlagLocIndex = Utils.indexOf(enemyFlagLocs, info.getLocation());
+            int enemyFlagLocIndex = -1;
+
+            // Sometimes the map symmetry is not reflectional (what we predict) and it leads to overwriting flag locations
+            // This should fix that
+            if (index == -1) {
+                int closest = 9999999;
+                for (int i = 0; i < 3; i++) {
+                    MapLocation flagLoc = Utils.getLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i]);
+                    if (flagLoc == null) continue;
+                    int dist = flagLoc.distanceSquaredTo(info.getLocation());
+                    if (dist < closest) {
+                        closest = dist;
+                        enemyFlagLocIndex = i;
+                    }
+                }
+            }
+
             if (enemyFlagLocIndex != -1)
                 lastNotSeenFlag = enemyFlagLocIndex;
+
             if (index == -1) {
-                System.out.println("v11 " + name() + " found flag " + info.getID() + " at " + info.getLocation());
                 rc.writeSharedArray(Constants.SharedArray.enemyFlagIDs[lastNotSeenFlag], info.getID() + 1);
                 Utils.storeLocationInSharedArray(rc, Constants.SharedArray.flagOrigins[lastNotSeenFlag], info.getLocation());
                 Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[lastNotSeenFlag], info.getLocation());
@@ -118,11 +146,13 @@ public abstract class AbstractRobot {
                         break;
                     }
                 }
-                if (flag == null && flagLoc.equals(Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagOrigins[i])))
+                if (Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagOrigins[i]) == null
+                        || flag == null && flagLoc.equals(Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagOrigins[i])))
                     continue;
-                if (flag == null)
+                if (flag == null) {
                     Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[i],
                             Utils.getLocationInSharedArray(rc, Constants.SharedArray.flagOrigins[i]));
+                }
             }
         }
     }

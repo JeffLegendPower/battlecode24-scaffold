@@ -1,4 +1,4 @@
-package v11;
+package v11_1;
 
 import battlecode.common.*;
 
@@ -6,8 +6,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import static v11.RobotPlayer.*;
-import static v11.Utils.*;
+import static v11_1.RobotPlayer.*;
+import static v11_1.Utils.*;
 public class Pathfinding {
     private static List<MapLocation> best = new ArrayList<>();
     public static MapLocation currentTarget = null;
@@ -132,7 +132,6 @@ public class Pathfinding {
             if (rc.canSenseRobotAtLocation(newLoc)) continue;
             MapInfo info = map[newLoc.x][newLoc.y];
             if (info != null && !current.contains(newLoc) &&
-//                    (fillWater ? (!info.isWall() && !info.isDam() && (newLoc.x + newLoc.y) % 2 == 0) : info.isPassable())) {
                     (fillWater ? (!info.isWall() && !info.isDam()) : info.isPassable())) {
                 double score = calculateDistance(newLoc, target);
                 int thisVisited = visited.getOrDefault(newLoc, 0);

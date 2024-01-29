@@ -1,8 +1,8 @@
-package v11.robots;
+package v11_1.robots;
 
 import battlecode.common.*;
-import v11.Constants;
-import v11.RobotPlayer;
+import v11_1.Constants;
+import v11_1.RobotPlayer;
 
 public class Defender extends AbstractRobot {
 
@@ -35,18 +35,7 @@ public class Defender extends AbstractRobot {
 
         int v = rc.readSharedArray(Constants.SharedArray.defenderAlert);
         int enemiesSeen = Math.min(enemies.length, 31);
-
-        boolean enemiesHaveFlag = false;
-        for (RobotInfo enemy : enemies) {
-            if (enemy.hasFlag) {
-                enemiesHaveFlag = true;
-                break;
-            }
-        }
-
-        if (enemiesHaveFlag) {
-            enemiesSeen = Math.min(enemiesSeen + 7, 31);
-        } else if (rc.senseNearbyFlags(1, rc.getTeam()).length == 0) {  // no flag there
+        if (rc.senseNearbyFlags(1, rc.getTeam()).length == 0) {  // no flag there
             enemiesSeen = Math.max(enemiesSeen - 7, 0);
         }
 //        int mask = 0b11111 << (5 * protectedFlagIndex);

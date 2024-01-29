@@ -30,6 +30,8 @@ public strictfp class RobotPlayer {
     public static MapLocation[] allyFlagSpawnLocs = new MapLocation[3];
     public static MapLocation[] enemyFlagLocs;
 
+    public static int flagChainDropTurn = -1; // Prevents flag dropper from picking up flag too quickly so we can do a flag chain
+
     @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
         map = new MapInfo[rc.getMapWidth()][rc.getMapHeight()];

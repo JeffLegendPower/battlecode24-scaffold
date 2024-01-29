@@ -1,24 +1,34 @@
-package v11;
+package v11_2;
 
 import battlecode.common.*;
 
+import java.util.Random;
+
 public class MicroAttacker {
+
 
     static int MAX_MICRO_BYTECODE_REMAINING = 2000;
 
     final int INF = 1000000;
-    boolean shouldPlaySafe = false;
+    boolean shouldPlaySafe = true;
     boolean alwaysInRange = false;
-    boolean hurt = false;
     static int myRange;
     static int myVisionRange;
     static double myDPS;
     boolean severelyHurt = false;
     boolean enemiesTriggeredTrap = false;
     int timeSinceLastTrigger = 0;
+    int lastTotalHealth = 9999;
+    int lastCurrentDPS = 9999;
 
     double[] DPS = new double[]{0, 0, 0, 0, 0, 0, 0};
     RobotController rc;
+    static double currentDPS = 0;
+    static double currentRangeExtended = 20; // vision radius
+    static double currentActionRadius;
+    static boolean canAttack;
+
+    static int distToTarget;
 
     public MicroAttacker(RobotController rc) {
         myRange = 2;
@@ -40,20 +50,17 @@ public class MicroAttacker {
         myDPS = rc.getAttackDamage();
     }
 
-    static double currentDPS = 0;
-    static double currentRangeExtended = 20; // vision radius
-    static double currentActionRadius;
-    static boolean canAttack;
-
-    final static int MAX_RUBBLE_DIFF = 5;
-
-    public boolean doMicro() {
+    public boolean doMicro(boolean suicide, int distToTarget2, int distToSpawn) {
         try {
             if (!rc.isMovementReady()) return false;
-            shouldPlaySafe = true;
+
+            // TODO: TUNE THIS!!!!!
+            distToTarget = distToTarget2;
+            shouldPlaySafe = distToTarget > 80 && rc.getRoundNum() > 250 && rc.getRoundNum() % 4 < 2;
+
             severelyHurt = rc.getHealth() < 300;
-            RobotInfo[] units = rc.senseNearbyRobots(myVisionRange, rc.getTeam().opponent());
-            if (units.length == 0) return false;
+            RobotInfo[] enemies = rc.senseNearbyRobots(myVisionRange, rc.getTeam().opponent());
+            if (enemies.length == 0) return false;
             canAttack = rc.isActionReady();
 
             timeSinceLastTrigger++;
@@ -74,58 +81,21 @@ public class MicroAttacker {
                 }
             }
 
-//            int uIndex = units.length;
-//            while (uIndex-- > 0){
-//                RobotInfo r = units[uIndex];
-//                switch(r.getType()){
-//                    case SOLDIER:
-//                    case SAGE:
-//                        shouldPlaySafe = true;
-//                        break;
-//                    default:
-//                        break;
-//                }
-//            }
-//            if (!shouldPlaySafe) return false;
-
             alwaysInRange = false;
             if (!rc.isActionReady()) alwaysInRange = true;
             if (severelyHurt) alwaysInRange = true;
 
             MicroInfo[] microInfo = new MicroInfo[9];
-            for (int i = 0; i < 9; ++i) microInfo[i] = new MicroInfo(Direction.values()[i]);
+            for (int i = 0; i < 9; ++i) {
+                microInfo[i] = new MicroInfo(Direction.values()[i]);
+            }
 
-//            int minRubble = microInfo[8].rubble;
-//            if (microInfo[7].canMove && minRubble > microInfo[7].rubble) minRubble = microInfo[7].rubble;
-//            if (microInfo[6].canMove && minRubble > microInfo[6].rubble) minRubble = microInfo[6].rubble;
-//            if (microInfo[5].canMove && minRubble > microInfo[5].rubble) minRubble = microInfo[5].rubble;
-//            if (microInfo[4].canMove && minRubble > microInfo[4].rubble) minRubble = microInfo[4].rubble;
-//            if (microInfo[3].canMove && minRubble > microInfo[3].rubble) minRubble = microInfo[3].rubble;
-//            if (microInfo[2].canMove && minRubble > microInfo[2].rubble) minRubble = microInfo[2].rubble;
-//            if (microInfo[1].canMove && minRubble > microInfo[1].rubble) minRubble = microInfo[1].rubble;
-//            if (microInfo[0].canMove && minRubble > microInfo[0].rubble) minRubble = microInfo[0].rubble;
-
-//            minRubble += MAX_RUBBLE_DIFF;
-
-//            if (microInfo[8].rubble > minRubble) microInfo[8].canMove = false;
-//            if (microInfo[7].rubble > minRubble) microInfo[7].canMove = false;
-//            if (microInfo[6].rubble > minRubble) microInfo[6].canMove = false;
-//            if (microInfo[5].rubble > minRubble) microInfo[5].canMove = false;
-//            if (microInfo[4].rubble > minRubble) microInfo[4].canMove = false;
-//            if (microInfo[3].rubble > minRubble) microInfo[3].canMove = false;
-//            if (microInfo[2].rubble > minRubble) microInfo[2].canMove = false;
-//            if (microInfo[1].rubble > minRubble) microInfo[1].canMove = false;
-//            if (microInfo[0].rubble > minRubble) microInfo[0].canMove = false;
-
-//            boolean danger = rc.senseMapInfo(rc.getLocation()).getTeamTerritory() != rc.getTeam();
-
-            for (RobotInfo unit : units) {
+            int totalEnemyDPS = 0;
+            for (RobotInfo unit : enemies) {
                 if (Clock.getBytecodesLeft() < MAX_MICRO_BYTECODE_REMAINING) break;
-//                int t = unit.getType().ordinal();
                 currentDPS = DPS[unit.attackLevel];
                 if (currentDPS <= 0) continue;
-//                if (danger && Robot.comm.isEnemyTerritory(unit.getLocation())) currentDPS*=1.5;
-//                currentRangeExtended = rangeExtended[t];
+                totalEnemyDPS += currentDPS;
                 currentActionRadius = 2;
                 microInfo[0].updateEnemy(unit);
                 microInfo[1].updateEnemy(unit);
@@ -138,11 +108,17 @@ public class MicroAttacker {
                 microInfo[8].updateEnemy(unit);
             }
 
-            units = rc.senseNearbyRobots(myVisionRange, rc.getTeam());
-            for (RobotInfo unit : units) {
+            if (enemies.length == 0)
+                totalEnemyDPS = 1;
+            else
+                totalEnemyDPS /= enemies.length;
+
+            int totalAllyHealth = 0;
+            RobotInfo[] allies = rc.senseNearbyRobots(myVisionRange, rc.getTeam());
+            for (RobotInfo unit : allies) {
                 if (Clock.getBytecodesLeft() < MAX_MICRO_BYTECODE_REMAINING) break;
-//                currentDPS = DPS[unit.getType().ordinal()] / (10 + rc.senseRubble(unit.getLocation()));
                 currentDPS = DPS[unit.attackLevel];
+                totalAllyHealth += unit.getHealth();
                 if (currentDPS <= 0) continue;
                 microInfo[0].updateAlly(unit);
                 microInfo[1].updateAlly(unit);
@@ -155,16 +131,39 @@ public class MicroAttacker {
                 microInfo[8].updateAlly(unit);
             }
 
+
+            if (allies.length == 0)
+                totalAllyHealth = 0;
+            else
+                totalAllyHealth /= allies.length;
+
+            float currentDPSMultiplier;
+            currentDPSMultiplier = (float) (lastTotalHealth - totalAllyHealth) / lastCurrentDPS;
+            if (currentDPSMultiplier < 0)
+                currentDPSMultiplier = 1;
+            microInfo[0].updateDPSMultiplier(currentDPSMultiplier);
+            microInfo[1].updateDPSMultiplier(currentDPSMultiplier);
+            microInfo[2].updateDPSMultiplier(currentDPSMultiplier);
+            microInfo[3].updateDPSMultiplier(currentDPSMultiplier);
+            microInfo[4].updateDPSMultiplier(currentDPSMultiplier);
+            microInfo[5].updateDPSMultiplier(currentDPSMultiplier);
+            microInfo[6].updateDPSMultiplier(currentDPSMultiplier);
+            microInfo[7].updateDPSMultiplier(currentDPSMultiplier);
+            microInfo[8].updateDPSMultiplier(currentDPSMultiplier);
+
+            lastTotalHealth = totalAllyHealth;
+            lastCurrentDPS = totalEnemyDPS;
+
             MicroInfo bestMicro = microInfo[8];
             for (int i = 0; i < 8; ++i) {
-//                if (microInfo[i].isBetter(bestMicro)) bestMicro = microInfo[i];
+                if (microInfo[i].isBetter(bestMicro)) bestMicro = microInfo[i];
             }
 
             if (bestMicro.dir == Direction.CENTER) return true;
 
             if (rc.canFill(bestMicro.location))
                 rc.fill(bestMicro.location);
-            else if (rc.canMove(bestMicro.dir)) {
+            if (rc.canMove(bestMicro.dir)) {
                 rc.move(bestMicro.dir);
                 return true;
             }
@@ -178,7 +177,9 @@ public class MicroAttacker {
     class MicroInfo{
         Direction dir;
         MapLocation location;
+
         int minDistanceToEnemy = INF;
+        int minDistanceToAlly = INF;
         double DPSreceived = 0;
         double enemiesTargeting = 0;
         double alliesTargeting = 0;
@@ -189,6 +190,7 @@ public class MicroAttacker {
         public MicroInfo(Direction dir) throws GameActionException {
             this.dir = dir;
             this.location = rc.getLocation().add(dir);
+
             if (dir != Direction.CENTER && !rc.canMove(dir)) canMove = false;
 
             for (MapLocation spawn : RobotPlayer.allyFlagSpawnLocs) {
@@ -196,40 +198,7 @@ public class MicroAttacker {
                 if (dist < distToNearestAllySpawn) distToNearestAllySpawn = dist;
             }
 
-//            RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-//            RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
 
-//            for (RobotInfo enemy : enemies) {
-//                int dist = enemy.location.distanceSquaredTo(location);
-//                if (dist <= currentActionRadius)
-//                    DPSreceived += DPS[enemy.attackLevel];
-//                if (dist <= minDistanceToEnemy)
-//                    minDistanceToEnemy = dist;
-//            }
-//
-//            for (RobotInfo ally : allies) {
-//                int dist = ally.location.distanceSquaredTo(location);
-//                if (dist <= currentActionRadius)
-//                    alliesTargeting += DPS[ally.attackLevel];
-//            }
-
-
-//            else{
-////                try {
-////                    rubble = rc.senseRubble(this.location);
-////                } catch (Exception e){
-////                    e.printStackTrace();
-////                }
-//                if (!hurt){
-//                    try{
-////                        this.DPSreceived -= myDPS/(10 + rc.senseRubble(this.location));
-////                        this.alliesTargeting += myDPS/(10 + rc.senseRubble(this.location));
-//                    } catch (Exception e){
-//                        e.printStackTrace();
-//                    }
-//                    minDistanceToEnemy = rangeExtended[RobotType.SOLDIER.ordinal()];
-//                } else minDistanceToEnemy = INF;
-//            }
         }
 
         void updateEnemy(RobotInfo unit) {
@@ -240,6 +209,7 @@ public class MicroAttacker {
             if (dist < minDistanceToEnemy) {
                 minDistanceToEnemy = dist;
             }
+
             if (dist <= currentActionRadius) DPSreceived += DPS[unit.attackLevel];
             if (dist <= currentRangeExtended) enemiesTargeting += DPS[unit.attackLevel];
         }
@@ -247,17 +217,27 @@ public class MicroAttacker {
         void updateAlly(RobotInfo unit) {
             if (!canMove) return;
             alliesTargeting += DPS[unit.attackLevel];
+            int dist = unit.getLocation().distanceSquaredTo(location);
+            if (dist < minDistanceToAlly) {
+                minDistanceToAlly = dist;
+            }
+            // TODO test if this actually gains 1 by 1
             if (unit.location.distanceSquaredTo(location) <= currentActionRadius)
                 DPSreceived -= DPS[unit.healLevel];
         }
 
-        int safe(){
+        void updateDPSMultiplier(float multiplier) {
+            DPSreceived *= multiplier;
+            alliesTargeting *= 2;
+        }
+
+        int safe() {
+            if (minDistanceToEnemy <= 2 && shouldPlaySafe) return -2;
             if (!canMove) return -1;
-            if (DPSreceived > 0 && severelyHurt) return 0;
-            // TODO shouldPlaySafe is always true sooo
-            if (enemiesTargeting < alliesTargeting && shouldPlaySafe) return 1;
-            if (enemiesTargeting > alliesTargeting && (!shouldPlaySafe)) return 1;
-            return 2;
+            if (!canAttack) return -1;
+            if (DPSreceived > 0 && severelyHurt) return 0; // TODO test if adding severelyHurt actually gains 1 by 1
+            if (enemiesTargeting < alliesTargeting) return 2; // TODO test if adding shouldPlaySafe actually gains 1 by 1
+            return 3;
         }
 
         boolean inRange(){
@@ -267,15 +247,23 @@ public class MicroAttacker {
 
         //equal => true
         boolean isBetter(MicroInfo M) {
+
             if (distToEnemyFlagHolder < M.distToEnemyFlagHolder) return true;
+            if (M.distToEnemyFlagHolder < distToEnemyFlagHolder) return false;
 //            System.out.println("a");
 
             if (safe() > M.safe()) return true;
             if (safe() < M.safe()) return false;
 
+            // TODO: do these gain?
+            if (!canAttack && inRange() && !M.inRange() && distToTarget > 80) return false;
+            if (!canAttack && !inRange() && M.inRange() && distToTarget > 80) return true;
+
             if (inRange() && !M.inRange()) return true;
             if (!inRange() && M.inRange()) return false;
 
+            if (alliesTargeting > M.alliesTargeting + 6) return true; // TODO test if this actually gains 1 by 1
+            if (alliesTargeting < M.alliesTargeting - 6) return false; // TODO test if this actually gains 1 by 1
             if (severelyHurt) {
                 if (alliesTargeting > M.alliesTargeting) return true;
                 if (alliesTargeting < M.alliesTargeting) return false;

@@ -1,4 +1,4 @@
-package v11;
+package v11_2;
 
 public class Constants {
     public static int maxCornerFinders = 4;
@@ -11,7 +11,13 @@ public class Constants {
 
         public static final int numDefenders = 9;
         public static final int defenderAlert = 10;
+        public static final int[] coordinatedAttacks = {11, 12, 13, 14, 15, 16};
+        public static final int[] carriedFlagIDs = {17, 18, 19};
 
-        public static final int[] ignoreEnemyFlagIDs = {11, 12, 13};
+        // 0: Unknown
+        // 1: Symmetric by rotation
+        // 2: Symmetric by up/down reflection
+        // 3: Symmetric by left/right reflection
+        public static final int mapSymmetry = 20;
     }
 }
