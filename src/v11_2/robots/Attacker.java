@@ -194,7 +194,7 @@ public class Attacker extends AbstractRobot {
 
         RobotInfo[] allyInfos = rc.senseNearbyRobots(-1, rc.getTeam());
         RobotInfo[] enemyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-        Utils.sort(enemyInfos, (enemy) -> enemy.getLocation().distanceSquaredTo(curLoc));
+        Utils.sort(enemyInfos, (enemy) -> enemy.location.distanceSquaredTo(Utils.getClosest(rc.getAllySpawnLocations(), enemy.location)));
         Utils.sort(allyInfos, (ally) -> (ally.getLocation().distanceSquaredTo(curLoc) - rc.getHealth() / 100 - (rc.hasFlag() ? 10000 : 0)));
 
         MapLocation[] spawnLocs = rc.getAllySpawnLocations();
@@ -226,16 +226,18 @@ public class Attacker extends AbstractRobot {
         if (enemyInfos.length == 0 || enemyInfos[0].getLocation().distanceSquaredTo(curLoc) >= 16) {
             // no enemies nearby-ish -> spam traps when no enemies in 2-step range
             if (enemyInfos.length > 0) {
-                if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2
+                if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2 - enemyInfos.length * 10
                         || (curLoc.distanceSquaredTo(target) <= 49 && rc.getCrumbs() > 1000 - rc.getRoundNum() / 2)
                         || (distToClosestSpawn <= 49 && rc.getCrumbs() > 1000 - rc.getRoundNum() / 2)) {
                     for (Direction direction : Direction.allDirections()) {
                         MapLocation newLoc = curLoc.add(direction);
-                        if (rc.getCrumbs() > 5000 || (curLoc.x + curLoc.y) % 2 == 0) {
-                            if (rc.canBuild(TrapType.STUN, newLoc)) {
-                                rc.build(TrapType.STUN, newLoc);
-                                break;
-                            }
+//                        if (rc.getCrumbs() > 5000 || (curLoc.x + curLoc.y) % 2 == 0) {
+                        if (newLoc.x % 3 == 0 && newLoc.y % 3 == 0 && rc.canBuild(TrapType.STUN, newLoc)) {
+                            rc.build(TrapType.STUN, newLoc);
+                            break;
+                        } else if (enemyInfos.length > 6 && rc.canBuild(TrapType.EXPLOSIVE, newLoc) && RobotPlayer.rng.nextInt(numTraps + 4) == 0) {
+                            rc.build(TrapType.EXPLOSIVE, newLoc);
+                            break;
                         }
                     }
                 }
@@ -286,32 +288,54 @@ public class Attacker extends AbstractRobot {
                 }
             }
 
+            // spam traps if we still have some action cooldown remaining
+            if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2 - enemyInfos.length * 10 && rc.isActionReady()) {
+//                    || (curLoc.distanceSquaredTo(target) <= 49 && rc.getCrumbs() > 1000 - rc.getRoundNum() / 2)
+//                    || (distToClosestSpawn <= 49 && rc.getCrumbs() > 1000 - rc.getRoundNum() / 2)) {
+                for (Direction direction : Direction.allDirections()) {
+                    MapLocation newLoc = curLoc.add(direction);
+//                    if ((newLoc.x - newLoc.y * 2) % 3 == 1) {
+                    if (newLoc.x % 3 == 0 && newLoc.y % 3 == 0 && rc.canBuild(TrapType.STUN, newLoc)) {
+                        rc.build(TrapType.STUN, newLoc); // K xi xinping
+                        break;
+                    } else if (enemyInfos.length > 6 && rc.canBuild(TrapType.EXPLOSIVE, newLoc) && RobotPlayer.rng.nextInt(numTraps + 4) == 0) {
+                        rc.build(TrapType.EXPLOSIVE, newLoc);
+                        break;
+                    }
+                }
+            }
 
             Pathfinding.moveTowards(rc, curLoc, target, true);
-
             return;
         }
 
         // enemies nearby
         RobotInfo weakestEnemy = Utils.lowestHealth(enemyInfos);
-        RobotInfo closestEnemy = enemyInfos[0];
-        MapLocation bestEnemyLoc = weakestEnemy.getLocation();
+        RobotInfo closestEnemyToSpawn = enemyInfos[0];
+        MapLocation bestEnemyLoc = weakestEnemy.location;
 
 
-        if (allyInfos.length >= enemyInfos.length - 6) {  // more allies than enemies, attack
-            int distToClosestEnemy = curLoc.distanceSquaredTo(weakestEnemy.getLocation());
+        if (allyInfos.length >= enemyInfos.length - 4) {  // more allies than enemies, attack
+//            int distToClosestEnemy = curLoc.distanceSquaredTo(weakestEnemy.getLocation());
 
-            if (rc.canAttack(bestEnemyLoc)) {
-                rc.setIndicatorDot(bestEnemyLoc, 9, 9, 255);
-                rc.attack(bestEnemyLoc);
+            if (weakestEnemy.health < Utils.numWithinRadius(allyInfos, weakestEnemy.location, 13)) {
+                bestEnemyLoc = weakestEnemy.location;
+            } else {
+                bestEnemyLoc = closestEnemyToSpawn.location;
             }
 
             int b4 = Clock.getBytecodeNum();
             microAttacker.doMicro(suicide, curLoc.distanceSquaredTo(target), curLoc.distanceSquaredTo(Utils.getClosest(rc.getAllySpawnLocations(), curLoc)));
             int af = Clock.getBytecodeNum();
 
-            MapLocation newClosestEnemyLoc = Utils.getClosest(enemyInfos, rc.getLocation()).location;
+            System.out.println(af + " " + b4);
 
+            if (rc.canAttack(bestEnemyLoc)) {
+                rc.setIndicatorDot(bestEnemyLoc, 9, 9, 255);
+                rc.attack(bestEnemyLoc);
+            }
+
+            MapLocation newClosestEnemyLoc = Utils.getClosest(enemyInfos, rc.getLocation()).location;
             allyInfos = rc.senseNearbyRobots(-1, rc.getTeam());
             enemyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
 
@@ -322,16 +346,18 @@ public class Attacker extends AbstractRobot {
             }
 
             // spam traps if we still have some action cooldown remaining
-            if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2 && rc.isActionReady()) {
+            if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2 - enemyInfos.length * 10 && rc.isActionReady()) {
 //                    || (curLoc.distanceSquaredTo(target) <= 49 && rc.getCrumbs() > 1000 - rc.getRoundNum() / 2)
 //                    || (distToClosestSpawn <= 49 && rc.getCrumbs() > 1000 - rc.getRoundNum() / 2)) {
                 for (Direction direction : Direction.allDirections()) {
                     MapLocation newLoc = curLoc.add(direction);
-                    if ((newLoc.x - newLoc.y * 2) % 3 == 1) {
-                        if (rc.canBuild(TrapType.STUN, curLoc.add(direction))) {
-                            rc.build(TrapType.STUN, curLoc.add(direction));
-                            break;
-                        }
+//                    if ((newLoc.x - newLoc.y * 2) % 3 == 1) {
+                    if (newLoc.x % 3 == 0 && newLoc.y % 3 == 0 && rc.canBuild(TrapType.STUN, newLoc)) {
+                        rc.build(TrapType.STUN, newLoc);
+                        break;
+                    } else if (enemyInfos.length > 6 && rc.canBuild(TrapType.EXPLOSIVE, newLoc) && RobotPlayer.rng.nextInt(numTraps + 4) == 0) {
+                        rc.build(TrapType.EXPLOSIVE, newLoc);
+                        break;
                     }
                 }
             }
@@ -348,20 +374,6 @@ public class Attacker extends AbstractRobot {
             return;
         }
 
-        // more enemies than allies by a bit, spam traps
-//        rc.setIndicatorString("spamming traps");
-        if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2) {
-            for (Direction direction : Direction.allDirections()) {
-                MapLocation newLoc = curLoc.add(direction);
-                if ((newLoc.x + newLoc.y) % 2 == 0) {
-                    if (rc.canBuild(TrapType.STUN, curLoc.add(direction))) {
-                        rc.build(TrapType.STUN, curLoc.add(direction));
-                        break;
-                    }
-                }
-            }
-        }
-
         if (bestEnemyLoc.distanceSquaredTo(curLoc) >= 16) {  // can safely flee
             MapLocation finalPathfindGoalLoc = target;
             for (Direction d : Utils.sort(Utils.getIdealMovementDirections(bestEnemyLoc, curLoc), (dir) -> curLoc.add(dir).distanceSquaredTo(finalPathfindGoalLoc))) {
@@ -373,6 +385,22 @@ public class Attacker extends AbstractRobot {
                     if (rc.canFill(curLoc.add(d))) {
                         rc.fill(curLoc.add(d));
                     }
+                }
+            }
+        }
+
+        // more enemies than allies by a bit, spam traps
+//        rc.setIndicatorString("spamming traps");
+        if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2 - enemyInfos.length * 10) {
+            for (Direction direction : Direction.allDirections()) {
+                MapLocation newLoc = curLoc.add(direction);
+//                if ((newLoc.x + newLoc.y) % 2 == 0) {
+                if (newLoc.x % 3 == 0 && newLoc.y % 3 == 0 && rc.canBuild(TrapType.STUN, newLoc)) {
+                    rc.build(TrapType.STUN, newLoc);
+                    break;
+                } else if (enemyInfos.length > 6 && rc.canBuild(TrapType.EXPLOSIVE, newLoc) && RobotPlayer.rng.nextInt(numTraps + 4) == 0) {
+                    rc.build(TrapType.EXPLOSIVE, newLoc);
+                    break;
                 }
             }
         }
@@ -409,11 +437,20 @@ public class Attacker extends AbstractRobot {
 //                    }
 
                     RobotInfo closestAlly = Utils.getClosest(rc.senseNearbyRobots(-1, rc.getTeam()), curLoc);
-                    if (closestAlly == null) return;
-                    for (Direction dir : Utils.getIdealMovementDirections(closestAlly.location, curLoc)) {
-                        if (rc.canMove(dir)) {
-                            rc.move(dir);
-                            break;
+//                    if (closestAlly == null) return;
+//                    for (Direction dir : Utils.getIdealMovementDirections(closestAlly.location, curLoc)) {
+//                        if (rc.canMove(dir)) {
+//                            rc.move(dir);
+//                            break;
+//
+                    if (closestAlly == null || closestAlly.location.isAdjacentTo(curLoc))
+                        return;
+                    else if (closestAlly != null) {
+                        for (Direction dir : Utils.getIdealMovementDirections(closestAlly.location, curLoc)) {
+                            if (rc.canMove(dir)) {
+                                rc.move(dir);
+                                break;
+                            }
                         }
                     }
                     return;

@@ -47,9 +47,9 @@ public class Defender extends AbstractRobot {
         rc.setIndicatorString("protect " + v + " " + newV);
         rc.writeSharedArray(Constants.SharedArray.defenderAlert, newV);
 
-        if (rc.canBuild(TrapType.WATER, spawn)) {
-            rc.build(TrapType.WATER, spawn);
-        }
+//        if (rc.canBuild(TrapType.WATER, spawn)) {
+//            rc.build(TrapType.WATER, spawn);
+//        }
 
         for (Direction direction : diagonals) {
             MapLocation ahead = curLoc.add(direction);

@@ -92,7 +92,8 @@ public class RobotPlayer {
 
         mapWidth = rc.getMapWidth();
         mapHeight = rc.getMapHeight();
-        centerOfMap = new MapLocation(rc.getMapWidth()/2, rc.getMapHeight()/2);
+//        centerOfMap = new MapLocation(rc.getMapWidth()/2, rc.getMapHeight()/2);
+        centerOfMap = new MapLocation(35, 20);
         mapped = new int[mapWidth][mapHeight];
 
         if (allySpawnLocations == null) {

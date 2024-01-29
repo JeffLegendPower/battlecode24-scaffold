@@ -102,7 +102,7 @@ public class Utils {
         int dist;
         for (RobotInfo robot : robots) {
             dist = curLoc.distanceSquaredTo(robot.getLocation());
-            if (dist < closestDist) {
+            if (closest == null || dist < closestDist) {
                 closest = robot;
                 closestDist = dist;
             }
@@ -116,7 +116,7 @@ public class Utils {
         int dist;
         for (RobotInfo robot : robots) {
             dist = curLoc.distanceSquaredTo(robot.getLocation());
-            if (dist > furthestDist) {
+            if (furthest == null || dist > furthestDist) {
                 furthest = robot;
                 furthestDist = dist;
             }
