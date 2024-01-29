@@ -18,6 +18,7 @@ public class MicroAttacker {
     static double myDPS;
     static double injuryAmplifier = 1;
     boolean severelyHurt = false;
+    static int distToNearestEnemySpawn = 1000000;
     boolean enemiesTriggeredTrap = false;
     int timeSinceLastTrigger = 0;
 
@@ -31,12 +32,16 @@ public class MicroAttacker {
 
     static double currentDPS = 0;
     static double currentRangeExtended = 20;
-    static double currentActionRadius;
+    static double currentActionRadius = 2;
     static boolean canAttack;
 
     public void doMicro() throws GameActionException {
         if (!rc.isMovementReady()) return;
-        severelyHurt = rc.getHealth() < 500-(60*rc.getLevel(SkillType.HEAL));
+        if (rc.getLevel(SkillType.ATTACK) > 2) {
+            severelyHurt = rc.getHealth() < 500;
+        } else {
+            severelyHurt = rc.getHealth() < 500 - (60 * rc.getLevel(SkillType.HEAL));
+        }
         RobotInfo[] enemies = rc.senseNearbyRobots(myVisionRange, rc.getTeam().opponent());
         if (enemies.length == 0) return;
         canAttack = rc.isActionReady();
@@ -71,7 +76,6 @@ public class MicroAttacker {
             if (currentDPS <= 0) {
                 continue;
             }
-            currentActionRadius = 2;
             microInfo[0].updateEnemy(unit);
             microInfo[1].updateEnemy(unit);
             microInfo[2].updateEnemy(unit);
@@ -129,8 +133,8 @@ public class MicroAttacker {
         MapLocation location;
         int minDistanceToEnemy = INF;
         double DPSreceived = 0;
-        double enemiesTargeting = 0;
-        double alliesTargeting = 0;
+        double enemiesTargetingDPS = 0;
+        double alliesTargetingDPS = 0;
         boolean canMove = true;
         int distToEnemyFlagHolder = INF;
         int distToNearestAllySpawn = INF;
@@ -159,23 +163,23 @@ public class MicroAttacker {
                 minDistanceToEnemy = dist;
             }
             if (dist <= currentActionRadius) DPSreceived += DPS[unit.attackLevel] + (enemyGlobalUpgrades[0] ? 60 : 0) * injuryAmplifier;
-            if (dist <= currentRangeExtended) enemiesTargeting += DPS[unit.attackLevel] + (enemyGlobalUpgrades[0] ? 60 : 0) * injuryAmplifier;
+            if (dist <= currentRangeExtended) enemiesTargetingDPS += DPS[unit.attackLevel] + (enemyGlobalUpgrades[0] ? 60 : 0) * injuryAmplifier;
         }
 
         void updateAlly(RobotInfo unit) {
             if (!canMove) return;
-            alliesTargeting += DPS[unit.attackLevel] + (allyGlobalUpgrades[0] ? 60 : 0);
+            alliesTargetingDPS += DPS[unit.attackLevel] + (allyGlobalUpgrades[0] ? 60 : 0);
             // TODO test if this actually gains 1 by 1
             if (unit.location.distanceSquaredTo(location) <= currentActionRadius) {
                 DPSreceived -= DPS[unit.healLevel] + (allyGlobalUpgrades[1] ? 50 : 0);
             }
         }
 
-        int safe() {
+        int safetyLevel() {
             if (!canMove) return -1;
             if (DPSreceived > 0 && severelyHurt) return 0; // TODO test if adding severelyHurt actually gains 1 by 1
-            if (enemiesTargeting < alliesTargeting && shouldPlaySafe) return 1; // TODO test if adding shouldPlaySafe actually gains 1 by 1
-            if (enemiesTargeting > alliesTargeting && (!shouldPlaySafe)) return 1; // TODO i think this is never called?
+            if (enemiesTargetingDPS < alliesTargetingDPS && shouldPlaySafe) return 1; // TODO test if adding shouldPlaySafe actually gains 1 by 1
+            if (enemiesTargetingDPS > alliesTargetingDPS && (!shouldPlaySafe)) return 1; // TODO i think this is never called?
             return 2;
         }
 
@@ -190,7 +194,7 @@ public class MicroAttacker {
         boolean isBetterThan(MicroInfo other) {
             if (distToEnemyFlagHolder < other.distToEnemyFlagHolder) return true;
 
-            if (rng.nextInt(6) == 0) {
+            if (rng.nextInt(5) == 0 || (distToNearestAllySpawn < mapWidth+mapHeight && rng.nextInt(3) > 0)) {
                 if (pathfindGoalLocForMicroAttacker != null) {
                     if (distToPathfindGoalLoc > other.distToPathfindGoalLoc) {
                         return false;
@@ -199,22 +203,21 @@ public class MicroAttacker {
             }
             if (distToNearestAllySpawn < mapWidth+mapHeight) {
                 if (distToNearestAllySpawn > other.distToNearestAllySpawn) {
-                    rc.setIndicatorString("semi-protecting ally spawn");
                     return false;
                 }
             }
 
-            if (safe() > other.safe()) return true;
-            if (safe() < other.safe()) return false;
+            if (safetyLevel() > other.safetyLevel()) return true;
+            if (safetyLevel() < other.safetyLevel()) return false;
 
             if (inRange() && !other.inRange()) return true;
             if (!inRange() && other.inRange()) return false;
 
-            if (alliesTargeting > other.alliesTargeting + 2) return true; // TODO test if this actually gains 1 by 1
-            if (alliesTargeting < other.alliesTargeting - 2) return false; // TODO test if this actually gains 1 by 1
+            if (alliesTargetingDPS > other.alliesTargetingDPS + 2) return true; // TODO test if this actually gains 1 by 1
+            if (alliesTargetingDPS < other.alliesTargetingDPS - 2) return false; // TODO test if this actually gains 1 by 1
             if (severelyHurt) {
-                if (alliesTargeting > other.alliesTargeting) return true;
-                if (alliesTargeting < other.alliesTargeting) return false;
+                if (alliesTargetingDPS > other.alliesTargetingDPS) return true;
+                if (alliesTargetingDPS < other.alliesTargetingDPS) return false;
             }
 
             if (inRange() && distToNearestAllySpawn > 25) return minDistanceToEnemy >= other.minDistanceToEnemy;
