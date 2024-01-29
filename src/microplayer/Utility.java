@@ -11,6 +11,15 @@ import java.util.function.Function;
 import static microplayer.General.*;
 
 public class Utility {
+    static int stepDistance(MapLocation a, MapLocation b) {
+        // distance in how many steps to get there
+        return Math.max(Math.abs(a.x-b.x), Math.abs(a.y-b.y));
+    }
+
+    static int manhattanDistance(MapLocation a, MapLocation b) {
+        return Math.abs(a.x-b.x) + Math.abs(a.y-b.y);
+    }
+
     static <T> T[] shuffleInPlace(T[] list) {
         for (int i1=0; i1<list.length; i1++) {
             int i2 = rng.nextInt(list.length);
@@ -27,11 +36,35 @@ public class Utility {
     }
 
     static MapLocation[] getAdjacents(MapLocation loc) {
-        MapLocation[] locations = new MapLocation[8];
+        return new MapLocation[]{
+                loc.add(directions[0]), loc.add(directions[1]), loc.add(directions[2]), loc.add(directions[3]),
+                loc.add(directions[4]), loc.add(directions[5]), loc.add(directions[6]), loc.add(directions[7])
+        };
+    }
+
+    static MapLocation[] getAttackableLocations(MapLocation robotLoc) {
+        MapLocation[] locations = new MapLocation[12];
+        locations[8] = robotLoc.translate(2, 0);
+        locations[9] = robotLoc.translate(-2, 0);
+        locations[10] = robotLoc.translate(0, 2);
+        locations[11] = robotLoc.translate(0, -2);
         for (int i=0; i<8; i++) {
-            locations[i] = loc.add(directions[i]);
+            locations[i] = robotLoc.add(directions[i]);
         }
         return locations;
+    }
+
+    public static <K,V> Function<K,V> cache(Function<K,V> f, Map<K,V> cache) {
+        return k->cache.computeIfAbsent(k, f);
+    }
+
+    public static <K,V> Function<K,V> cache(Function<K,V> f) {
+        return cache(f, new IdentityHashMap<>());
+    }
+
+    static <T> T[] sortWithCache(T[] list, Function<T, Integer> valueFn) {
+        Arrays.sort(list, Comparator.comparing(cache(valueFn)));
+        return list;
     }
 
     static MapLocation averageLocation(MapLocation[] locs) {
@@ -52,8 +85,24 @@ public class Utility {
         return locs;
     }
 
-    static MapLocation locationInOtherDirection(MapLocation center, MapLocation location) {
-        return new MapLocation(2*center.x-location.x, 2*center.y-location.y);
+    static MapLocation locationInOtherDirection(MapLocation pivot, MapLocation location) {
+        return new MapLocation(2 * pivot.x - location.x, 2 * pivot.y - location.y);
+    }
+
+    static MapLocation mirroredAcrossMapLocation(MapLocation loc) {
+        if (!symmetryWasDetermined) {
+            return new MapLocation((mapWidth-loc.x-1+mapWidth/2)/2, (mapHeight-loc.y-1+mapHeight/2)/2);
+        }
+        if (possibleSymmetries[0]) {  // rotational
+            return new MapLocation(mapWidth-loc.x-1, mapHeight-loc.y-1);
+        }
+        if (possibleSymmetries[1]) {  // up/down
+            return new MapLocation(loc.x, mapHeight-loc.y-1);
+        }
+        if (possibleSymmetries[2]) {  // left/right
+            return new MapLocation(mapWidth-loc.x-1, loc.y);
+        }
+        return centerOfMap;
     }
 
     static int locToInt(MapLocation ml, int flag1, int flag2) {
@@ -213,7 +262,8 @@ public class Utility {
     }
 
     public static MapLocation[] genBugNavAroundPath(MapLocation robotStart, MapLocation wallStart, MapLocation goal) {
-        ArrayDeque<MapLocation> seen = new ArrayDeque<>();
+        ArrayDeque<MapLocation> vertices = new ArrayDeque<>();
+        ArrayDeque<MapLocation> allPlaces = new ArrayDeque<>();
         Direction dirLeft = robotStart.directionTo(wallStart);
         for (int i=0; i<8; i++) {
             MapLocation added = robotStart.add(dirLeft);
@@ -262,14 +312,15 @@ public class Utility {
                     MapLocation added = robotCurrent.add(d);
                     int nx = added.x;
                     int ny = added.y;
-                    if (rc.onTheMap(added) && (mapped[nx][ny] & 0b11) == 0b01) { // on the map, and is a wall
+                    if (!rc.onTheMap(added) || (mapped[nx][ny] & 0b11) == 0b01) { // off the map or is a wall
                         d = d.rotateLeft();
                         continue;
                     }
                     break;
                 }
+                allPlaces.add(robotCurrent);
                 if (d != prevDirection) {
-                    seen.add(robotCurrent);
+                    vertices.add(robotCurrent);
                     prevDirection = d;
                 }
                 robotCurrent = robotCurrent.add(d);
@@ -294,14 +345,15 @@ public class Utility {
                     MapLocation added = robotCurrent.add(d);
                     int nx = added.x;
                     int ny = added.y;
-                    if (rc.onTheMap(added) && (mapped[nx][ny] & 0b11) == 0b01) { // on the map, and is a wall
+                    if (!rc.onTheMap(added) || (mapped[nx][ny] & 0b11) == 0b01) { // off the map or is a wall
                         d = d.rotateRight();
                         continue;
                     }
                     break;
                 }
+                allPlaces.add(robotCurrent);
                 if (d != prevDirection) {
-                    seen.add(robotCurrent);
+                    vertices.add(robotCurrent);
                     prevDirection = d;
                 }
                 robotCurrent = robotCurrent.add(d);
@@ -310,6 +362,7 @@ public class Utility {
                 }
             }
         }
-        return seen.toArray(new MapLocation[0]);
+        bugNavAllPlaces = allPlaces.toArray(new MapLocation[0]);
+        return vertices.toArray(new MapLocation[0]);
     }
 }
