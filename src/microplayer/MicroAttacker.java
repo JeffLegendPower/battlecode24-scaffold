@@ -130,6 +130,7 @@ public class MicroAttacker {
         boolean canMove = true;
         int distToEnemyFlagHolder = INF;
         int distToNearestAllySpawn = INF;
+        int distToPathfindGoalLoc = INF;
 
         public MicroInfo(Direction dir) throws GameActionException {
             this.dir = dir;
@@ -142,6 +143,7 @@ public class MicroAttacker {
                     distToNearestAllySpawn = dist;
                 }
             }
+            distToPathfindGoalLoc = location.distanceSquaredTo(pathfindGoalLocForMicroAttacker);
         }
 
         void updateEnemy(RobotInfo unit) {
@@ -183,6 +185,14 @@ public class MicroAttacker {
         // equal => true
         boolean isBetterThan(MicroInfo other) {
             if (distToEnemyFlagHolder < other.distToEnemyFlagHolder) return true;
+
+            if (rng.nextInt(6) == 0) {
+                if (pathfindGoalLocForMicroAttacker != null) {
+                    if (distToPathfindGoalLoc > other.distToPathfindGoalLoc) {
+                        return false;
+                    }
+                }
+            }
 
             if (safe() > other.safe()) return true;
             if (safe() < other.safe()) return false;

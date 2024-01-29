@@ -569,8 +569,7 @@ public class RobotPlayer {
                         (d) -> robotLoc.add(d).distanceSquaredTo(weakestAlly.getLocation())
                 );
                 if (weakestAlly.getHealth() <= 1000 - rc.getHealAmount()) {
-                    for (Direction d : idealDirectionsTowardsAllies
-                    ) {
+                    for (Direction d : idealDirectionsTowardsAllies) {
                         if (rc.canMove(d)) {
                             rc.move(d);
                             rc.setIndicatorString("moved towards goal & ally");
@@ -589,30 +588,31 @@ public class RobotPlayer {
                         rc.heal(weakestAlly.getLocation());
                     }
                 }
-                if (rc.isMovementReady()) {  // stuck
-                    MapLocation bugNavWallLocation = null;
-                    for (Direction d : getTrulyIdealMovementDirections(robotLoc, centerOfMap)) {
-                        if (rc.canMove(d)) {
-                            rc.move(d);
-                        } else {
-                            MapLocation newLoc = robotLoc.add(d);
-                            if ((newLoc.x + newLoc.y) % 2 == 0) {
-                                if (rc.canFill(newLoc)) {
-                                    rc.fill(newLoc);
-                                    return;
-                                }
-                            }
-                            if ((mapped[newLoc.x][newLoc.y] & 0b10) == 0) {  // is wall
-                                bugNavWallLocation = newLoc;
-                            }
-                        }
-                    }
-                    if (bugNavWallLocation != null) {
-                        doingBugNav = true;
-                        bugNavVertices = genBugNavAroundPath(robotLoc, bugNavWallLocation, centerOfMap);
-                        bugNavVertexIndex = 0;
-                    }
-                }
+//                if (rc.isMovementReady()) {  // stuck
+//                    rc.setIndicatorString("stuck");
+//                    MapLocation bugNavWallLocation = null;
+//                    for (Direction d : getTrulyIdealMovementDirections(robotLoc, centerOfMap)) {
+//                        if (rc.canMove(d)) {
+//                            rc.move(d);
+//                        } else {
+//                            MapLocation newLoc = robotLoc.add(d);
+//                            if ((newLoc.x + newLoc.y) % 2 == 0) {
+//                                if (rc.canFill(newLoc)) {
+//                                    rc.fill(newLoc);
+//                                    return;
+//                                }
+//                            }
+//                            if ((mapped[newLoc.x][newLoc.y] & 0b10) == 0) {  // is wall
+//                                bugNavWallLocation = newLoc;
+//                            }
+//                        }
+//                    }
+//                    if (bugNavWallLocation != null) {
+//                        doingBugNav = true;
+//                        bugNavVertices = genBugNavAroundPath(robotLoc, bugNavWallLocation, centerOfMap);
+//                        bugNavVertexIndex = 0;
+//                    }
+//                }
             }
 
             // no enemies nearby-ish -> no allies nearby
@@ -633,44 +633,56 @@ public class RobotPlayer {
         }
 
         // enemies nearby but allies is more
-        if (allyInfos.length >= enemyInfos.length - 5) {
-            int distToClosestEnemy = robotLoc.distanceSquaredTo(closestEnemy.getLocation());
-            MapLocation closestEnemyLoc = closestEnemy.getLocation();
-
-            // 1+ steps away, so move then attack
-            if (distToClosestEnemy > 4) {
-                for (Direction d : getIdealMovementDirections(robotLoc, closestEnemyLoc)) {
-                    if (rc.canMove(d)) {
-                        rc.move(d);
-                        if (rc.canAttack(closestEnemyLoc)) {
-                            rc.attack(closestEnemyLoc);
-                            rc.setIndicatorString("moved and got in range and attacked");
-                        }
-                        rc.setIndicatorString("moving closer to enemy");
-                        return;
-                    } else {
-                        if (rc.canFill(robotLoc.add(d))) {
-                            rc.fill(robotLoc.add(d));
-                            return;
+        if (allyInfos.length >= enemyInfos.length - 3) {
+            // attack 1
+            if (rc.getActionCooldownTurns() < 10) {
+                MapLocation enemyWithLowestHealthLocation = null;
+                int healthOfEnemyWithLowestHealth = 9999;
+                for (RobotInfo enemy : enemyInfos) {
+                    int enemyHealth = enemy.health;
+                    if (enemyWithLowestHealthLocation == null || healthOfEnemyWithLowestHealth > enemyHealth) {
+                        healthOfEnemyWithLowestHealth = enemyHealth;
+                        enemyWithLowestHealthLocation = enemy.getLocation();
+                    }
+                }
+                if (rc.canAttack(enemyWithLowestHealthLocation)) {
+                    rc.attack(enemyWithLowestHealthLocation);
+                } else {
+                    for (RobotInfo enemy : enemyInfos) {
+                        if (rc.canAttack(enemy.getLocation())) {
+                            rc.attack(enemy.getLocation());
+                            break;
                         }
                     }
                 }
             }
 
-            // less than one step away, attack then move back
-            if (distToClosestEnemy <= 4) {
-                if (rc.canAttack(closestEnemyLoc)) {
-                    rc.attack(closestEnemyLoc);
-                    for (Direction d : getIdealMovementDirections(closestEnemyLoc, robotLoc)) {
-                        if (rc.canMove(d)) {
-                            rc.move(d);
+            // move
+            MicroAttacker.pathfindGoalLocForMicroAttacker = pathfindGoalLoc;
+            MicroAttacker microAttacker = new MicroAttacker();
+            microAttacker.doMicro();
+
+            // attack 2
+            if (rc.getActionCooldownTurns() < 10) {
+                MapLocation enemyWithLowestHealthLocation = null;
+                int healthOfEnemyWithLowestHealth = 9999;
+                for (RobotInfo enemy : enemyInfos) {
+                    int enemyHealth = enemy.health;
+                    if (enemyWithLowestHealthLocation == null || healthOfEnemyWithLowestHealth > enemyHealth) {
+                        healthOfEnemyWithLowestHealth = enemyHealth;
+                        enemyWithLowestHealthLocation = enemy.getLocation();
+                    }
+                }
+                if (rc.canAttack(enemyWithLowestHealthLocation)) {
+                    rc.attack(enemyWithLowestHealthLocation);
+                } else {
+                    for (RobotInfo enemy : enemyInfos) {
+                        if (rc.canAttack(enemy.getLocation())) {
+                            rc.attack(enemy.getLocation());
                             break;
                         }
                     }
-                    rc.setIndicatorString("Enemy in range, attacked");
-                    return;
                 }
-                rc.setIndicatorString("Enemy in range, not attacked");
             }
 
             // spam traps if we still have some action cooldown remaining
