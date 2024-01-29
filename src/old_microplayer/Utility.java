@@ -1,4 +1,4 @@
-package microplayercopy;
+package old_microplayer;
 
 import battlecode.common.Direction;
 import battlecode.common.GameActionException;
@@ -9,7 +9,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.function.Function;
 
-import static microplayercopy.General.*;
+import static old_microplayer.General.*;
 
 public class Utility {
     static <T> T[] shuffleInPlace(T[] list) {

@@ -9,6 +9,9 @@ public class General {
     public static RobotController rc;
     public static int mapWidth = -1;
     public static int mapHeight = -1;
+    public static MapLocation centerOfMap;
+
+    public static MapLocation robotLoc = null;
 
     public static int rngSeed = 1;
     public static int id = -1;
@@ -23,19 +26,22 @@ public class General {
     bit usage for each int in mapped
     0 | 0=unseen 1=explored
     1 | 0=wall 1=not
+    2 | 0=dam 1=not
     */
 
     public static boolean doingBugNav = false;
     public static MapLocation[] bugNavVertices = null;
     public static int bugNavVertexIndex = -1;
     public static Boolean bugNavGoingClockwise = null;
+    public static MapLocation bugnavPathfindGoal = null;
+    public static MapLocation[] bugNavAllPlaces = null;  // todo delete
 
     public static Direction lastMovedSetupExplorationDirection = null;
     public static MapLocation[] allySpawnLocations = null;
-    public static MapLocation[] centerSpawnLocations = null;
+    public static MapLocation[] orderedCenterSpawnLocations = null;  // do NOT reorder !!!
+    public static MapLocation[] sortableCenterSpawnLocations = null;  // it is ok to sort this one
     public static MapLocation[] visitedForSetupPathfinding = new MapLocation[30];
     public static int visitedForSetupPathfindingIndex = 0;
-    public static MapLocation lastSeenDamLocationDuringSetup = null;
 
     public static MapLocation broadcastFlagPathfindLoc = null;
     public static MapLocation[] enemyFlagLocations = new MapLocation[3];
@@ -51,12 +57,18 @@ public class General {
     public static MapLocation[] carrierLocations = new MapLocation[3];
     public static boolean[] hasCarrierDroppedFlag = new boolean[3];
     public static boolean[] isEnemyFlagDeposited = new boolean[3];
-    public static int transferCooldown = 0;
-    public static ArrayList<MapLocation> visited = new ArrayList<>();
+    public static int flagTransferCooldown = 0;
+
+    public static int[] bodyguardCounts = new int[]{0, 0, 0};
+    public static int bodyguardingIndex = -1;
 
     public static boolean isProtector = false;
     public static MapLocation myProtectedFlagLocation = null;
     public static Integer protectedFlagIndex = null;
+
+    // attack, heal, capture
+    public static boolean[] allyGlobalUpgrades = new boolean[]{false, false, false};
+    public static boolean[] enemyGlobalUpgrades = new boolean[]{false, false, false};
 
     public static Direction[] directions = {
         Direction.NORTH,
@@ -80,7 +92,8 @@ public class General {
     5 | carried flag location 2 | 0=carried 1=dropped 2,3=deposited
     6 | carried flag location 3 | 0=carried 1=dropped 2,3=deposited
     7 | 1 bit empty, 5 bits protector index 3, 5 bits protector index 2, 5 bits protector index 1
-    8 | 1 bit rotational symmetry, 1 bit up/down symmetry, 1 bit left/right symmetry, 13 bits spare
+    8 | 1 bit rotational symmetry, 1 bit up/down symmetry, 1 bit left/right symmetry, 1 bit spare, 4 bits per bodyguard count for carried flag locations
+    9 | number of ducks spawned in
     */
 
 }

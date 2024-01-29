@@ -91,42 +91,38 @@ public class RobotPlayer {
             if (enemy.hasFlag()) {
                 return -22222222;
             }
-            weight += enemy.getLocation().distanceSquaredTo(robotLoc);
+            weight += enemy.getLocation().distanceSquaredTo(robotLoc) * 1000;
             weight += enemy.getHealth();
             return weight;
         }, false);
 
         RobotInfo[] allyInfos = sort(rc.senseNearbyRobots(-1, rc.getTeam()), (ally) -> ally.getHealth(), false);
-        int freeLocations = 0;
+        int nearbyRobots = 0;
         for (RobotInfo ignored : rc.senseNearbyRobots(2, rc.getTeam())) {
-            freeLocations += 1;
+            nearbyRobots += 1;
         }
         if (rc.getHealth() < 1000) {
             if (enemyInfos.length > 1) {
-                if (freeLocations == 3 || freeLocations == 2) {
-                    rc.setIndicatorString("awefawef");
-                    if (rc.canBuild(TrapType.EXPLOSIVE, robotLoc)) {
-                        rc.build(TrapType.EXPLOSIVE, robotLoc);
+                if (nearbyRobots == 3 || nearbyRobots == 2) {  // corners
+                    if (rc.canBuild(TrapType.WATER, robotLoc)) {
+                        rc.build(TrapType.WATER, robotLoc);
                         return;
                     }
                 }
-                if (freeLocations == 4 || freeLocations == 5) {
-                    if (rc.canBuild(TrapType.STUN, robotLoc)) {
-                        rc.build(TrapType.STUN, robotLoc);
-                        return;
-                    }
+                if (nearbyRobots == 4 || nearbyRobots == 5) {
+                    // not implemented
                 }
-            }
-        }
-        for (RobotInfo ally : allyInfos) {
-            if (rc.canHeal(ally.getLocation())) {
-                rc.heal(ally.getLocation());
-                return;
             }
         }
         for (RobotInfo enemy : enemyInfos) {
             if (rc.canAttack(enemy.getLocation())) {
                 rc.attack(enemy.getLocation());
+                return;
+            }
+        }
+        for (RobotInfo ally : allyInfos) {
+            if (rc.canHeal(ally.getLocation())) {
+                rc.heal(ally.getLocation());
                 return;
             }
         }

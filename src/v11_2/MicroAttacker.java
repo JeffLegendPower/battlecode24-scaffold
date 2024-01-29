@@ -66,7 +66,7 @@ public class MicroAttacker {
                 DPSDist = 2;
             }
 
-            severelyHurt = rc.getHealth() < 300;
+            severelyHurt = rc.getHealth() < 250;
             RobotInfo[] enemies = rc.senseNearbyRobots(myVisionRange, rc.getTeam().opponent());
             if (enemies.length == 0) return false;
             canAttack = rc.isActionReady();
@@ -260,6 +260,9 @@ public class MicroAttacker {
             if (M.distToEnemyFlagHolder < distToEnemyFlagHolder) return false;
 //            System.out.println("a");
 
+            if (alliesTargeting > M.alliesTargeting + 1) return true; // TODO test if this actually gains 1 by 1
+            if (alliesTargeting < M.alliesTargeting - 4) return false; // TODO test if this actually gains 1 by 1
+
             if (safe() > M.safe()) return true;
             if (safe() < M.safe()) return false;
 
@@ -269,9 +272,6 @@ public class MicroAttacker {
 
             if (inRange() && !M.inRange()) return true;
             if (!inRange() && M.inRange()) return false;
-
-            if (alliesTargeting > M.alliesTargeting + 6) return true; // TODO test if this actually gains 1 by 1
-            if (alliesTargeting < M.alliesTargeting - 6) return false; // TODO test if this actually gains 1 by 1
             if (severelyHurt) {
                 if (alliesTargeting > M.alliesTargeting) return true;
                 if (alliesTargeting < M.alliesTargeting) return false;

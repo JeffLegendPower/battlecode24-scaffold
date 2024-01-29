@@ -187,6 +187,10 @@ public class MicroAttacker {
         int distToEnemyFlagHolder = INF;
         int distToNearestAllySpawn = INF;
 
+        int numEnemies = 0;
+        int sumEnemyX = 0;
+        int sumEnemyY = 0;
+
         public MicroInfo(Direction dir) throws GameActionException {
             this.dir = dir;
             this.location = rc.getLocation().add(dir);
@@ -212,6 +216,10 @@ public class MicroAttacker {
 
             if (dist <= currentActionRadius) DPSreceived += DPS[unit.attackLevel];
             if (dist <= currentRangeExtended) enemiesTargeting += DPS[unit.attackLevel];
+
+            sumEnemyX += unit.location.x;
+            sumEnemyY += unit.location.y;
+            numEnemies++;
         }
 
         void updateAlly(RobotInfo unit) {
@@ -239,7 +247,7 @@ public class MicroAttacker {
             return 2;
         }
 
-        boolean inRange(){
+        boolean inRange() {
             if (alwaysInRange) return true;
             return minDistanceToEnemy <= myRange;
         }
