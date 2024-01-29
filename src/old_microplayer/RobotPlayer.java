@@ -1,11 +1,11 @@
-package microplayercopy;
+package old_microplayer;
 
 import battlecode.common.*;
 
 import java.util.Arrays;
 
-import static microplayercopy.General.*;
-import static microplayercopy.Utility.*;
+import static old_microplayer.General.*;
+import static old_microplayer.Utility.*;
 
 public class RobotPlayer {
     public static void run(RobotController rc2) {

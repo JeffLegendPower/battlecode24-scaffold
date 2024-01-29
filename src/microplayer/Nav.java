@@ -7,7 +7,6 @@ import battlecode.common.MapLocation;
 import static microplayer.General.*;
 import static microplayer.Utility.getIdealMovementDirections;
 import static microplayer.Utility.sort;
-import static microplayercopy.General.rng;
 
 public class Nav {
 

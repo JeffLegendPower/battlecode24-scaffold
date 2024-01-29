@@ -1,4 +1,4 @@
-package microplayercopy;
+package old_microplayer;
 
 import battlecode.common.Direction;
 import battlecode.common.MapLocation;

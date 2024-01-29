@@ -6,8 +6,6 @@ import java.util.Arrays;
 
 import static microplayer.General.*;
 import static microplayer.Utility.*;
-import static microplayercopy.General.rng;
-import static microplayercopy.General.rngSeed;
 
 public class RobotPlayer {
     public static void run(RobotController rc2) {
