@@ -16,6 +16,7 @@ public class MicroAttacker {
     static int myRange = 2;
     static int myVisionRange = 20;
     static double myDPS;
+    static double injuryAmplifier = 1;
     boolean severelyHurt = false;
     boolean enemiesTriggeredTrap = false;
     int timeSinceLastTrigger = 0;
@@ -25,6 +26,7 @@ public class MicroAttacker {
 
     public MicroAttacker() {
         myDPS = rc.getAttackDamage();
+        injuryAmplifier = (850.0/(300+rc.getHealth()) - 0.8)/2.0 + 0.87;
     }
 
     static double currentDPS = 0;
@@ -112,7 +114,9 @@ public class MicroAttacker {
             return;
         }
         if (rc.canFill(bestMicro.location)) {
-            rc.fill(bestMicro.location);
+            if ((bestMicro.location.x + bestMicro.location.y) % 2 == 0) {
+                rc.fill(bestMicro.location);
+            }
         } else if (rc.canMove(bestMicro.dir)) {
             rc.move(bestMicro.dir);
         } else if (secondBestMicro != null && rc.canMove(secondBestMicro.dir)) {
@@ -130,7 +134,7 @@ public class MicroAttacker {
         boolean canMove = true;
         int distToEnemyFlagHolder = INF;
         int distToNearestAllySpawn = INF;
-        int distToPathfindGoalLoc = INF;
+        int distToPathfindGoalLoc;
 
         public MicroInfo(Direction dir) throws GameActionException {
             this.dir = dir;
@@ -154,8 +158,8 @@ public class MicroAttacker {
             if (dist < minDistanceToEnemy) {
                 minDistanceToEnemy = dist;
             }
-            if (dist <= currentActionRadius) DPSreceived += DPS[unit.attackLevel] + (enemyGlobalUpgrades[0] ? 60 : 0);
-            if (dist <= currentRangeExtended) enemiesTargeting += DPS[unit.attackLevel] + (enemyGlobalUpgrades[0] ? 60 : 0);
+            if (dist <= currentActionRadius) DPSreceived += DPS[unit.attackLevel] + (enemyGlobalUpgrades[0] ? 60 : 0) * injuryAmplifier;
+            if (dist <= currentRangeExtended) enemiesTargeting += DPS[unit.attackLevel] + (enemyGlobalUpgrades[0] ? 60 : 0) * injuryAmplifier;
         }
 
         void updateAlly(RobotInfo unit) {
@@ -191,6 +195,12 @@ public class MicroAttacker {
                     if (distToPathfindGoalLoc > other.distToPathfindGoalLoc) {
                         return false;
                     }
+                }
+            }
+            if (distToNearestAllySpawn < mapWidth+mapHeight) {
+                if (distToNearestAllySpawn > other.distToNearestAllySpawn) {
+                    rc.setIndicatorString("semi-protecting ally spawn");
+                    return false;
                 }
             }
 

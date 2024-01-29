@@ -85,13 +85,40 @@ public class Carrier {
         MapLocation closestSpawnLoc = sortableCenterSpawnLocations[0];
         MapLocation closestEnemySpawnLoc = mirroredAcrossMapLocation(sortableCenterSpawnLocations[0]);
         rc.setIndicatorDot(closestSpawnLoc, 0, 255, 0);
-        rc.setIndicatorString("carrying flag " + (flagCarrierIndex+1));
+        rc.setIndicatorString("carrying flag " + (flagCarrierIndex+1) + " with " + bodyguardCounts[flagCarrierIndex] + " bodyguards");
 
         RobotInfo[] enemyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
         MapLocation[] enemyLocations = new MapLocation[enemyInfos.length];
 
         for (int i=0; i<enemyInfos.length; i++) {
             enemyLocations[i] = enemyInfos[i].getLocation();
+        }
+
+        int v = rc.readSharedArray(7);
+        int[] spawnWeights = new int[3];
+        int total = 0;
+        for (int i=0; i<3; i++) {
+            spawnWeights[i] = v & 0b11111;
+            total += v & 0b11111;
+            v >>= 5;
+        }
+        MapLocation bestAllySpawnToPathfindTo = null;
+        int leastAllySpawnActivity = 999;
+        if (rc.getRoundNum() % 5 == 0) {
+            for (int i=0; i<3; i++) {
+                if (leastAllySpawnActivity > spawnWeights[i]) {  // go to place with least enemy activity
+                    leastAllySpawnActivity = spawnWeights[i];
+                    bestAllySpawnToPathfindTo = orderedCenterSpawnLocations[i];
+                } else if (spawnWeights[i] == 0) {  // order places with 0 activity based on distance
+                    if (robotLoc.distanceSquaredTo(bestAllySpawnToPathfindTo) > robotLoc.distanceSquaredTo(orderedCenterSpawnLocations[i])) {
+                        bestAllySpawnToPathfindTo = orderedCenterSpawnLocations[i];
+                    }
+                }
+            }
+        }
+
+        if (bestAllySpawnToPathfindTo != null) {
+            carrierDestination = bestAllySpawnToPathfindTo;
         }
 
         // get which directions to move in

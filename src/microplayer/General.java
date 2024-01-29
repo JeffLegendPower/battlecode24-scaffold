@@ -33,6 +33,7 @@ public class General {
     public static MapLocation[] bugNavVertices = null;
     public static int bugNavVertexIndex = -1;
     public static Boolean bugNavGoingClockwise = null;
+    public static MapLocation bugnavPathfindGoal = null;
     public static MapLocation[] bugNavAllPlaces = null;  // todo delete
 
     public static Direction lastMovedSetupExplorationDirection = null;
@@ -92,6 +93,7 @@ public class General {
     6 | carried flag location 3 | 0=carried 1=dropped 2,3=deposited
     7 | 1 bit empty, 5 bits protector index 3, 5 bits protector index 2, 5 bits protector index 1
     8 | 1 bit rotational symmetry, 1 bit up/down symmetry, 1 bit left/right symmetry, 1 bit spare, 4 bits per bodyguard count for carried flag locations
+    9 | number of ducks spawned in
     */
 
 }

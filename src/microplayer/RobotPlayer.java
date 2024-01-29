@@ -97,6 +97,7 @@ public class RobotPlayer {
             v |= (0b11111 << (5*protectedFlagIndex));
             rc.writeSharedArray(7, v);
             if (rc.canSpawn(myProtectedFlagLocation)) {
+
                 rc.spawn(myProtectedFlagLocation);
             }
             return false;
@@ -395,10 +396,71 @@ public class RobotPlayer {
             for (MapLocation ml : bugNavVertices) {
                 rc.setIndicatorDot(ml, 255, 255,  0);
             }
-            if (bugNavVertexIndex == bugNavVertices.length) {
+            // bresenham algo
+            boolean wallInTheWay = false;
+            if (Math.abs(robotLoc.x-bugnavPathfindGoal.x) > Math.abs(robotLoc.y-bugnavPathfindGoal.y)) {  // x change > y change, use x coordinates to do the stuff
+                rc.setIndicatorLine(robotLoc, bugnavPathfindGoal, 255, 0, 255);
+                int x0 = Math.min(robotLoc.x, bugnavPathfindGoal.x);
+                int x1 = Math.max(robotLoc.x, bugnavPathfindGoal.x);
+                int y0 = robotLoc.y;
+                int y1 = bugnavPathfindGoal.y;
+                double m = ((double) (y1 - y0)) / (x1 - x0);
+                for (int x = x0; x <= x1; x++) {
+                    if (robotLoc.x == x) {
+                        continue;
+                    }
+                    double rounded = Math.round(m * (x - x0));
+                    int y;
+                    if (robotLoc.x > bugnavPathfindGoal.x) {
+                        y = y1 - (int) rounded;
+                    } else {
+                        y = y0 + (int) rounded;
+                    }
+                    rc.setIndicatorDot(new MapLocation(x, y), 255, 0, 0);
+                    // todo: refine the below to use only the shape is being bugnav'd around instead of the entire map
+                    if ((mapped[x][y] & 0b11) == 0b01) {  // there is a wall in the way
+                        wallInTheWay = true;
+                        break;
+                    }
+                }
+            } else {  // y change > x change, use y coordinates to do the stuff
+                rc.setIndicatorLine(robotLoc, bugnavPathfindGoal, 255, 255, 0);
+                int x0 = robotLoc.x;
+                int x1 = bugnavPathfindGoal.x;
+                int y0 = Math.min(robotLoc.y, bugnavPathfindGoal.y);
+                int y1 = Math.max(robotLoc.y, bugnavPathfindGoal.y);
+                double m = ((double) (y1 - y0)) / (x1 - x0);
+                for (int y = y0; y <= y1; y++) {
+                    if (robotLoc.y == y) {
+                        continue;
+                    }
+                    double rounded = Math.round((y - y0)/m);
+                    int x;
+                    if (robotLoc.y > bugnavPathfindGoal.y) {
+                        x = x1 - (int) rounded;
+                    } else {
+                        x = x0 + (int) rounded;
+                    }
+                    rc.setIndicatorDot(new MapLocation(x, y), 255, 0, 0);
+                    // todo: refine the below to use only the shape is being bugnav'd around instead of the entire map
+                    if ((mapped[x][y] & 0b11) == 0b01) {  // there is a wall in the way
+                        wallInTheWay = true;
+                        break;
+                    }
+                }
+            }
+            if (!wallInTheWay) {
                 doingBugNav = false;
+                rc.setIndicatorString("stopping bugnav we good");
+                bugNavGoingClockwise = null;
                 break bugNav;
             }
+            if (bugNavVertexIndex == bugNavVertices.length) {
+                doingBugNav = false;
+                rc.setIndicatorString("stopping bugnav no moar vertices");
+                break bugNav;
+            }
+            rc.setIndicatorDot(bugNavVertices[bugNavVertexIndex], 0, 255, 0);
             if (bugNavVertices[bugNavVertexIndex].distanceSquaredTo(robotLoc) < 2) {
                 if (++bugNavVertexIndex == bugNavVertices.length) {
                     doingBugNav = false;
@@ -575,7 +637,6 @@ public class RobotPlayer {
                             rc.setIndicatorString("moved towards goal & ally");
                             if (rc.canHeal(weakestAlly.getLocation())) {
                                 rc.heal(weakestAlly.getLocation());
-                                rc.setIndicatorString("healed a guy");
                             }
                             return;
                         } else {
@@ -588,31 +649,34 @@ public class RobotPlayer {
                         rc.heal(weakestAlly.getLocation());
                     }
                 }
-//                if (rc.isMovementReady()) {  // stuck
-//                    rc.setIndicatorString("stuck");
-//                    MapLocation bugNavWallLocation = null;
-//                    for (Direction d : getTrulyIdealMovementDirections(robotLoc, centerOfMap)) {
-//                        if (rc.canMove(d)) {
-//                            rc.move(d);
-//                        } else {
-//                            MapLocation newLoc = robotLoc.add(d);
-//                            if ((newLoc.x + newLoc.y) % 2 == 0) {
-//                                if (rc.canFill(newLoc)) {
-//                                    rc.fill(newLoc);
-//                                    return;
-//                                }
-//                            }
-//                            if ((mapped[newLoc.x][newLoc.y] & 0b10) == 0) {  // is wall
-//                                bugNavWallLocation = newLoc;
-//                            }
-//                        }
-//                    }
-//                    if (bugNavWallLocation != null) {
-//                        doingBugNav = true;
-//                        bugNavVertices = genBugNavAroundPath(robotLoc, bugNavWallLocation, centerOfMap);
-//                        bugNavVertexIndex = 0;
-//                    }
-//                }
+                if (rc.isMovementReady()) {  // stuck
+                    MapLocation bugNavWallLocation = null;
+                    for (Direction d : getTrulyIdealMovementDirections(robotLoc, pathfindGoalLoc)) {
+                        if (rc.canMove(d)) {
+                            rc.move(d);
+                        } else {
+                            MapLocation newLoc = robotLoc.add(d);
+                            if (!rc.onTheMap(newLoc)) {
+                                continue;
+                            }
+                            if ((newLoc.x + newLoc.y) % 2 == 0) {
+                                if (rc.canFill(newLoc)) {
+                                    rc.fill(newLoc);
+                                    return;
+                                }
+                            }
+                            if ((mapped[newLoc.x][newLoc.y] & 0b10) == 0) {  // is wall
+                                bugNavWallLocation = newLoc;
+                            }
+                        }
+                    }
+                    if (bugNavWallLocation != null && rc.onTheMap(pathfindGoalLoc)) {
+                        doingBugNav = true;
+                        bugnavPathfindGoal = pathfindGoalLoc;
+                        bugNavVertices = genBugNavAroundPath(robotLoc, bugNavWallLocation, pathfindGoalLoc);
+                        bugNavVertexIndex = 0;
+                    }
+                }
             }
 
             // no enemies nearby-ish -> no allies nearby
@@ -827,18 +891,22 @@ public class RobotPlayer {
             return;
         }
 
+        sort(sortableCenterSpawnLocations, (loc) -> loc.distanceSquaredTo(robotLoc));
+        MapLocation pathfindGoalLoc = mirroredAcrossMapLocation(sortableCenterSpawnLocations[0]);
+
         // go to dam
         if (rc.getRoundNum() > 130) {
+
             // bug nav
             if (doingBugNav) {
                 // bresenham algo
                 boolean wallInTheWay = false;
-                if (Math.abs(robotLoc.x-centerOfMap.x) > Math.abs(robotLoc.y-centerOfMap.y)) {  // x change > y change, use x coordinates to do the stuff
-                    rc.setIndicatorLine(robotLoc, centerOfMap, 255, 0, 255);
-                    int x0 = Math.min(robotLoc.x, centerOfMap.x);
-                    int x1 = Math.max(robotLoc.x, centerOfMap.x);
+                if (Math.abs(robotLoc.x-pathfindGoalLoc.x) > Math.abs(robotLoc.y-pathfindGoalLoc.y)) {  // x change > y change, use x coordinates to do the stuff
+                    rc.setIndicatorLine(robotLoc, pathfindGoalLoc, 255, 0, 255);
+                    int x0 = Math.min(robotLoc.x, pathfindGoalLoc.x);
+                    int x1 = Math.max(robotLoc.x, pathfindGoalLoc.x);
                     int y0 = robotLoc.y;
-                    int y1 = centerOfMap.y;
+                    int y1 = pathfindGoalLoc.y;
                     double m = ((double) (y1 - y0)) / (x1 - x0);
                     for (int x = x0; x <= x1; x++) {
                         if (robotLoc.x == x) {
@@ -846,7 +914,7 @@ public class RobotPlayer {
                         }
                         double rounded = Math.round(m * (x - x0));
                         int y;
-                        if (robotLoc.x > centerOfMap.x) {
+                        if (robotLoc.x > pathfindGoalLoc.x) {
                             y = y1 - (int) rounded;
                         } else {
                             y = y0 + (int) rounded;
@@ -859,11 +927,11 @@ public class RobotPlayer {
                         }
                     }
                 } else {  // y change > x change, use y coordinates to do the stuff
-                    rc.setIndicatorLine(robotLoc, centerOfMap, 255, 255, 0);
+                    rc.setIndicatorLine(robotLoc, pathfindGoalLoc, 255, 255, 0);
                     int x0 = robotLoc.x;
-                    int x1 = centerOfMap.x;
-                    int y0 = Math.min(robotLoc.y, centerOfMap.y);
-                    int y1 = Math.max(robotLoc.y, centerOfMap.y);
+                    int x1 = pathfindGoalLoc.x;
+                    int y0 = Math.min(robotLoc.y, pathfindGoalLoc.y);
+                    int y1 = Math.max(robotLoc.y, pathfindGoalLoc.y);
                     double m = ((double) (y1 - y0)) / (x1 - x0);
                     for (int y = y0; y <= y1; y++) {
                         if (robotLoc.y == y) {
@@ -871,7 +939,7 @@ public class RobotPlayer {
                         }
                         double rounded = Math.round((y - y0)/m);
                         int x;
-                        if (robotLoc.y > centerOfMap.y) {
+                        if (robotLoc.y > pathfindGoalLoc.y) {
                             x = x1 - (int) rounded;
                         } else {
                             x = x0 + (int) rounded;
@@ -892,7 +960,7 @@ public class RobotPlayer {
 
                 MapLocation nextBugNavLocation = bugNavVertices[bugNavVertexIndex];
                 if ((mapped[nextBugNavLocation.x][nextBugNavLocation.y] & 0b11) == 0b01) {  // actually it is a wall, redo bugnav
-                    bugNavVertices = genBugNavAroundPath(robotLoc, nextBugNavLocation, centerOfMap);
+                    bugNavVertices = genBugNavAroundPath(robotLoc, nextBugNavLocation, pathfindGoalLoc);
                     bugNavVertexIndex = 0;
                     nextBugNavLocation = bugNavVertices[bugNavVertexIndex];
                 }
@@ -908,7 +976,17 @@ public class RobotPlayer {
                 for (Direction d : getIdealMovementDirections(robotLoc, bugNavVertices[bugNavVertexIndex])) {
                     if (rc.canMove(d)) {
                         rc.move(d);
-                        break;
+                        return;
+                    }
+                }
+                for (Direction d : getIdealMovementDirections(robotLoc, bugNavVertices[bugNavVertexIndex])) {
+                    MapLocation fillLoc = robotLoc.add(d);
+                    if (rc.canFill(fillLoc)) {
+                        rc.fill(fillLoc);
+                        rc.setIndicatorDot(fillLoc, 0, 127, 255);
+                        return;
+                    } else {
+                        rc.setIndicatorDot(fillLoc, 255, 0, 127);
                     }
                 }
                 return;
@@ -996,10 +1074,10 @@ public class RobotPlayer {
                 }
             }
 
-            // going to the center is a good idea
-            rc.setIndicatorLine(robotLoc, centerOfMap, 128, 0, 255);
+            // going to pathfind goal location
+            rc.setIndicatorLine(robotLoc, pathfindGoalLoc, 128, 0, 255);
             MapLocation bugNavWallLocation = null;
-            for (Direction d : getTrulyIdealMovementDirections(robotLoc, centerOfMap)) {
+            for (Direction d : getTrulyIdealMovementDirections(robotLoc, pathfindGoalLoc)) {
                 if (rc.canMove(d)) {
                     rc.move(d);
                 } else {
@@ -1031,7 +1109,8 @@ public class RobotPlayer {
             // cannot move, bug nav
             rc.setIndicatorString("starting bugnav");
             doingBugNav = true;
-            bugNavVertices = genBugNavAroundPath(robotLoc, bugNavWallLocation, centerOfMap);
+            bugnavPathfindGoal = pathfindGoalLoc;
+            bugNavVertices = genBugNavAroundPath(robotLoc, bugNavWallLocation, pathfindGoalLoc);
             bugNavVertexIndex = 0;
             return;
         }
