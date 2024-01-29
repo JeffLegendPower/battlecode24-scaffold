@@ -336,6 +336,13 @@ public class RobotPlayer {
             return;
         }
 
+        int numFlagsDeposited = 0;
+        for (int i=0; i<3; i++) {
+            if (isEnemyFlagDeposited[i]) {
+                numFlagsDeposited++;
+            }
+        }
+
         // become a bodyguard if close to flag carrier
         if (bodyguardingIndex == -1) {
             for (int i=0; i<3; i++) {
@@ -343,10 +350,16 @@ public class RobotPlayer {
                 if (carrierLoc == null) {
                     continue;
                 }
-                if (bodyguardCounts[i] > 8) {
+                if (isEnemyFlagDeposited[i]) {
                     continue;
                 }
-                if (robotLoc.distanceSquaredTo(carrierLoc) <= Math.pow(bodyguardCounts[i], 2)*3) {
+                if (bodyguardCounts[i] > 12 && numFlagsDeposited == 0) {
+                    continue;
+                }
+                if (bodyguardCounts[i] > 16 && numFlagsDeposited == 1) {
+                    continue;
+                }
+                if (robotLoc.distanceSquaredTo(carrierLoc) <= (mapWidth+mapHeight) * 1.6) {
                     bodyguardingIndex = i;
                     bodyguardCounts[i]++;
                     int v = rc.readSharedArray(8);
@@ -374,7 +387,7 @@ public class RobotPlayer {
         MapLocation pathfindGoalLoc = broadcastFlagPathfindLoc;
 
         // pathfind to found enemy flag location
-        int closestFlagDistance = 10000;
+        int closestEnemySpawnDistance = 10000;
         for (int i=0; i<3; i++) {
             if (enemyFlagIsTaken[i]) {
                 continue;
@@ -384,8 +397,8 @@ public class RobotPlayer {
                 continue;
             }
             int flagDist = enemyFlagLoc.distanceSquaredTo(robotLoc);
-            if (closestFlagDistance > flagDist) {
-                closestFlagDistance = flagDist;
+            if (closestEnemySpawnDistance > flagDist) {
+                closestEnemySpawnDistance = flagDist;
                 pathfindGoalLoc = enemyFlagLoc;
                 rc.setIndicatorString("going to found enemy flag location");
             }
@@ -405,7 +418,7 @@ public class RobotPlayer {
                 int y0 = robotLoc.y;
                 int y1 = bugnavPathfindGoal.y;
                 double m = ((double) (y1 - y0)) / (x1 - x0);
-                for (int x = x0; x <= x1; x++) {
+                for (int x = x0; x <= Math.min(x1, x0+10); x++) {
                     if (robotLoc.x == x) {
                         continue;
                     }
@@ -430,7 +443,7 @@ public class RobotPlayer {
                 int y0 = Math.min(robotLoc.y, bugnavPathfindGoal.y);
                 int y1 = Math.max(robotLoc.y, bugnavPathfindGoal.y);
                 double m = ((double) (y1 - y0)) / (x1 - x0);
-                for (int y = y0; y <= y1; y++) {
+                for (int y = y0; y <= Math.min(y1, y0+10); y++) {
                     if (robotLoc.y == y) {
                         continue;
                     }
@@ -459,6 +472,12 @@ public class RobotPlayer {
                 doingBugNav = false;
                 rc.setIndicatorString("stopping bugnav no moar vertices");
                 break bugNav;
+            }
+            MapLocation nextBugNavLocation = bugNavVertices[bugNavVertexIndex];
+            if ((mapped[nextBugNavLocation.x][nextBugNavLocation.y] & 0b11) == 0b01) {  // actually it is a wall, redo bugnav
+                bugNavVertices = genBugNavAroundPath(robotLoc, nextBugNavLocation, pathfindGoalLoc);
+                bugNavVertexIndex = 0;
+                pathfindGoalLoc = bugNavVertices[bugNavVertexIndex];
             }
             rc.setIndicatorDot(bugNavVertices[bugNavVertexIndex], 0, 255, 0);
             if (bugNavVertices[bugNavVertexIndex].distanceSquaredTo(robotLoc) < 2) {
@@ -525,7 +544,7 @@ public class RobotPlayer {
                 }
             }
 
-            if (carrierLocations[bodyguardingIndex] == null || isEnemyFlagDeposited[bodyguardingIndex]) {
+            if (carrierLocations[bodyguardingIndex] == null || isEnemyFlagDeposited[bodyguardingIndex] || robotLoc.distanceSquaredTo(closestCenterSpawnLocation) < 8) {
                 bodyguardCounts[bodyguardingIndex]--;
                 if (bodyguardCounts[bodyguardingIndex] < 0) {
                     bodyguardCounts[bodyguardingIndex] = 0;
@@ -670,7 +689,7 @@ public class RobotPlayer {
                             }
                         }
                     }
-                    if (bugNavWallLocation != null && rc.onTheMap(pathfindGoalLoc)) {
+                    if (bugNavWallLocation != null && rc.onTheMap(pathfindGoalLoc) && !doingBugNav) {
                         doingBugNav = true;
                         bugnavPathfindGoal = pathfindGoalLoc;
                         bugNavVertices = genBugNavAroundPath(robotLoc, bugNavWallLocation, pathfindGoalLoc);
@@ -697,7 +716,7 @@ public class RobotPlayer {
         }
 
         // enemies nearby but allies is more
-        if (allyInfos.length >= enemyInfos.length - 3) {
+        if ((allyInfos.length >= enemyInfos.length - 1 && rc.getHealth() < 1000) || allyInfos.length >= enemyInfos.length - 2) {
             // attack 1
             if (rc.getActionCooldownTurns() < 10) {
                 MapLocation enemyWithLowestHealthLocation = null;
@@ -723,6 +742,7 @@ public class RobotPlayer {
 
             // move
             MicroAttacker.pathfindGoalLocForMicroAttacker = pathfindGoalLoc;
+            MicroAttacker.distToNearestEnemySpawn = closestEnemySpawnDistance;
             MicroAttacker microAttacker = new MicroAttacker();
             microAttacker.doMicro();
 
@@ -925,6 +945,9 @@ public class RobotPlayer {
                             wallInTheWay = true;
                             break;
                         }
+                        if ((mapped[x][y] & 0b101) == 0b001) {  // there is the dam
+                            break;
+                        }
                     }
                 } else {  // y change > x change, use y coordinates to do the stuff
                     rc.setIndicatorLine(robotLoc, pathfindGoalLoc, 255, 255, 0);
@@ -948,6 +971,9 @@ public class RobotPlayer {
                         // todo: refine the below to use only the shape is being bugnav'd around instead of the entire map
                         if ((mapped[x][y] & 0b11) == 0b01) {  // there is a wall in the way
                             wallInTheWay = true;
+                            break;
+                        }
+                        if ((mapped[x][y] & 0b101) == 0b001) {  // there is the dam
                             break;
                         }
                     }
