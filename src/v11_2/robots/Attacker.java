@@ -217,7 +217,7 @@ public class Attacker extends AbstractRobot {
                     closestFlag = flag.getLocation();
                 }
             }
-            if (closestFlag != null && curLoc.distanceSquaredTo(closestFlag) <= 49 && allyInfos.length > enemyInfos.length) {
+            if (closestFlag != null && curLoc.distanceSquaredTo(closestFlag) <= 64) {
                 Pathfinding.moveTowards(rc, curLoc, closestFlag, true);
             }
         }
@@ -409,11 +409,14 @@ public class Attacker extends AbstractRobot {
 //                    }
 
                     RobotInfo closestAlly = Utils.getClosest(rc.senseNearbyRobots(-1, rc.getTeam()), curLoc);
-                    if (closestAlly == null) return;
-                    for (Direction dir : Utils.getIdealMovementDirections(closestAlly.location, curLoc)) {
-                        if (rc.canMove(dir)) {
-                            rc.move(dir);
-                            break;
+                    if (closestAlly == null || closestAlly.location.isAdjacentTo(curLoc))
+                        return;
+                    else if (closestAlly != null) {
+                        for (Direction dir : Utils.getIdealMovementDirections(closestAlly.location, curLoc)) {
+                            if (rc.canMove(dir)) {
+                                rc.move(dir);
+                                break;
+                            }
                         }
                     }
                     return;
