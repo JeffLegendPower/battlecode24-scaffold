@@ -90,7 +90,7 @@ public class RobotPlayer {
         }
         doingBugNav = false;
 
-        // duck is protector, and died
+        // duck is protector, but died
         if (isProtector) {
             // write to shared array that there is a big emergency ! someone has killed the protector, so spawn there for the time being
             int v = rc.readSharedArray(7);
@@ -133,6 +133,19 @@ public class RobotPlayer {
                 isCarrier = false;
                 flagCarrierIndex = -1;
             }
+        }
+
+        // duck was bodyguard, but died
+        if (bodyguardingIndex != -1) {
+            bodyguardCounts[bodyguardingIndex]--;
+            if (bodyguardCounts[bodyguardingIndex] < 0) {
+                bodyguardCounts[bodyguardingIndex] = 0;
+            }
+            int v = rc.readSharedArray(8);
+            int mask = 0b1111 << (4*bodyguardingIndex);
+            int newV = (v ^ (v & mask)) | (bodyguardCounts[bodyguardingIndex]+1 << (4*bodyguardingIndex));
+            rc.writeSharedArray(8, newV);
+            bodyguardingIndex = -1;
         }
 
         // first time spawning in, write ally spawn locations, map size, duck id, center locations of each 3x3 spawn area
@@ -257,6 +270,9 @@ public class RobotPlayer {
         } else {
             onSetupTurn();
         }
+        if (id == 29) {  // todo remove
+            debugMappedLocations();
+        }
     }
 
     public static void onGameTurn() throws GameActionException {
@@ -295,6 +311,13 @@ public class RobotPlayer {
             rc.setIndicatorDot(carrierLocations[i], 0, 127, 255);
         }
 
+        // read bodyguard locations from shared
+        int bodyguardArrayVal = rc.readSharedArray(8);
+        for (int i=0; i<3; i++) {
+            bodyguardCounts[i] = bodyguardArrayVal & 0b1111;
+            bodyguardArrayVal >>= 4;
+        }
+
         // flag carrier code
         if (isCarrier) {
             Carrier.onCarrierGameTurn();
@@ -310,6 +333,28 @@ public class RobotPlayer {
         // go to the crumbs if they are there
         if (Nav.goToCrumbs()) {
             return;
+        }
+
+        // become a bodyguard if close to flag carrier
+        if (bodyguardingIndex == -1) {
+            for (int i=0; i<3; i++) {
+                MapLocation carrierLoc = carrierLocations[i];
+                if (carrierLoc == null) {
+                    continue;
+                }
+                if (bodyguardCounts[i] > 8) {
+                    continue;
+                }
+                if (robotLoc.distanceSquaredTo(carrierLoc) <= Math.pow(bodyguardCounts[i], 2)*3) {
+                    bodyguardingIndex = i;
+                    bodyguardCounts[i]++;
+                    int v = rc.readSharedArray(8);
+                    int mask = 0b1111 << (4*bodyguardingIndex);
+                    int newV = (v ^ (v & mask)) | (bodyguardCounts[i] << (4*bodyguardingIndex));
+                    rc.writeSharedArray(8, newV);
+                    break;
+                }
+            }
         }
 
         // base pathfinding to broadcast flag position or guessed flag position
@@ -350,6 +395,10 @@ public class RobotPlayer {
             for (MapLocation ml : bugNavVertices) {
                 rc.setIndicatorDot(ml, 255, 255,  0);
             }
+            if (bugNavVertexIndex == bugNavVertices.length) {
+                doingBugNav = false;
+                break bugNav;
+            }
             if (bugNavVertices[bugNavVertexIndex].distanceSquaredTo(robotLoc) < 2) {
                 if (++bugNavVertexIndex == bugNavVertices.length) {
                     doingBugNav = false;
@@ -387,6 +436,44 @@ public class RobotPlayer {
         // sense flags
         if (Carrier.senseAndPickupFlags()) {
             return;
+        }
+
+        // bodyguards
+        if (bodyguardingIndex != -1) {
+            rc.setIndicatorString("bodyguarding carrier " + (bodyguardingIndex+1));
+
+            MapLocation carrierLoc = carrierLocations[bodyguardingIndex];
+            Direction dirToClosestSpawn = carrierLoc.directionTo(closestCenterSpawnLocation);
+            MapLocation bestBodyguardLoc = carrierLoc.add(dirToClosestSpawn).add(dirToClosestSpawn).add(dirToClosestSpawn);
+
+            rc.setIndicatorDot(bestBodyguardLoc, 0, 127, 127);
+
+            MapLocation[] sortedAdjacents = sort(getAdjacents(robotLoc), (loc) -> (int) Math.sqrt(loc.distanceSquaredTo(bestBodyguardLoc)+5));
+
+            for (MapLocation adj : sortedAdjacents) {
+                Direction dir = robotLoc.directionTo(adj);
+                if (rc.canMove(dir)) {
+                    rc.move(dir);
+                } else {
+                    if ((adj.x + adj.y) % 2 == 0) {
+                        if (rc.canFill(adj)) {
+                            rc.fill(adj);
+                        }
+                    }
+                }
+            }
+
+            if (carrierLocations[bodyguardingIndex] == null || isEnemyFlagDeposited[bodyguardingIndex]) {
+                bodyguardCounts[bodyguardingIndex]--;
+                if (bodyguardCounts[bodyguardingIndex] < 0) {
+                    bodyguardCounts[bodyguardingIndex] = 0;
+                }
+                int v = rc.readSharedArray(8);
+                int mask = 0b1111 << (4*bodyguardingIndex);
+                int newV = (v ^ (v & mask)) | (bodyguardCounts[bodyguardingIndex]+1 << (4*bodyguardingIndex));
+                rc.writeSharedArray(8, newV);
+                bodyguardingIndex = -1;
+            }
         }
 
         RobotInfo[] enemyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
@@ -438,12 +525,10 @@ public class RobotPlayer {
         // fill near pathfind location
         if (pathfindGoalLoc.distanceSquaredTo(robotLoc) <= 30) {
             for (Direction d : getTrulyIdealMovementDirections(robotLoc, pathfindGoalLoc)) {
-                if (rng.nextInt(8) == 0) {
-                    if ((pathfindGoalLoc.x + pathfindGoalLoc.y) % 2 == 0) {
-                        if (rc.canFill(pathfindGoalLoc)) {
-                            rc.fill(pathfindGoalLoc);
-                            break;
-                        }
+                if ((pathfindGoalLoc.x + pathfindGoalLoc.y) % 2 == 0) {
+                    if (rc.canFill(robotLoc.add(d))) {
+                        rc.fill(robotLoc.add(d));
+                        break;
                     }
                 }
             }
@@ -504,6 +589,30 @@ public class RobotPlayer {
                         rc.heal(weakestAlly.getLocation());
                     }
                 }
+                if (rc.isMovementReady()) {  // stuck
+                    MapLocation bugNavWallLocation = null;
+                    for (Direction d : getTrulyIdealMovementDirections(robotLoc, centerOfMap)) {
+                        if (rc.canMove(d)) {
+                            rc.move(d);
+                        } else {
+                            MapLocation newLoc = robotLoc.add(d);
+                            if ((newLoc.x + newLoc.y) % 2 == 0) {
+                                if (rc.canFill(newLoc)) {
+                                    rc.fill(newLoc);
+                                    return;
+                                }
+                            }
+                            if ((mapped[newLoc.x][newLoc.y] & 0b10) == 0) {  // is wall
+                                bugNavWallLocation = newLoc;
+                            }
+                        }
+                    }
+                    if (bugNavWallLocation != null) {
+                        doingBugNav = true;
+                        bugNavVertices = genBugNavAroundPath(robotLoc, bugNavWallLocation, centerOfMap);
+                        bugNavVertexIndex = 0;
+                    }
+                }
             }
 
             // no enemies nearby-ish -> no allies nearby
@@ -524,55 +633,44 @@ public class RobotPlayer {
         }
 
         // enemies nearby but allies is more
-        if (allyInfos.length >= enemyInfos.length - 1) {
-            // attack 1
-            if (rc.getActionCooldownTurns() < 10) {
-                MapLocation enemyWithLowestHealthLocation = null;
-                int healthOfEnemyWithLowestHealth = 9999;
-                for (RobotInfo enemy : enemyInfos) {
-                    int enemyHealth = enemy.health;
-                    if (enemyWithLowestHealthLocation == null || healthOfEnemyWithLowestHealth > enemyHealth) {
-                        healthOfEnemyWithLowestHealth = enemyHealth;
-                        enemyWithLowestHealthLocation = enemy.getLocation();
-                    }
-                }
-                if (rc.canAttack(enemyWithLowestHealthLocation)) {
-                    rc.attack(enemyWithLowestHealthLocation);
-                } else {
-                    for (RobotInfo enemy : enemyInfos) {
-                        if (rc.canAttack(enemy.getLocation())) {
-                            rc.attack(enemy.getLocation());
-                            break;
+        if (allyInfos.length >= enemyInfos.length - 5) {
+            int distToClosestEnemy = robotLoc.distanceSquaredTo(closestEnemy.getLocation());
+            MapLocation closestEnemyLoc = closestEnemy.getLocation();
+
+            // 1+ steps away, so move then attack
+            if (distToClosestEnemy > 4) {
+                for (Direction d : getIdealMovementDirections(robotLoc, closestEnemyLoc)) {
+                    if (rc.canMove(d)) {
+                        rc.move(d);
+                        if (rc.canAttack(closestEnemyLoc)) {
+                            rc.attack(closestEnemyLoc);
+                            rc.setIndicatorString("moved and got in range and attacked");
+                        }
+                        rc.setIndicatorString("moving closer to enemy");
+                        return;
+                    } else {
+                        if (rc.canFill(robotLoc.add(d))) {
+                            rc.fill(robotLoc.add(d));
+                            return;
                         }
                     }
                 }
             }
 
-            // move
-            MicroAttacker microAttacker = new MicroAttacker(rc);
-            microAttacker.doMicro();
-
-            // attack 2
-            if (rc.getActionCooldownTurns() < 10) {
-                MapLocation enemyWithLowestHealthLocation = null;
-                int healthOfEnemyWithLowestHealth = 9999;
-                for (RobotInfo enemy : enemyInfos) {
-                    int enemyHealth = enemy.health;
-                    if (enemyWithLowestHealthLocation == null || healthOfEnemyWithLowestHealth > enemyHealth) {
-                        healthOfEnemyWithLowestHealth = enemyHealth;
-                        enemyWithLowestHealthLocation = enemy.getLocation();
-                    }
-                }
-                if (rc.canAttack(enemyWithLowestHealthLocation)) {
-                    rc.attack(enemyWithLowestHealthLocation);
-                } else {
-                    for (RobotInfo enemy : enemyInfos) {
-                        if (rc.canAttack(enemy.getLocation())) {
-                            rc.attack(enemy.getLocation());
+            // less than one step away, attack then move back
+            if (distToClosestEnemy <= 4) {
+                if (rc.canAttack(closestEnemyLoc)) {
+                    rc.attack(closestEnemyLoc);
+                    for (Direction d : getIdealMovementDirections(closestEnemyLoc, robotLoc)) {
+                        if (rc.canMove(d)) {
+                            rc.move(d);
                             break;
                         }
                     }
+                    rc.setIndicatorString("Enemy in range, attacked");
+                    return;
                 }
+                rc.setIndicatorString("Enemy in range, not attacked");
             }
 
             // spam traps if we still have some action cooldown remaining
@@ -906,7 +1004,7 @@ public class RobotPlayer {
                 }
             }
 
-            // cannot move but it is because ducks are in the way, so just shift around a little
+            // cannot move but it is because only ducks are in the way, so just shift around a little
             if (bugNavWallLocation == null) {
                 shuffleInPlace(directions);
                 for (Direction d : directions) {
@@ -1060,15 +1158,60 @@ public class RobotPlayer {
         }
 
         // just spawned in
-        if (previousLocationForMappingFreshLocations == null) {
-            MapInfo[] nearbyInfos = rc.senseNearbyMapInfos();
-            for (MapInfo info : nearbyInfos) {
-                MapLocation loc = info.getMapLocation();
-                if (0 <= loc.x && loc.x < mapWidth && 0 <= loc.y & loc.y < mapHeight) {
-                    mapped[loc.x][loc.y] = info.isWall() ? 0b01 : 0b11;
+        if (symmetryWasDetermined) {  // there is symmetry
+            if (possibleSymmetries[0]) {  // rotational
+                if (previousLocationForMappingFreshLocations == null) {
+                    MapInfo[] nearbyInfos = rc.senseNearbyMapInfos();
+                    for (MapInfo info : nearbyInfos) {
+                        MapLocation loc = info.getMapLocation();
+                        if (0 <= loc.x && loc.x < mapWidth && 0 <= loc.y & loc.y < mapHeight) {
+                            boolean isWall = rc.senseMapInfo(loc).isWall();
+                            boolean isDam = rc.senseMapInfo(loc).isDam();
+                            int val = isWall ? (isDam ? 0b001 : 0b101) : (isDam ? 0b011 : 0b111);
+                            mapped[loc.x][loc.y] = val;
+                            mapped[mapWidth-1-loc.x][mapHeight-1-loc.y] = val;
+                        }
+                    }
+                    return;
                 }
+            } else if (possibleSymmetries[1])  {  // up/down
+                MapInfo[] nearbyInfos = rc.senseNearbyMapInfos();
+                for (MapInfo info : nearbyInfos) {
+                    MapLocation loc = info.getMapLocation();
+                    if (0 <= loc.x && loc.x < mapWidth && 0 <= loc.y & loc.y < mapHeight) {
+                        boolean isWall = rc.senseMapInfo(loc).isWall();
+                        boolean isDam = rc.senseMapInfo(loc).isDam();
+                        int val = isWall ? (isDam ? 0b001 : 0b101) : (isDam ? 0b011 : 0b111);
+                        mapped[loc.x][loc.y] = val;
+                        mapped[loc.x][mapHeight-1-loc.y] = val;
+                    }
+                }
+                return;
+            } else {  // left/right
+                MapInfo[] nearbyInfos = rc.senseNearbyMapInfos();
+                for (MapInfo info : nearbyInfos) {
+                    MapLocation loc = info.getMapLocation();
+                    if (0 <= loc.x && loc.x < mapWidth && 0 <= loc.y & loc.y < mapHeight) {
+                        boolean isWall = rc.senseMapInfo(loc).isWall();
+                        boolean isDam = rc.senseMapInfo(loc).isDam();
+                        int val = isWall ? (isDam ? 0b001 : 0b101) : (isDam ? 0b011 : 0b111);
+                        mapped[loc.x][loc.y] = val;
+                        mapped[mapWidth-1-loc.x][loc.y] = val;
+                    }
+                }
+                return;
             }
-            return;
+        } else {
+            if (previousLocationForMappingFreshLocations == null) {
+                MapInfo[] nearbyInfos = rc.senseNearbyMapInfos();
+                for (MapInfo info : nearbyInfos) {
+                    MapLocation loc = info.getMapLocation();
+                    if (0 <= loc.x && loc.x < mapWidth && 0 <= loc.y & loc.y < mapHeight) {
+                        mapped[loc.x][loc.y] = info.isWall() ? 0b01 : 0b11;
+                    }
+                }
+                return;
+            }
         }
 
         if (previousLocationForMappingFreshLocations.equals(rc.getLocation())) {  // did not move since last turn
@@ -1076,33 +1219,73 @@ public class RobotPlayer {
         }
 
         // did move since last turn, scan new locations
-        for (MapLocation l : getFreshInVisionLocations()) {
-            if (0 <= l.x && l.x < mapWidth && 0 <= l.y && l.y < mapHeight) {
-                if (mapped[l.x][l.y] == 0) {
-                    boolean isWall = rc.senseMapInfo(l).isWall();
-                    boolean isDam = rc.senseMapInfo(l).isDam();
-                    mapped[l.x][l.y] = isWall ? (isDam ? 0b001 : 0b101) : (isDam ? 0b011 : 0b111);
-                    if (!symmetryWasDetermined) {
-                        int rotationalSymmetryValue = mapped[mapWidth - 1 - l.x][mapHeight - 1 - l.y];
-                        int upDownSymmetryValue = mapped[l.x][mapHeight - 1 - l.y];
-                        int rightLeftSymmetryValue = mapped[mapWidth - 1 - l.x][l.y];
-                        if ((rotationalSymmetryValue & 0b1) == 0b1) {  // already seen rotational symmetry value
-                            if ((rotationalSymmetryValue & 0b11) != mapped[l.x][l.y]) {  // rotational symmetry value is not a wall
-                                possibleSymmetries[0] = false;
-                                checkIfSymmetryIsDetermined();
+        if (!symmetryWasDetermined) {
+            for (MapLocation l : getFreshInVisionLocations()) {
+                if (0 <= l.x && l.x < mapWidth && 0 <= l.y && l.y < mapHeight) {
+                    if (mapped[l.x][l.y] == 0) {
+                        boolean isWall = rc.senseMapInfo(l).isWall();
+                        boolean isDam = rc.senseMapInfo(l).isDam();
+                        mapped[l.x][l.y] = isWall ? (isDam ? 0b001 : 0b101) : (isDam ? 0b011 : 0b111);
+                        if (!symmetryWasDetermined) {
+                            int rotationalSymmetryValue = mapped[mapWidth - 1 - l.x][mapHeight - 1 - l.y];
+                            int upDownSymmetryValue = mapped[l.x][mapHeight - 1 - l.y];
+                            int rightLeftSymmetryValue = mapped[mapWidth - 1 - l.x][l.y];
+                            if ((rotationalSymmetryValue & 0b1) == 0b1) {  // already seen rotational symmetry value
+                                if ((rotationalSymmetryValue & 0b11) != mapped[l.x][l.y]) {  // rotational symmetry value is not a wall
+                                    possibleSymmetries[0] = false;
+                                    checkIfSymmetryIsDetermined();
+                                }
+                            }
+                            if ((upDownSymmetryValue & 0b1) == 0b1) {
+                                if ((upDownSymmetryValue & 0b11) != mapped[l.x][l.y]) {
+                                    possibleSymmetries[1] = false;
+                                    checkIfSymmetryIsDetermined();
+                                }
+                            }
+                            if ((rightLeftSymmetryValue & 0b1) == 0b1) {
+                                if ((rightLeftSymmetryValue & 0b11) != mapped[l.x][l.y]) {
+                                    possibleSymmetries[2] = false;
+                                    checkIfSymmetryIsDetermined();
+                                }
                             }
                         }
-                        if ((upDownSymmetryValue & 0b1) == 0b1) {
-                            if ((upDownSymmetryValue & 0b11) != mapped[l.x][l.y]) {
-                                possibleSymmetries[1] = false;
-                                checkIfSymmetryIsDetermined();
-                            }
+                    }
+                }
+            }
+        } else {  // symmetry determined
+            if (possibleSymmetries[0]) {  // rotational
+                for (MapLocation l : getFreshInVisionLocations()) {
+                    if (0 <= l.x && l.x < mapWidth && 0 <= l.y && l.y < mapHeight) {
+                        if (mapped[l.x][l.y] == 0) {
+                            boolean isWall = rc.senseMapInfo(l).isWall();
+                            boolean isDam = rc.senseMapInfo(l).isDam();
+                            int val = isWall ? (isDam ? 0b001 : 0b101) : (isDam ? 0b011 : 0b111);
+                            mapped[l.x][l.y] = val;
+                            mapped[mapWidth-1-l.x][mapHeight-1-l.y] = val;
                         }
-                        if ((rightLeftSymmetryValue & 0b1) == 0b1) {
-                            if ((rightLeftSymmetryValue & 0b11) != mapped[l.x][l.y]) {
-                                possibleSymmetries[2] = false;
-                                checkIfSymmetryIsDetermined();
-                            }
+                    }
+                }
+            } else if (possibleSymmetries[1]) {  // up/down
+                for (MapLocation l : getFreshInVisionLocations()) {
+                    if (0 <= l.x && l.x < mapWidth && 0 <= l.y && l.y < mapHeight) {
+                        if (mapped[l.x][l.y] == 0) {
+                            boolean isWall = rc.senseMapInfo(l).isWall();
+                            boolean isDam = rc.senseMapInfo(l).isDam();
+                            int val = isWall ? (isDam ? 0b001 : 0b101) : (isDam ? 0b011 : 0b111);
+                            mapped[l.x][l.y] = val;
+                            mapped[l.x][mapHeight-1-l.y] = val;
+                        }
+                    }
+                }
+            } else {  // left/right
+                for (MapLocation l : getFreshInVisionLocations()) {
+                    if (0 <= l.x && l.x < mapWidth && 0 <= l.y && l.y < mapHeight) {
+                        if (mapped[l.x][l.y] == 0) {
+                            boolean isWall = rc.senseMapInfo(l).isWall();
+                            boolean isDam = rc.senseMapInfo(l).isDam();
+                            int val = isWall ? (isDam ? 0b001 : 0b101) : (isDam ? 0b011 : 0b111);
+                            mapped[l.x][l.y] = val;
+                            mapped[mapWidth-1-l.x][l.y] = val;
                         }
                     }
                 }

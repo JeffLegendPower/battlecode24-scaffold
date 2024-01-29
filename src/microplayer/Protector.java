@@ -107,20 +107,6 @@ public class Protector {
             }
         }
 
-        // place bomb traps in the orthogonals if rich enough
-        if (rc.getCrumbs() > 2400) {
-            MapLocation[] orthogonalsToRobotLoc = new MapLocation[]{
-                    robotLoc.add(Direction.WEST), robotLoc.add(Direction.SOUTH),
-                    robotLoc.add(Direction.NORTH), robotLoc.add(Direction.EAST)
-            };
-            for (MapLocation orthog : orthogonalsToRobotLoc) {
-                if (rc.canBuild(TrapType.EXPLOSIVE, orthog)) {
-                    rc.build(TrapType.EXPLOSIVE, orthog);
-                    return;
-                }
-            }
-        }
-
     }
 
     public static void onProtectorSetupTurn() throws GameActionException {

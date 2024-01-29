@@ -3,18 +3,18 @@ package microplayer;
 import battlecode.common.*;
 
 import static microplayer.General.*;
-import static microplayer.Utility.*;
 
 public class MicroAttacker {
+
+    public static MapLocation pathfindGoalLocForMicroAttacker;
 
     static int MAX_MICRO_BYTECODE_REMAINING = 2000;
 
     final int INF = 1000000;
     boolean shouldPlaySafe = false;
     boolean alwaysInRange = false;
-    boolean hurt = false;
-    static int myRange;
-    static int myVisionRange;
+    static int myRange = 2;
+    static int myVisionRange = 20;
     static double myDPS;
     boolean severelyHurt = false;
     boolean enemiesTriggeredTrap = false;
@@ -22,12 +22,8 @@ public class MicroAttacker {
 
 //  double[] DPS = new double[]{150, 158, 161, 165, 195, 240, 0};
     double[] DPS = new double[]{150, 162, 169, 178, 220, 260, 365};  // modified slightly to account for cooldown
-    RobotController rc;
 
-    public MicroAttacker(RobotController rc) {
-        myRange = 2;
-        myVisionRange = 20;
-        this.rc = rc;
+    public MicroAttacker() {
         myDPS = rc.getAttackDamage();
     }
 
@@ -36,11 +32,11 @@ public class MicroAttacker {
     static double currentActionRadius;
     static boolean canAttack;
 
-    public boolean doMicro() throws GameActionException {
-        if (!rc.isMovementReady()) return false;
+    public void doMicro() throws GameActionException {
+        if (!rc.isMovementReady()) return;
         severelyHurt = rc.getHealth() < 500-(60*rc.getLevel(SkillType.HEAL));
         RobotInfo[] enemies = rc.senseNearbyRobots(myVisionRange, rc.getTeam().opponent());
-        if (enemies.length == 0) return false;
+        if (enemies.length == 0) return;
         canAttack = rc.isActionReady();
 
         timeSinceLastTrigger++;
@@ -48,11 +44,13 @@ public class MicroAttacker {
             enemiesTriggeredTrap = false;
         }
         alwaysInRange = !rc.isActionReady();
-        if (severelyHurt) alwaysInRange = true;
+        if (severelyHurt) {
+            alwaysInRange = true;
+        }
 
         MicroInfo[] microInfo = new MicroInfo[8];
         if (!rc.isSpawned()) {
-            return false;
+            return;
         }
         microInfo[0] = new MicroInfo(Direction.NORTH);
         microInfo[1] = new MicroInfo(Direction.NORTHEAST);
@@ -102,20 +100,24 @@ public class MicroAttacker {
         }
 
         MicroInfo bestMicro = microInfo[0];
+        MicroInfo secondBestMicro = null;
         for (int i = 1; i < 8; ++i) {
-            if (microInfo[i].isBetter(bestMicro)) bestMicro = microInfo[i];
+            if (microInfo[i].isBetterThan(bestMicro)) {
+                secondBestMicro = bestMicro;
+                bestMicro = microInfo[i];
+            }
         }
 
         if (bestMicro.dir == Direction.CENTER) {
-            return true;
+            return;
         }
         if (rc.canFill(bestMicro.location)) {
             rc.fill(bestMicro.location);
         } else if (rc.canMove(bestMicro.dir)) {
             rc.move(bestMicro.dir);
-            return true;
+        } else if (secondBestMicro != null && rc.canMove(secondBestMicro.dir)) {
+            rc.move(secondBestMicro.dir);
         }
-        return false;
     }
 
     class MicroInfo {
@@ -179,7 +181,7 @@ public class MicroAttacker {
         }
 
         // equal => true
-        boolean isBetter(MicroInfo other) {
+        boolean isBetterThan(MicroInfo other) {
             if (distToEnemyFlagHolder < other.distToEnemyFlagHolder) return true;
 
             if (safe() > other.safe()) return true;
@@ -188,8 +190,8 @@ public class MicroAttacker {
             if (inRange() && !other.inRange()) return true;
             if (!inRange() && other.inRange()) return false;
 
-            if (alliesTargeting > other.alliesTargeting + 4) return true; // TODO test if this actually gains 1 by 1
-            if (alliesTargeting < other.alliesTargeting - 4) return false; // TODO test if this actually gains 1 by 1
+            if (alliesTargeting > other.alliesTargeting + 2) return true; // TODO test if this actually gains 1 by 1
+            if (alliesTargeting < other.alliesTargeting - 2) return false; // TODO test if this actually gains 1 by 1
             if (severelyHurt) {
                 if (alliesTargeting > other.alliesTargeting) return true;
                 if (alliesTargeting < other.alliesTargeting) return false;

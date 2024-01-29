@@ -47,9 +47,6 @@ public class General {
     public static boolean[] enemyFlagIsTaken = new boolean[3];
     public static Direction continueInThisDirection = null;
 
-    public static MapLocation protectDroppedAllyFlagLocation = null;
-    public static int lastRoundNumAllyFlagDropped = 0;
-
     public static boolean isCarrier = false;
     public static MapLocation carrierDestination = null;
     public static int lastTimeSinceFlagCarrierMoved = 0;
@@ -60,6 +57,9 @@ public class General {
     public static boolean[] hasCarrierDroppedFlag = new boolean[3];
     public static boolean[] isEnemyFlagDeposited = new boolean[3];
     public static int flagTransferCooldown = 0;
+
+    public static int[] bodyguardCounts = new int[]{0, 0, 0};
+    public static int bodyguardingIndex = -1;
 
     public static boolean isProtector = false;
     public static MapLocation myProtectedFlagLocation = null;
@@ -91,7 +91,7 @@ public class General {
     5 | carried flag location 2 | 0=carried 1=dropped 2,3=deposited
     6 | carried flag location 3 | 0=carried 1=dropped 2,3=deposited
     7 | 1 bit empty, 5 bits protector index 3, 5 bits protector index 2, 5 bits protector index 1
-    8 | 1 bit rotational symmetry, 1 bit up/down symmetry, 1 bit left/right symmetry, 13 bits spare
+    8 | 1 bit rotational symmetry, 1 bit up/down symmetry, 1 bit left/right symmetry, 1 bit spare, 4 bits per bodyguard count for carried flag locations
     */
 
 }

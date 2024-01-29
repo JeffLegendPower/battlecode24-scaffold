@@ -58,6 +58,7 @@ public class Carrier {
                         if (flagInfo.getLocation().equals(enemyFlagLocations[i])) {
                             flagCarrierIndex = i;
                             System.out.println("flag " + (i+1) + " picked up at " + flagInfo.getLocation());
+                            bodyguardingIndex = -1;
                             writeLocationToShared(4+i, robotLoc, 0, 0);
                             writeLocationToShared(1+i, enemyFlagLocations[i], 1, 0);
                             return true;
@@ -68,6 +69,7 @@ public class Carrier {
                         if (carrierLocations[i].equals(flagInfo.getLocation())) {  // picked up dead carrier's flag
                             flagCarrierIndex = i;
                             System.out.println("flag " + (i+1) + " reacquired at " + flagInfo.getLocation());
+                            bodyguardingIndex = -1;
                             writeLocationToShared(4+i, robotLoc, 0, 0);
                             writeLocationToShared(1+i, enemyFlagLocations[i], 1, 0);
                             return true;
@@ -106,7 +108,7 @@ public class Carrier {
                 for (MapLocation enemyLocation : enemyLocations) {
                     avgEnemyDistance += enemyLocation.distanceSquaredTo(loc);
                 }
-                return loc.distanceSquaredTo(carrierDestination) - avgEnemyDistance / enemyLocations.length - loc.distanceSquaredTo(closestEnemySpawnLoc);
+                return loc.distanceSquaredTo(carrierDestination) - 2 * avgEnemyDistance / enemyLocations.length - loc.distanceSquaredTo(closestEnemySpawnLoc);
             });
         }
 
@@ -139,6 +141,16 @@ public class Carrier {
             }
         }
 
+        MapLocation closestEnemy = null;
+        int myDistanceToClosestEnemy = 999;
+        for (MapLocation enemyLoc : enemyLocations) {
+            int dist = enemyLoc.distanceSquaredTo(robotLoc);
+            if (closestEnemy == null || myDistanceToClosestEnemy > dist) {
+                myDistanceToClosestEnemy = dist;
+                closestEnemy = enemyLoc;
+            }
+        }
+
         // pass the flag if an ally is in the 2nd ring
         // todo dont pass if stuck near wall just do bugnav
         if (rc.getActionCooldownTurns() < 10 && newRobotLoc != null) {
@@ -168,6 +180,18 @@ public class Carrier {
                     if (other.health <= rc.getHealth()+75 && other.health < 700) {  // other guy's health is lower
                         continue;
                     }
+                    MapLocation otherClosestEnemyLocation = null;
+                    int otherClosestEnemyLocationDistance = 999;
+                    for (MapLocation enemyLoc : enemyLocations) {
+                        int dist = enemyLoc.distanceSquaredTo(other.location);
+                        if (otherClosestEnemyLocation == null || otherClosestEnemyLocationDistance > dist) {
+                            otherClosestEnemyLocationDistance = dist;
+                            otherClosestEnemyLocation = enemyLoc;
+                        }
+                    }
+                    if (otherClosestEnemyLocationDistance < myDistanceToClosestEnemy-2) {  // cannot pass to duck that is closer to enemies
+                        continue;
+                    }
                     MapLocation locToDrop = newRobotLoc.add(newRobotLoc.directionTo(other.location));
                     if (!rc.canDropFlag(locToDrop)) {
                         break;
@@ -187,6 +211,7 @@ public class Carrier {
                     hasCarrierDroppedFlag[flagCarrierIndex] = true;
                     lastDroppedFlagValue = -1;
                     flagCarrierIndex = -1;
+                    return;
                 }
             }
         }
