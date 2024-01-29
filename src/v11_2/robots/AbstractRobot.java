@@ -4,9 +4,9 @@ import battlecode.common.FlagInfo;
 import battlecode.common.GameActionException;
 import battlecode.common.MapLocation;
 import battlecode.common.RobotController;
-import v11_1.Constants;
-import v11_1.RobotPlayer;
-import v11_1.Utils;
+import v11_2.Constants;
+import v11_2.RobotPlayer;
+import v11_2.Utils;
 
 public abstract class AbstractRobot {
 

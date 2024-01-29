@@ -19,5 +19,6 @@ public class Constants {
         // 2: Symmetric by up/down reflection
         // 3: Symmetric by left/right reflection
         public static final int mapSymmetry = 20;
+        public static final int attackerNumber = 21;
     }
 }

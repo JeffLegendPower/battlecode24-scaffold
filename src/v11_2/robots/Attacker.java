@@ -13,7 +13,6 @@ public class Attacker extends AbstractRobot {
 
     private MapLocation lastTarget = null;
     private MapLocation flagTarget;
-
     private MicroAttacker microAttacker;
 
     @Override

@@ -55,8 +55,16 @@ public class MicroAttacker {
             if (!rc.isMovementReady()) return false;
 
             // TODO: TUNE THIS!!!!!
-            distToTarget = distToTarget2;
-            shouldPlaySafe = distToTarget > 80 && rc.getRoundNum() > 250 && rc.getRoundNum() % 4 < 2;
+
+//            shouldPlaySafe = distToTarget > 80 && rc.getRoundNum() > 250 && rc.getRoundNum() % 4 < 2;
+
+            int DPSDist = 4;
+            if (distToTarget2 < 80) {
+                DPSDist = 2;
+            }
+            if (distToSpawn < 50) {
+                DPSDist = 2;
+            }
 
             severelyHurt = rc.getHealth() < 300;
             RobotInfo[] enemies = rc.senseNearbyRobots(myVisionRange, rc.getTeam().opponent());
@@ -97,15 +105,15 @@ public class MicroAttacker {
                 if (currentDPS <= 0) continue;
                 totalEnemyDPS += currentDPS;
                 currentActionRadius = 2;
-                microInfo[0].updateEnemy(unit);
-                microInfo[1].updateEnemy(unit);
-                microInfo[2].updateEnemy(unit);
-                microInfo[3].updateEnemy(unit);
-                microInfo[4].updateEnemy(unit);
-                microInfo[5].updateEnemy(unit);
-                microInfo[6].updateEnemy(unit);
-                microInfo[7].updateEnemy(unit);
-                microInfo[8].updateEnemy(unit);
+                microInfo[0].updateEnemy(unit, DPSDist);
+                microInfo[1].updateEnemy(unit, DPSDist);
+                microInfo[2].updateEnemy(unit, DPSDist);
+                microInfo[3].updateEnemy(unit, DPSDist);
+                microInfo[4].updateEnemy(unit, DPSDist);
+                microInfo[5].updateEnemy(unit, DPSDist);
+                microInfo[6].updateEnemy(unit, DPSDist);
+                microInfo[7].updateEnemy(unit, DPSDist);
+                microInfo[8].updateEnemy(unit, DPSDist);
             }
 
             if (enemies.length == 0)
@@ -201,7 +209,7 @@ public class MicroAttacker {
 
         }
 
-        void updateEnemy(RobotInfo unit) {
+        void updateEnemy(RobotInfo unit, int DPSDist) {
             if (!canMove) return;
             int dist = unit.getLocation().distanceSquaredTo(location);
             if (unit.hasFlag)
@@ -210,13 +218,13 @@ public class MicroAttacker {
                 minDistanceToEnemy = dist;
             }
 
-            if (dist <= currentActionRadius) DPSreceived += DPS[unit.attackLevel];
+            if (dist <= DPSDist) DPSreceived += DPS[unit.attackLevel];
             if (dist <= currentRangeExtended) enemiesTargeting += DPS[unit.attackLevel];
         }
 
         void updateAlly(RobotInfo unit) {
             if (!canMove) return;
-            alliesTargeting += DPS[unit.attackLevel];
+            alliesTargeting += DPS[unit.attackLevel] * 2;
             int dist = unit.getLocation().distanceSquaredTo(location);
             if (dist < minDistanceToAlly) {
                 minDistanceToAlly = dist;
@@ -227,14 +235,14 @@ public class MicroAttacker {
         }
 
         void updateDPSMultiplier(float multiplier) {
-            DPSreceived *= multiplier;
+//            DPSreceived *= multiplier;
             alliesTargeting *= 2;
         }
 
         int safe() {
-            if (minDistanceToEnemy <= 2 && shouldPlaySafe) return -2;
+//            if (minDistanceToEnemy <= 2 && shouldPlaySafe) return -2;
             if (!canMove) return -1;
-            if (!canAttack) return -1;
+//            if (!canAttack) return -1;
             if (DPSreceived > 0 && severelyHurt) return 0; // TODO test if adding severelyHurt actually gains 1 by 1
             if (enemiesTargeting < alliesTargeting) return 2; // TODO test if adding shouldPlaySafe actually gains 1 by 1
             return 3;
@@ -256,8 +264,8 @@ public class MicroAttacker {
             if (safe() < M.safe()) return false;
 
             // TODO: do these gain?
-            if (!canAttack && inRange() && !M.inRange() && distToTarget > 80) return false;
-            if (!canAttack && !inRange() && M.inRange() && distToTarget > 80) return true;
+//            if (!canAttack && inRange() && !M.inRange() && distToTarget > 80) return false;
+//            if (!canAttack && !inRange() && M.inRange() && distToTarget > 80) return true;
 
             if (inRange() && !M.inRange()) return true;
             if (!inRange() && M.inRange()) return false;
