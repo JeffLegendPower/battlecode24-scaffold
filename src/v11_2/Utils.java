@@ -40,7 +40,7 @@ public class Utils {
             if (loc == null)
                 continue;
             dist = curLoc.distanceSquaredTo(loc);
-            if (dist < closestDist) {
+            if (closest == null || dist < closestDist) {
                 closest = loc;
                 closestDist = dist;
             }
@@ -56,7 +56,7 @@ public class Utils {
             if (loc == null)
                 continue;
             dist = curLoc.distanceSquaredTo(loc);
-            if (dist < closestDist) {
+            if (closest == null || dist < closestDist) {
                 closest = loc;
                 closestDist = dist;
             }
@@ -70,7 +70,7 @@ public class Utils {
         int dist;
         for (MapInfo map : maps) {
             dist = curLoc.distanceSquaredTo(map.getMapLocation());
-            if (dist < closestDist) {
+            if (closest == null || dist < closestDist) {
                 closest = map;
                 closestDist = dist;
             }

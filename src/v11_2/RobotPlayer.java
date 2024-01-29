@@ -1,10 +1,7 @@
 package v11_2;
 
 import battlecode.common.*;
-import v11_2.robots.AbstractRobot;
-import v11_2.robots.Attacker;
-import v11_2.robots.Defender;
-import v11_2.robots.FlagCarrier;
+import v11_2.robots.*;
 
 import java.util.Random;
 
@@ -15,6 +12,8 @@ public strictfp class RobotPlayer {
     public static MapInfo[][] lastMap;
     private static AbstractRobot robot = null;
     private static FlagCarrier flagRobot = null;
+    private static boolean isDefender = false;
+    private static boolean isVegetable = false;
 
     public static final Direction[] directions = {
             Direction.NORTH,
@@ -64,8 +63,10 @@ public strictfp class RobotPlayer {
         if (robot == null) {
             Defender defender = new Defender();
             Attacker attacker = new Attacker();
-            if (defender.setup(rc))
+            if (defender.setup(rc)) {
                 robot = defender;
+                isDefender = true;
+            }
             else if (attacker.setup(rc))
                 robot = attacker;
         }
@@ -88,8 +89,21 @@ public strictfp class RobotPlayer {
 //
 //                }
 //            }
+            int numVegetables = rc.readSharedArray(Constants.SharedArray.numVegetables);
+            if (!rc.isSpawned() && !isDefender && numVegetables < 5) {
+                robot = new Vegetable();
+                isVegetable = true;
+                rc.writeSharedArray(Constants.SharedArray.numVegetables, numVegetables + 1);
+            }
 
             if (rc.isSpawned()) {
+                if (isVegetable && robot.completedTask()) {
+                    isVegetable = false;
+                    Attacker attacker = new Attacker();
+                    if (attacker.setup(rc))
+                        robot = attacker;
+                    rc.writeSharedArray(Constants.SharedArray.numVegetables, numVegetables - 1);
+                }
                 if (Utils.getLocationInSharedArray(rc, Constants.SharedArray.coordinatedAttacks[0]) == null) {
                     for(int attack : Constants.SharedArray.coordinatedAttacks) {
                         Utils.storeLocationInSharedArray(rc, attack, null);
@@ -145,6 +159,9 @@ public strictfp class RobotPlayer {
                     flagRobot = null;
                 } else
                     robot.tickJailed(rc);
+                if (isVegetable && robot.completedTask()) {
+                    isVegetable = false;
+                }
             }
 
             Clock.yield();
