@@ -50,7 +50,7 @@ public class MicroAttacker {
         myDPS = rc.getAttackDamage();
     }
 
-    public boolean doMicro(boolean suicide, int distToTarget2, int distToSpawn) {
+    public boolean doMicro(int distToTarget, int distToSpawn) {
         try {
             if (!rc.isMovementReady()) return false;
 
@@ -59,7 +59,7 @@ public class MicroAttacker {
 //            shouldPlaySafe = distToTarget > 80 && rc.getRoundNum() > 250 && rc.getRoundNum() % 4 < 2;
 
             int DPSDist = 4;
-            if (distToTarget2 < 80) {
+            if (distToTarget < 80) {
                 DPSDist = 2;
             }
             if (distToSpawn < 50) {
@@ -145,20 +145,6 @@ public class MicroAttacker {
             else
                 totalAllyHealth /= allies.length;
 
-            float currentDPSMultiplier;
-            currentDPSMultiplier = (float) (lastTotalHealth - totalAllyHealth) / lastCurrentDPS;
-            if (currentDPSMultiplier < 0)
-                currentDPSMultiplier = 1;
-            microInfo[0].updateDPSMultiplier(currentDPSMultiplier);
-            microInfo[1].updateDPSMultiplier(currentDPSMultiplier);
-            microInfo[2].updateDPSMultiplier(currentDPSMultiplier);
-            microInfo[3].updateDPSMultiplier(currentDPSMultiplier);
-            microInfo[4].updateDPSMultiplier(currentDPSMultiplier);
-            microInfo[5].updateDPSMultiplier(currentDPSMultiplier);
-            microInfo[6].updateDPSMultiplier(currentDPSMultiplier);
-            microInfo[7].updateDPSMultiplier(currentDPSMultiplier);
-            microInfo[8].updateDPSMultiplier(currentDPSMultiplier);
-
             lastTotalHealth = totalAllyHealth;
             lastCurrentDPS = totalEnemyDPS;
 
@@ -224,7 +210,7 @@ public class MicroAttacker {
 
         void updateAlly(RobotInfo unit) {
             if (!canMove) return;
-            alliesTargeting += DPS[unit.attackLevel] * 2;
+            alliesTargeting += DPS[unit.attackLevel] * 4;
             int dist = unit.getLocation().distanceSquaredTo(location);
             if (dist < minDistanceToAlly) {
                 minDistanceToAlly = dist;
@@ -234,10 +220,6 @@ public class MicroAttacker {
                 DPSreceived -= DPS[unit.healLevel];
         }
 
-        void updateDPSMultiplier(float multiplier) {
-//            DPSreceived *= multiplier;
-            alliesTargeting *= 2;
-        }
 
         int safe() {
 //            if (minDistanceToEnemy <= 2 && shouldPlaySafe) return -2;
@@ -260,18 +242,18 @@ public class MicroAttacker {
             if (M.distToEnemyFlagHolder < distToEnemyFlagHolder) return false;
 //            System.out.println("a");
 
+////            //TODO: do these gain?
+//            if (canAttack && inRange() && !M.inRange()) return false;
+//            if (canAttack && !inRange() && M.inRange()) return true;
+
+
             if (safe() > M.safe()) return true;
             if (safe() < M.safe()) return false;
-
-            // TODO: do these gain?
-//            if (!canAttack && inRange() && !M.inRange() && distToTarget > 80) return false;
-//            if (!canAttack && !inRange() && M.inRange() && distToTarget > 80) return true;
 
             if (inRange() && !M.inRange()) return true;
             if (!inRange() && M.inRange()) return false;
 
-            if (alliesTargeting > M.alliesTargeting + 6) return true; // TODO test if this actually gains 1 by 1
-            if (alliesTargeting < M.alliesTargeting - 6) return false; // TODO test if this actually gains 1 by 1
+
             if (severelyHurt) {
                 if (alliesTargeting > M.alliesTargeting) return true;
                 if (alliesTargeting < M.alliesTargeting) return false;

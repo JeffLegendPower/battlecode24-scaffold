@@ -5,7 +5,7 @@ import v11_2.Constants;
 import v11_2.MicroAttacker;
 import v11_2.RobotPlayer;
 import v11_2.Pathfinding;
-import v8.Utils;
+import v11_2.Utils;
 
 public class Vegetable extends AbstractRobot {
 
@@ -13,9 +13,11 @@ public class Vegetable extends AbstractRobot {
     private MapLocation currentTarget = null;
     private boolean isCompleted = false;
     private MicroAttacker microAttacker = null;
+    private int numTurnsAlive = 0;
 
     @Override
     public boolean setup(RobotController rc) throws GameActionException {
+        numTurnsAlive = 0;
         return true;
     }
 
@@ -25,11 +27,11 @@ public class Vegetable extends AbstractRobot {
             microAttacker = new MicroAttacker(rc);
 
         RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-        if (enemies.length > 2) {
+        if (enemies.length > 2 && numTurnsAlive < 7) {
             if (!curLoc.isWithinDistanceSquared(currentTarget, 10))
                 Pathfinding.moveTowards(rc, curLoc, currentTarget, false);
             else
-                microAttacker.doMicro(false, curLoc.distanceSquaredTo(currentTarget), curLoc.distanceSquaredTo(currentTarget));
+                microAttacker.doMicro(curLoc.distanceSquaredTo(currentTarget), curLoc.distanceSquaredTo(currentTarget));
             MapLocation closestEnemy = Utils.getClosest(enemies, currentTarget).location;
             if (rc.canAttack(closestEnemy))
                 rc.attack(closestEnemy);
@@ -42,6 +44,7 @@ public class Vegetable extends AbstractRobot {
         else {
             isCompleted = true;
         }
+        numTurnsAlive++;
     }
 
     @Override

@@ -92,6 +92,7 @@ public strictfp class RobotPlayer {
             int numVegetables = rc.readSharedArray(Constants.SharedArray.numVegetables);
             if (!rc.isSpawned() && !isDefender && numVegetables < 5 && false) {
                 robot = new Vegetable();
+                robot.setup(rc);
                 isVegetable = true;
                 rc.writeSharedArray(Constants.SharedArray.numVegetables, numVegetables + 1);
             }

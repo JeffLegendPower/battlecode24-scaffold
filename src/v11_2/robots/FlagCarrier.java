@@ -48,7 +48,6 @@ public class FlagCarrier extends AbstractRobot {
         if (largestWeight == 0)
             largestWeight += 1;
 
-        System.out.println(centerLocationWeights[0] + " " + centerLocationWeights[1] + " " + centerLocationWeights[2]);
 
 
         int finalLargestWeight = largestWeight;

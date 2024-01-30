@@ -105,6 +105,12 @@ public class Attacker extends AbstractRobot {
     @Override
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
         // First do some quick flag detection stuff
+        if (rc.isActionReady()) {
+            rc.setIndicatorDot(curLoc, 0, 255, 0);
+        } else {
+            rc.setIndicatorDot(curLoc, 255, 0,0);
+        }
+
 
         FlagInfo[] nearbyFlags = Utils.sort(rc.senseNearbyFlags(-1, rc.getTeam().opponent()),
                 (flag) -> flag.getLocation().distanceSquaredTo(curLoc));
@@ -159,23 +165,6 @@ public class Attacker extends AbstractRobot {
             }
         }
 
-        boolean suicide = false;
-        int v = rc.readSharedArray(Constants.SharedArray.defenderAlert);
-        int[] centerLocationWeights = new int[3];
-        int total = 0;
-        for (int i=0; i<3; i++) {
-            centerLocationWeights[i] = v & 0b11111;
-            total += v & 0b11111;
-            v >>= 5;
-        }
-
-        for (int i = 0; i < 3; i++) {
-            if (centerLocationWeights[i] < total * .65) continue; // TODO: Test if this actually is doing something
-            rc.setIndicatorDot(RobotPlayer.allyFlagSpawnLocs[i], 0, 255, 0);
-            suicide = true;
-            break;
-        }
-
 
         lastTarget = target;
 
@@ -194,7 +183,29 @@ public class Attacker extends AbstractRobot {
         RobotInfo[] allyInfos = rc.senseNearbyRobots(-1, rc.getTeam());
         RobotInfo[] enemyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
         Utils.sort(enemyInfos, (enemy) -> enemy.getLocation().distanceSquaredTo(curLoc));
-        Utils.sort(allyInfos, (ally) -> (ally.getLocation().distanceSquaredTo(curLoc) - rc.getHealth() / 100 - (rc.hasFlag() ? 10000 : 0)));
+        Utils.sort(allyInfos, (ally) -> (- ally.getLocation().distanceSquaredTo(curLoc) -  rc.getHealth() / 100 + (rc.hasFlag() ? 10000 : 0)));
+
+        if (allyInfos.length > 0 && allyInfos[0].hasFlag()) {
+            int v = rc.readSharedArray(Constants.SharedArray.defenderAlert);
+            int[] centerLocationWeights = new int[3];
+            int total = 0;
+            for (int i=0; i<3; i++) {
+                centerLocationWeights[i] = v & 0b11111;
+                total += v & 0b11111;
+                v >>= 5;
+            }
+
+            System.out.println("I See a flag carrier! " + allyInfos[0].getLocation());
+
+
+            int[] finalCenterLocationWeights = centerLocationWeights;
+            Integer[] centerSpawnLocationWeightsIndicies = Utils.sort(new Integer[] {0, 1, 2}, (i) -> finalCenterLocationWeights[i]);
+
+            MapLocation bestSpawn = RobotPlayer.allyFlagSpawnLocs[centerSpawnLocationWeightsIndicies[0]];
+
+            rc.setIndicatorLine(curLoc, allyInfos[0].getLocation(), 255,0,0);
+            Pathfinding.moveTowards(rc, curLoc, bestSpawn, true);
+        }
 
         MapLocation[] spawnLocs = rc.getAllySpawnLocations();
         int distToClosestSpawn = Utils.getClosest(spawnLocs, curLoc).distanceSquaredTo(curLoc);
@@ -243,42 +254,8 @@ public class Attacker extends AbstractRobot {
             // no enemies nearby-ish -> there are allies nearby
             if (allyInfos.length > 0) {
                 RobotInfo weakestAlly = allyInfos[0];
-                if (weakestAlly.hasFlag()) {
-                    v = rc.readSharedArray(Constants.SharedArray.defenderAlert);
-                    centerLocationWeights = new int[3];
-                    total = 0;
-                    for (int i=0; i<3; i++) {
-                        centerLocationWeights[i] = v & 0b11111;
-                        total += v & 0b11111;
-                        v >>= 5;
-                    }
-
-
-                    int[] finalCenterLocationWeights = centerLocationWeights;
-                    Integer[] centerSpawnLocationWeightsIndicies = Utils.sort(new Integer[] {0, 1, 2}, (i) -> finalCenterLocationWeights[i]);
-
-                    MapLocation bestSpawn = RobotPlayer.allyFlagSpawnLocs[centerSpawnLocationWeightsIndicies[0]];
-
-                    rc.setIndicatorLine(curLoc, allyInfos[0].getLocation(), 255,0,0);
-                    Pathfinding.moveTowards(rc, curLoc, bestSpawn, true);
-                }
-                else if (weakestAlly.getHealth() <= 1000 - rc.getHealAmount()) {
-                    for (Direction d : Utils.sort(
-                            Utils.getIdealMovementDirections(curLoc, target),
-                            (d) -> curLoc.add(d).distanceSquaredTo(weakestAlly.getLocation()))
-                    ) {
-                        if (rc.canMove(d)) {
-                            rc.move(d);
-                            if (rc.canHeal(weakestAlly.getLocation())) {
-                                rc.heal(weakestAlly.getLocation());
-                            }
-                            return;
-                        } else {
-                            if (rc.canFill(curLoc.add(d))) {
-                                rc.fill(curLoc.add(d));
-                            }
-                        }
-                    }
+//                System.out.println(weakestAlly.getHealth());
+                if (weakestAlly.getHealth() <= 1000 - rc.getHealAmount()) {
                     if (rc.canHeal(weakestAlly.getLocation())) {
                         rc.heal(weakestAlly.getLocation());
                     }
@@ -294,19 +271,19 @@ public class Attacker extends AbstractRobot {
         // enemies nearby
         RobotInfo weakestEnemy = Utils.lowestHealth(enemyInfos);
         RobotInfo closestEnemy = enemyInfos[0];
-        MapLocation bestEnemyLoc = weakestEnemy.getLocation();
+        MapLocation bestEnemyLoc = closestEnemy.getLocation();
+
 
 
         if (allyInfos.length >= enemyInfos.length - 6) {  // more allies than enemies, attack
             int distToClosestEnemy = curLoc.distanceSquaredTo(weakestEnemy.getLocation());
 
             if (rc.canAttack(bestEnemyLoc)) {
-                rc.setIndicatorDot(bestEnemyLoc, 9, 9, 255);
                 rc.attack(bestEnemyLoc);
             }
 
             int b4 = Clock.getBytecodeNum();
-            microAttacker.doMicro(suicide, curLoc.distanceSquaredTo(target), curLoc.distanceSquaredTo(Utils.getClosest(rc.getAllySpawnLocations(), curLoc)));
+            microAttacker.doMicro(curLoc.distanceSquaredTo(target), curLoc.distanceSquaredTo(Utils.getClosest(rc.getAllySpawnLocations(), curLoc)));
             int af = Clock.getBytecodeNum();
 
             MapLocation newClosestEnemyLoc = Utils.getClosest(enemyInfos, rc.getLocation()).location;
@@ -316,7 +293,6 @@ public class Attacker extends AbstractRobot {
 
 
             if (rc.canAttack(newClosestEnemyLoc)) {
-                rc.setIndicatorDot(newClosestEnemyLoc, 9, 9, 255);
                 rc.attack(newClosestEnemyLoc);
             }
 
