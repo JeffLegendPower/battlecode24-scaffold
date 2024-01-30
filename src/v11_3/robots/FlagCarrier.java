@@ -1,9 +1,6 @@
 package v11_3.robots;
 
-import battlecode.common.FlagInfo;
-import battlecode.common.GameActionException;
-import battlecode.common.MapLocation;
-import battlecode.common.RobotController;
+import battlecode.common.*;
 import v11_3.Constants;
 import v11_3.Pathfinding;
 import v11_3.Utils;
@@ -51,11 +48,17 @@ public class FlagCarrier extends AbstractRobot {
 
         int finalLargestWeight = largestWeight;
         int finalLargestLocDist = largestLocDist;
-        Integer[] centerSpawnLocationWeightsIndicies = Utils.sort(new Integer[] {0, 1, 2}, (i) -> (centerLocationWeights[i] / finalLargestWeight + centerLocationDists[i] / finalLargestLocDist));
+        double[] spawnScores = new double[3];
+        double bestScore = 0;
+        for(int i = 2; --i >= 0;) {
+            spawnScores[i] = centerLocationWeights[i] * 1.0 / largestWeight + centerLocationDists[i] * 1.0 / largestLocDist * 0.75;
+            if (spawnScores[i] > bestScore) {
+                bestScore = spawnScores[i];
+                bestSpawn = RobotPlayer.allyFlagSpawnLocs[i];
+            }
+        }
 
-        bestSpawn = RobotPlayer.allyFlagSpawnLocs[centerSpawnLocationWeightsIndicies[0]];
-
-        flagID = rc.senseNearbyFlags(0)[0].getID();
+        flagID = rc.senseNearbyFlags(1)[0].getID();
 
 //        int closest = 9999999;
         for (int i = 0; i < 3; i++) {
@@ -90,12 +93,24 @@ public class FlagCarrier extends AbstractRobot {
 
     @Override
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
-//        RobotInfo[] enemyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+        RobotInfo[] enemyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+        RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
         FlagInfo[] enemyFlags = rc.senseNearbyFlags(-1, rc.getTeam().opponent());
         detectAndPickupFlags(rc, enemyFlags);
         rc.setIndicatorLine(curLoc, bestSpawn, 0, 100, 255);
-        Pathfinding.moveTowards(rc, curLoc, bestSpawn, false);
+        RobotInfo closest = Utils.getClosest(enemyInfos, curLoc);
+        /*if (enemyInfos.length > 0 && closest.location.isWithinDistanceSquared(curLoc, 12))
+            Pathfinding.moveTowards(rc, curLoc, closest.location, false);
+        else*/
+            Pathfinding.moveTowards(rc, curLoc, bestSpawn, false);
 
+        curLoc = rc.getLocation();
+        if (rc.getHealth() < 300 && allies.length > 0) {
+            for(Direction d : Utils.getIdealMovementDirections(curLoc, Utils.getClosest(allies, curLoc).location)) {
+                if (rc.canDropFlag(curLoc.add(d)))
+                    rc.dropFlag(curLoc.add(d));
+            }
+        }
     }
 
     @Override

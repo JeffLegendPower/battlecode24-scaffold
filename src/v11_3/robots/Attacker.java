@@ -188,7 +188,7 @@ public class Attacker extends AbstractRobot {
         RobotInfo[] allyInfos = rc.senseNearbyRobots(-1, rc.getTeam());
         RobotInfo[] enemyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
         Utils.sort(enemyInfos, (enemy) -> enemy.getLocation().distanceSquaredTo(curLoc));
-        Utils.sort(allyInfos, (ally) -> (- ally.getLocation().distanceSquaredTo(curLoc) -  rc.getHealth() / 100 + (rc.hasFlag() ? 10000 : 0)));
+        Utils.sort(allyInfos, (ally) -> (ally.getLocation().distanceSquaredTo(curLoc) +  rc.getHealth() / 100 - (rc.hasFlag() ? 1000000 : 0)));
 
         RobotInfo allyFlag = null;
         RobotInfo enemyFlag = null;
@@ -238,6 +238,9 @@ public class Attacker extends AbstractRobot {
                 Pathfinding.moveTowards(rc, curLoc, bestSpawn, true);
             else
                 Pathfinding.moveTowards(rc, curLoc, allyFlag.location, true);
+
+            if (rc.canHeal(allyFlag.location))
+                rc.heal(allyFlag.location);
         }
 
         MapLocation[] spawnLocs = rc.getAllySpawnLocations();

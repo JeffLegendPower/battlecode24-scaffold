@@ -33,6 +33,7 @@ public class Defender extends AbstractRobot {
     @Override
     public void tick(RobotController rc, MapLocation curLoc) throws GameActionException {
         RobotInfo[] enemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+        RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
 
         int v = rc.readSharedArray(Constants.SharedArray.defenderAlert);
         int enemiesSeen = Math.min(enemies.length, 31);
@@ -49,7 +50,7 @@ public class Defender extends AbstractRobot {
         rc.writeSharedArray(Constants.SharedArray.defenderAlert, newV);
 
         if (rc.canBuild(TrapType.WATER, spawn)) {
-            rc.build(TrapType.WATER, spawn);
+            //rc.build(TrapType.WATER, spawn);
         }
 
         for (Direction direction : diagonals) {
@@ -64,15 +65,12 @@ public class Defender extends AbstractRobot {
 //                rc.build(TrapType.EXPLOSIVE, ahead);
 //        }
 
-
         for (RobotInfo enemy : enemies) {
             if (rc.canAttack(enemy.location)) {
                 rc.attack(enemy.location);
                 return;
             }
         }
-
-        RobotInfo[] allies = rc.senseNearbyRobots(-1, rc.getTeam());
         for (RobotInfo ally : allies) {
             if (rc.canHeal(ally.location)) {
                 rc.heal(ally.location);
