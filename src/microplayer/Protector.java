@@ -7,7 +7,7 @@ import static microplayer.General.rc;
 import static microplayer.Utility.sort;
 
 public class Protector {
-    static int lastRoundNumSinceFlagWasThere = 0;
+    static int lastRoundNumSinceFlagWasThere = 200;
 
     public static void onProtectorGameTurn() throws GameActionException {
         RobotInfo[] enemyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
@@ -32,9 +32,6 @@ public class Protector {
         // read the spawn suggestion array and write the danger level in the allowed bits
         int v = rc.readSharedArray(7);
         int enemiesSeen = Math.min(enemyInfos.length, 19);
-        if (lastRoundNumSinceFlagWasThere + 40 < rc.getRoundNum()) {  // no flag there in a while
-            enemiesSeen = Math.max(enemiesSeen / 3, 0);
-        }
 
         // calculate safety level
         int dangerLevel = enemiesSeen;
@@ -49,6 +46,11 @@ public class Protector {
         }
         if (distanceToClosestEnemy < 2) {
             dangerLevel += 5;
+        }
+
+        // no flag there in a while
+        if (lastRoundNumSinceFlagWasThere + 40 < rc.getRoundNum()) {
+            dangerLevel = Math.max(dangerLevel / 3, 0);
         }
 
         // write safety level

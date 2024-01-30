@@ -18,7 +18,7 @@ public class MicroAttacker {
     static double myDPS;
     static double injuryAmplifier = 1;
     boolean severelyHurt = false;
-    static int distToNearestEnemySpawn = 1000000;
+    static int distToNearestEnemyFlag = 1000000;
     boolean enemiesTriggeredTrap = false;
     int timeSinceLastTrigger = 0;
 
@@ -32,7 +32,7 @@ public class MicroAttacker {
 
     static double currentDPS = 0;
     static double currentRangeExtended = 20;
-    static double currentActionRadius = 2;
+    static double currentActionRadius = 4;
     static boolean canAttack;
 
     public void doMicro() throws GameActionException {
@@ -42,8 +42,8 @@ public class MicroAttacker {
         } else {
             severelyHurt = rc.getHealth() < 500 - (60 * rc.getLevel(SkillType.HEAL));
         }
-        RobotInfo[] enemies = rc.senseNearbyRobots(myVisionRange, rc.getTeam().opponent());
-        if (enemies.length == 0) return;
+        RobotInfo[] allies = rc.senseNearbyRobots(myVisionRange, rc.getTeam().opponent());
+        if (allies.length == 0) return;
         canAttack = rc.isActionReady();
 
         timeSinceLastTrigger++;
@@ -68,7 +68,7 @@ public class MicroAttacker {
         microInfo[6] = new MicroInfo(Direction.WEST);
         microInfo[7] = new MicroInfo(Direction.NORTHWEST);
 
-        for (RobotInfo unit : enemies) {
+        for (RobotInfo unit : allies) {
             if (Clock.getBytecodesLeft() < MAX_MICRO_BYTECODE_REMAINING) {
                 break;
             }
@@ -86,8 +86,8 @@ public class MicroAttacker {
             microInfo[7].updateEnemy(unit);
         }
 
-        enemies = rc.senseNearbyRobots(myVisionRange, rc.getTeam());
-        for (RobotInfo unit : enemies) {
+        allies = rc.senseNearbyRobots(myVisionRange, rc.getTeam());
+        for (RobotInfo unit : allies) {
             if (Clock.getBytecodesLeft() < MAX_MICRO_BYTECODE_REMAINING) {
                 break;
             }
@@ -143,6 +143,12 @@ public class MicroAttacker {
         public MicroInfo(Direction dir) throws GameActionException {
             this.dir = dir;
             this.location = rc.getLocation().add(dir);
+            MapLocation extendedLoc = location.add(dir);
+            if (rc.onTheMap(extendedLoc)) {
+                if ((mapped[extendedLoc.x][extendedLoc.y] & 0b11) == 0b01) {  // is wall and is explored
+                    enemiesTargetingDPS += 120;
+                }
+            }
             if (dir != Direction.CENTER && !rc.canMove(dir)) canMove = false;
 
             for (MapLocation spawn : orderedCenterSpawnLocations) {

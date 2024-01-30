@@ -111,7 +111,7 @@ public class RobotPlayer {
                 return false;
             }
             if (carrierLocations[flagCarrierIndex] == null) {
-                // System.out.println("big error 3 !!!");
+                System.out.println("big error 3 !!!");
                 isCarrier = false;
                 return false;
             }
@@ -139,12 +139,13 @@ public class RobotPlayer {
         // duck was bodyguard, but died
         if (bodyguardingIndex != -1) {
             bodyguardCounts[bodyguardingIndex]--;
+            // System.out.println("!stopping being bodyguard for " + (bodyguardingIndex+1));
             if (bodyguardCounts[bodyguardingIndex] < 0) {
                 bodyguardCounts[bodyguardingIndex] = 0;
             }
             int v = rc.readSharedArray(8);
             int mask = 0b1111 << (4*bodyguardingIndex);
-            int newV = (v ^ (v & mask)) | (bodyguardCounts[bodyguardingIndex]+1 << (4*bodyguardingIndex));
+            int newV = (v ^ (v & mask)) | (bodyguardCounts[bodyguardingIndex] << (4*bodyguardingIndex));
             rc.writeSharedArray(8, newV);
             bodyguardingIndex = -1;
         }
@@ -271,9 +272,9 @@ public class RobotPlayer {
         } else {
             onSetupTurn();
         }
-        if (id == 29) {  // todo remove
-            debugMappedLocations();
-        }
+//        if (id == 29) {
+//            debugMappedLocations();
+//        }
     }
 
     public static void onGameTurn() throws GameActionException {
@@ -353,6 +354,9 @@ public class RobotPlayer {
                 if (isEnemyFlagDeposited[i]) {
                     continue;
                 }
+                if (!enemyFlagIsTaken[i]) {
+                    continue;
+                }
                 if (bodyguardCounts[i] > 12 && numFlagsDeposited == 0) {
                     continue;
                 }
@@ -362,6 +366,7 @@ public class RobotPlayer {
                 if (robotLoc.distanceSquaredTo(carrierLoc) <= (mapWidth+mapHeight) * 1.6) {
                     bodyguardingIndex = i;
                     bodyguardCounts[i]++;
+                    // System.out.println(carrierLoc + " | started being bodyguard for " + (bodyguardingIndex+1));
                     int v = rc.readSharedArray(8);
                     int mask = 0b1111 << (4*bodyguardingIndex);
                     int newV = (v ^ (v & mask)) | (bodyguardCounts[i] << (4*bodyguardingIndex));
@@ -387,7 +392,8 @@ public class RobotPlayer {
         MapLocation pathfindGoalLoc = broadcastFlagPathfindLoc;
 
         // pathfind to found enemy flag location
-        int closestEnemySpawnDistance = 10000;
+        int closestEnemyFlagDistance = 10000;
+        MapLocation closestEnemyFlag = null;
         for (int i=0; i<3; i++) {
             if (enemyFlagIsTaken[i]) {
                 continue;
@@ -397,8 +403,9 @@ public class RobotPlayer {
                 continue;
             }
             int flagDist = enemyFlagLoc.distanceSquaredTo(robotLoc);
-            if (closestEnemySpawnDistance > flagDist) {
-                closestEnemySpawnDistance = flagDist;
+            if (closestEnemyFlagDistance > flagDist) {
+                closestEnemyFlagDistance = flagDist;
+                closestEnemyFlag = enemyFlagLoc;
                 pathfindGoalLoc = enemyFlagLoc;
                 rc.setIndicatorString("going to found enemy flag location");
             }
@@ -496,7 +503,7 @@ public class RobotPlayer {
         }
 
         // go to nearby dropped flags
-        for (int i=0; i<3; i++) {
+        goToNearbyDroppedFlags : for (int i=0; i<3; i++) {
             if (!hasCarrierDroppedFlag[i]) {
                 continue;
             }
@@ -508,6 +515,12 @@ public class RobotPlayer {
                 continue;
             }
             if (Math.max(Math.abs(droppedFlagLocation.x-robotLoc.x), Math.abs(droppedFlagLocation.y-robotLoc.y)) < maxTimeThatBreadCanBeOnTheGround) {
+                for (Direction goToFlagDir : getTrulyIdealMovementDirections(robotLoc, droppedFlagLocation)) {
+                    if (rc.canMove(goToFlagDir)) {
+                        rc.move(goToFlagDir);
+                        break goToNearbyDroppedFlags;
+                    }
+                }
                 pathfindGoalLoc = droppedFlagLocation;
             }
         }
@@ -516,12 +529,30 @@ public class RobotPlayer {
 
         // sense flags
         if (Carrier.senseAndPickupFlags()) {
+            Carrier.onCarrierGameTurn();
             return;
+        }
+
+        RobotInfo[] enemyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+        int closestEnemyDistance = 999;
+        RobotInfo closestEnemy = null;
+        for (RobotInfo enemy : enemyInfos) {
+            int distToEnemy = enemy.getLocation().distanceSquaredTo(robotLoc);
+            if (closestEnemy == null || closestEnemyDistance > distToEnemy) {
+                closestEnemyDistance = distToEnemy;
+                closestEnemy = enemy;
+            }
         }
 
         // bodyguards
         if (bodyguardingIndex != -1) {
             rc.setIndicatorString("bodyguarding carrier " + (bodyguardingIndex+1));
+
+            if (9 >= closestEnemyDistance && closestEnemyDistance > 2) {
+                if (rc.canBuild(TrapType.STUN, robotLoc)) {
+                    rc.build(TrapType.STUN, robotLoc);
+                }
+            }
 
             MapLocation carrierLoc = carrierLocations[bodyguardingIndex];
             Direction dirToClosestSpawn = carrierLoc.directionTo(closestCenterSpawnLocation);
@@ -544,27 +575,16 @@ public class RobotPlayer {
                 }
             }
 
-            if (carrierLocations[bodyguardingIndex] == null || isEnemyFlagDeposited[bodyguardingIndex] || robotLoc.distanceSquaredTo(closestCenterSpawnLocation) < 8) {
+            if (carrierLocations[bodyguardingIndex] == null || isEnemyFlagDeposited[bodyguardingIndex]) {
                 bodyguardCounts[bodyguardingIndex]--;
                 if (bodyguardCounts[bodyguardingIndex] < 0) {
                     bodyguardCounts[bodyguardingIndex] = 0;
                 }
                 int v = rc.readSharedArray(8);
                 int mask = 0b1111 << (4*bodyguardingIndex);
-                int newV = (v ^ (v & mask)) | (bodyguardCounts[bodyguardingIndex]+1 << (4*bodyguardingIndex));
+                int newV = (v ^ (v & mask)) | (bodyguardCounts[bodyguardingIndex] << (4*bodyguardingIndex));
                 rc.writeSharedArray(8, newV);
                 bodyguardingIndex = -1;
-            }
-        }
-
-        RobotInfo[] enemyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-        int closestEnemyDistance = 999;
-        RobotInfo closestEnemy = null;
-        for (RobotInfo enemy : enemyInfos) {
-            int distToEnemy = enemy.getLocation().distanceSquaredTo(robotLoc);
-            if (closestEnemy == null || closestEnemyDistance > distToEnemy) {
-                closestEnemyDistance = distToEnemy;
-                closestEnemy = enemy;
             }
         }
 
@@ -615,11 +635,42 @@ public class RobotPlayer {
             }
         }
 
-        rc.setIndicatorLine(robotLoc, pathfindGoalLoc, 0, 255, 0);
-
         RobotInfo[] allyInfos = rc.senseNearbyRobots(-1, rc.getTeam());
         sort(enemyInfos, (enemy) -> enemy.getLocation().distanceSquaredTo(robotLoc));
         sort(allyInfos, (ally) -> ally.getLocation().distanceSquaredTo(robotLoc));
+
+        // avg enemy position closer to flag than avg ally position
+        if (enemyInfos.length > 2) {
+            int avgAllyX = robotLoc.x;
+            int avgAllyY = robotLoc.y;
+            for (RobotInfo ally : allyInfos) {
+                MapLocation allyLoc = ally.getLocation();
+                avgAllyX += allyLoc.x;
+                avgAllyY += allyLoc.y;
+            }
+            avgAllyX /= 1+allyInfos.length;
+            avgAllyY /= 1+allyInfos.length;
+            MapLocation avgAllyLoc = new MapLocation(avgAllyX, avgAllyY);
+            int avgEnemyX = 0;
+            int avgEnemyY = 0;
+            for (RobotInfo enemy : enemyInfos) {
+                MapLocation enemyLoc = enemy.getLocation();
+                avgEnemyX += enemyLoc.x;
+                avgEnemyY = enemyLoc.y;
+            }
+            avgEnemyX /= enemyInfos.length;
+            avgEnemyY /= enemyInfos.length;
+            MapLocation avgEnemyLoc = new MapLocation(avgEnemyX, avgEnemyY);
+            double allyAvgDistToAllyFlag = Math.sqrt(closestCenterSpawnLocation.distanceSquaredTo(avgAllyLoc));
+            double enemyAvgDistToEnemyFlag = Math.sqrt(closestCenterSpawnLocation.distanceSquaredTo(avgEnemyLoc));
+            if (allyAvgDistToAllyFlag > enemyAvgDistToEnemyFlag + 1) {  // enemy is much closer than we are, go back
+                rc.setIndicatorString("runback");
+                rc.setIndicatorDot(closestCenterSpawnLocation, 255, 255, 255);
+                pathfindGoalLoc = closestCenterSpawnLocation;
+            }
+        }
+
+        rc.setIndicatorLine(robotLoc, pathfindGoalLoc, 0, 255, 0);
 
         int distToClosestSpawn = closestCenterSpawnLocation.distanceSquaredTo(robotLoc);
 
@@ -741,10 +792,18 @@ public class RobotPlayer {
             }
 
             // move
-            MicroAttacker.pathfindGoalLocForMicroAttacker = pathfindGoalLoc;
-            MicroAttacker.distToNearestEnemySpawn = closestEnemySpawnDistance;
-            MicroAttacker microAttacker = new MicroAttacker();
-            microAttacker.doMicro();
+            if (closestEnemyFlagDistance < 36 && !rc.hasFlag() && closestEnemyFlag != null) {
+                for (Direction idealDir : getIdealMovementDirections(robotLoc, closestEnemyFlag)) {
+                    if (rc.canMove(idealDir)) {
+                        rc.move(idealDir);
+                    }
+                }
+            } else {
+                MicroAttacker.pathfindGoalLocForMicroAttacker = pathfindGoalLoc;
+                MicroAttacker.distToNearestEnemyFlag = closestEnemyFlagDistance;
+                MicroAttacker microAttacker = new MicroAttacker();
+                microAttacker.doMicro();
+            }
 
             // attack 2
             if (rc.getActionCooldownTurns() < 10) {

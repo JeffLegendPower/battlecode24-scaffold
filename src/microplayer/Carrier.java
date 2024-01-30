@@ -89,27 +89,33 @@ public class Carrier {
 
         RobotInfo[] enemyInfos = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
         MapLocation[] enemyLocations = new MapLocation[enemyInfos.length];
-
         for (int i=0; i<enemyInfos.length; i++) {
             enemyLocations[i] = enemyInfos[i].getLocation();
         }
 
+        RobotInfo[] allyInfos = rc.senseNearbyRobots(-1, rc.getTeam());
+        MapLocation[] allyLocations = new MapLocation[allyInfos.length];
+
+        for (int i=0; i<allyLocations.length; i++) {
+            allyLocations[i] = allyInfos[i].getLocation();
+        }
+
+
         int v = rc.readSharedArray(7);
         int[] spawnWeights = new int[3];
-        int total = 0;
         for (int i=0; i<3; i++) {
             spawnWeights[i] = v & 0b11111;
-            total += v & 0b11111;
             v >>= 5;
         }
         MapLocation bestAllySpawnToPathfindTo = null;
         int leastAllySpawnActivity = 999;
         if (rc.getRoundNum() % 5 == 0) {
             for (int i=0; i<3; i++) {
-                if (leastAllySpawnActivity > spawnWeights[i]) {  // go to place with least enemy activity
+                // go to place with least enemy activity
+                if ((leastAllySpawnActivity > spawnWeights[i] && spawnWeights[i] > 3) || bestAllySpawnToPathfindTo == null) {
                     leastAllySpawnActivity = spawnWeights[i];
                     bestAllySpawnToPathfindTo = orderedCenterSpawnLocations[i];
-                } else if (spawnWeights[i] == 0) {  // order places with 0 activity based on distance
+                } else {
                     if (robotLoc.distanceSquaredTo(bestAllySpawnToPathfindTo) > robotLoc.distanceSquaredTo(orderedCenterSpawnLocations[i])) {
                         bestAllySpawnToPathfindTo = orderedCenterSpawnLocations[i];
                     }
@@ -130,12 +136,22 @@ public class Carrier {
                 if (enemyLocations.length == 0) {
                     return loc.distanceSquaredTo(carrierDestination);
                 }
-                int avgEnemyDistance = 0;
+                int totalEnemyDistance = 0;
                 // avoid enemies
                 for (MapLocation enemyLocation : enemyLocations) {
-                    avgEnemyDistance += enemyLocation.distanceSquaredTo(loc);
+                    totalEnemyDistance += enemyLocation.distanceSquaredTo(loc);
                 }
-                return loc.distanceSquaredTo(carrierDestination) - 2 * avgEnemyDistance / enemyLocations.length - loc.distanceSquaredTo(closestEnemySpawnLoc);
+                // go to allies
+                int totalAllyDistance = 0;
+                for (MapLocation allyLocation : allyLocations) {
+                    totalAllyDistance += allyLocation.distanceSquaredTo(loc);
+                }
+                int goAwayFromEnemySpawnBenefit = Math.max(49, loc.distanceSquaredTo(closestEnemySpawnLoc));
+                int robotDistEffects = -2 * totalEnemyDistance / enemyLocations.length;
+                if (allyLocations.length > 0) {
+                    robotDistEffects += totalAllyDistance / allyLocations.length;
+                }
+                return loc.distanceSquaredTo(carrierDestination) + robotDistEffects - goAwayFromEnemySpawnBenefit * 10;
             });
         }
 
@@ -223,7 +239,10 @@ public class Carrier {
                     if (!rc.canDropFlag(locToDrop)) {
                         break;
                     }
-                    System.out.println("passing flag");
+                    if (visited.contains(other.location)) {
+                        continue;
+                    }
+                    System.out.println("passing flag " + (flagCarrierIndex+1));
                     int dist = closestSpawnLoc.distanceSquaredTo(locToDrop);
                     if (bestDropDistance > dist) {
                         bestDropDistance = dist;
@@ -237,6 +256,7 @@ public class Carrier {
                     rc.writeSharedArray(flagCarrierIndex + 4, locToInt(bestDropLocation, 1, 0));
                     hasCarrierDroppedFlag[flagCarrierIndex] = true;
                     lastDroppedFlagValue = -1;
+                    bodyguardingIndex = flagCarrierIndex;
                     flagCarrierIndex = -1;
                     return;
                 }
