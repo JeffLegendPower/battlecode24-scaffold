@@ -740,12 +740,12 @@ public class RobotPlayer {
                             }
                         }
                     }
-                    if (bugNavWallLocation != null && rc.onTheMap(pathfindGoalLoc) && !doingBugNav) {
-                        doingBugNav = true;
-                        bugnavPathfindGoal = pathfindGoalLoc;
-                        bugNavVertices = genBugNavAroundPath(robotLoc, bugNavWallLocation, pathfindGoalLoc);
-                        bugNavVertexIndex = 0;
-                    }
+//                    if (bugNavWallLocation != null && rc.onTheMap(pathfindGoalLoc) && !doingBugNav) {
+//                        doingBugNav = true;
+//                        bugnavPathfindGoal = pathfindGoalLoc;
+//                        bugNavVertices = genBugNavAroundPath(robotLoc, bugNavWallLocation, pathfindGoalLoc);
+//                        bugNavVertexIndex = 0;
+//                    }
                 }
             }
 
@@ -801,8 +801,7 @@ public class RobotPlayer {
             } else {
                 MicroAttacker.pathfindGoalLocForMicroAttacker = pathfindGoalLoc;
                 MicroAttacker.distToNearestEnemyFlag = closestEnemyFlagDistance;
-                MicroAttacker microAttacker = new MicroAttacker();
-                microAttacker.doMicro();
+                MicroAttacker.doMicro(allyInfos, enemyInfos);
             }
 
             // attack 2
@@ -1112,8 +1111,8 @@ public class RobotPlayer {
                 // build traps when near the dam
                 if (rc.senseMapInfo(adjacent).isDam()) {
                     if ((rc.getCrumbs() >= 1200 && (adjacent.x + adjacent.y) % 2 == 0) || rc.getCrumbs() > 6000) {
-                        if (rc.canBuild(TrapType.STUN, robotLoc)) {
-                            rc.build(TrapType.STUN, robotLoc);
+                        if (rc.canBuild(TrapType.STUN, adjacent)) {
+                            rc.build(TrapType.STUN, adjacent);
                             break;
                         }
                     }
