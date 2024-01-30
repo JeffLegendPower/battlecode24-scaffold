@@ -95,8 +95,15 @@ public class FlagCarrier extends AbstractRobot {
         FlagInfo[] enemyFlags = rc.senseNearbyFlags(-1, rc.getTeam().opponent());
         detectAndPickupFlags(rc, enemyFlags);
         rc.setIndicatorLine(curLoc, bestSpawn, 0, 100, 255);
+        if (rc.getHealth() < 300) {
+            rc.dropFlag(curLoc.add(curLoc.directionTo(bestSpawn)));
+            Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[index], curLoc);
+        }
         Pathfinding.moveTowards(rc, curLoc, bestSpawn, false);
-
+        MapInfo mi = rc.senseMapInfo(rc.getLocation());
+        if (mi.getTeamTerritory() == rc.getTeam() && mi.isSpawnZone()) {
+            Utils.storeLocationInSharedArray(rc, Constants.SharedArray.enemyFlagLocs[index], null);
+        }
     }
 
     @Override
