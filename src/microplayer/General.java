@@ -2,7 +2,6 @@ package microplayer;
 
 import battlecode.common.*;
 
-import java.util.ArrayList;
 import java.util.Random;
 
 public class General {
@@ -88,9 +87,9 @@ public class General {
     1 | spotted flag location 1 | 0=there 1=taken
     2 | spotted flag location 2 | 0=there 1=taken
     3 | spotted flag location 3 | 0=there 1=taken
-    4 | carried flag location 1 | 0=carried 1=dropped 2,3=deposited
-    5 | carried flag location 2 | 0=carried 1=dropped 2,3=deposited
-    6 | carried flag location 3 | 0=carried 1=dropped 2,3=deposited
+    4 | carried flag location 1 | 00=carried 10=dropped 01,11=deposited
+    5 | carried flag location 2 | 00=carried 10=dropped 01,11=deposited
+    6 | carried flag location 3 | 00=carried 10=dropped 01,11=deposited
     7 | 1 bit empty, 5 bits protector index 3, 5 bits protector index 2, 5 bits protector index 1
     8 | 1 bit rotational symmetry, 1 bit up/down symmetry, 1 bit left/right symmetry, 1 bit spare, 4 bits per bodyguard count for carried flag locations
     9 | number of ducks spawned in
