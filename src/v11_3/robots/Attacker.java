@@ -18,6 +18,7 @@ public class Attacker extends AbstractRobot {
     private MapLocation lastTarget = null;
     private MapLocation flagTarget;
     private MicroAttacker microAttacker;
+    private boolean goFurthest = false;
 
     @Override
     public boolean setup(RobotController rc) throws GameActionException {
@@ -25,6 +26,7 @@ public class Attacker extends AbstractRobot {
 //            deviant = true;
 
         defendOn = RobotPlayer.rng.nextInt(10) + 5;
+        goFurthest = RobotPlayer.rng.nextInt(3) == 0;
         microAttacker = new MicroAttacker(rc);
 
         spawn(rc);
@@ -114,6 +116,9 @@ public class Attacker extends AbstractRobot {
 
         FlagInfo[] nearbyFlags = Utils.sort(rc.senseNearbyFlags(-1, rc.getTeam().opponent()),
                 (flag) -> flag.getLocation().distanceSquaredTo(curLoc));
+        if (nearbyFlags.length > 0 && goFurthest)
+            nearbyFlags = Utils.sort(rc.senseNearbyFlags(-1, rc.getTeam().opponent()),
+                    (flag) -> -flag.getLocation().distanceSquaredTo(curLoc));
         detectAndPickupFlags(rc, nearbyFlags);
 
         // If we see crumbs go for them real quick
@@ -185,7 +190,32 @@ public class Attacker extends AbstractRobot {
         Utils.sort(enemyInfos, (enemy) -> enemy.getLocation().distanceSquaredTo(curLoc));
         Utils.sort(allyInfos, (ally) -> (- ally.getLocation().distanceSquaredTo(curLoc) -  rc.getHealth() / 100 + (rc.hasFlag() ? 10000 : 0)));
 
-        if (allyInfos.length > 0 && allyInfos[0].hasFlag()) {
+        RobotInfo allyFlag = null;
+        RobotInfo enemyFlag = null;
+
+        int t = Math.min(allyInfos.length, 3);
+
+        for(int i = t; --i >= 0;) {
+            if (allyInfos[i].hasFlag) {
+                allyFlag = allyInfos[i];
+                break;
+            }
+        }
+
+        for(RobotInfo enemy : enemyInfos) {
+            if (enemy.hasFlag) {
+                enemyFlag = enemy;
+                break;
+            }
+        }
+
+        if (enemyInfos.length > 0 && enemyFlag != null) {
+            Pathfinding.moveTowards(rc, curLoc, enemyFlag.location, true);
+            if (rc.canAttack(enemyFlag.location))
+                rc.attack(enemyFlag.location);
+        }
+
+        if (allyInfos.length > 0 && allyFlag != null) {
             int v = rc.readSharedArray(Constants.SharedArray.defenderAlert);
             int[] centerLocationWeights = new int[3];
             int total = 0;
@@ -195,7 +225,7 @@ public class Attacker extends AbstractRobot {
                 v >>= 5;
             }
 
-            System.out.println("I See a flag carrier! " + allyInfos[0].getLocation());
+            System.out.println("I See a flag carrier! " + allyFlag.getLocation());
 
 
             int[] finalCenterLocationWeights = centerLocationWeights;
@@ -203,8 +233,11 @@ public class Attacker extends AbstractRobot {
 
             MapLocation bestSpawn = RobotPlayer.allyFlagSpawnLocs[centerSpawnLocationWeightsIndicies[0]];
 
-            rc.setIndicatorLine(curLoc, allyInfos[0].getLocation(), 255,0,0);
-            Pathfinding.moveTowards(rc, curLoc, bestSpawn, true);
+            rc.setIndicatorLine(curLoc, allyFlag.getLocation(), 255,0,0);
+            if (rc.getRoundNum() % 2 == 0)
+                Pathfinding.moveTowards(rc, curLoc, bestSpawn, true);
+            else
+                Pathfinding.moveTowards(rc, curLoc, allyFlag.location, true);
         }
 
         MapLocation[] spawnLocs = rc.getAllySpawnLocations();
@@ -227,7 +260,7 @@ public class Attacker extends AbstractRobot {
                     closestFlag = flag.getLocation();
                 }
             }
-            if (closestFlag != null && curLoc.distanceSquaredTo(closestFlag) <= 49 && allyInfos.length > enemyInfos.length) {
+            if (closestFlag != null && curLoc.distanceSquaredTo(closestFlag) <= 64 && allyInfos.length - 4 >= enemyInfos.length) {
                 Pathfinding.moveTowards(rc, curLoc, closestFlag, true);
             }
         }
@@ -314,8 +347,8 @@ public class Attacker extends AbstractRobot {
             // still can perform action, so try to heal others
             if (rc.isActionReady()) {
                 for (RobotInfo ally : allyInfos) {
-                    if (rc.canHeal(ally.getLocation())) {
-                        rc.heal(ally.getLocation());
+                    if (rc.canHeal(ally.location)) {
+                        rc.heal(ally.location);
                         return;
                     }
                 }

@@ -30,8 +30,8 @@ public class Vegetable extends AbstractRobot {
         if (enemies.length > 2 && numTurnsAlive < 7) {
             if (!curLoc.isWithinDistanceSquared(currentTarget, 10))
                 Pathfinding.moveTowards(rc, curLoc, currentTarget, false);
-            else
-                microAttacker.doMicro(curLoc.distanceSquaredTo(currentTarget), curLoc.distanceSquaredTo(currentTarget));
+//            else
+//                microAttacker.doMicro(curLoc.distanceSquaredTo(currentTarget), curLoc.distanceSquaredTo(currentTarget));
             MapLocation closestEnemy = Utils.getClosest(enemies, currentTarget).location;
             if (rc.canAttack(closestEnemy))
                 rc.attack(closestEnemy);

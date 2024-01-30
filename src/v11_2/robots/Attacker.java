@@ -167,6 +167,8 @@ public class Attacker extends AbstractRobot {
 
 
         lastTarget = target;
+        MapLocation closestSpawn = Utils.getClosest(RobotPlayer.allyFlagSpawnLocs, curLoc);
+        int distToSpawn = curLoc.distanceSquaredTo(closestSpawn);
 
         // TODO if theres no enemy flags then we stop moving i think or ally flags idk
         if (target == null) {
@@ -185,6 +187,11 @@ public class Attacker extends AbstractRobot {
         Utils.sort(enemyInfos, (enemy) -> enemy.getLocation().distanceSquaredTo(curLoc));
         Utils.sort(allyInfos, (ally) -> (- ally.getLocation().distanceSquaredTo(curLoc) -  rc.getHealth() / 100 + (rc.hasFlag() ? 10000 : 0)));
 
+        RobotInfo closestEnemy = null;
+
+        if (enemyInfos.length > 0)
+            closestEnemy = enemyInfos[0];
+
         int ax = 0, ay = 0;
         RobotInfo allyFlag = null;
 
@@ -198,6 +205,19 @@ public class Attacker extends AbstractRobot {
         if (allyInfos.length > 0) {
             ax /= allyInfos.length;
             ay /= allyInfos.length;
+        }
+
+        if (enemyInfos.length > 0 && distToSpawn <= 20) {
+            rc.setIndicatorDot(curLoc, 255, 255, 0);
+            if (allyInfos.length < enemyInfos.length - 4) {
+                if (rc.canBuild(TrapType.STUN, curLoc))
+                    rc.build(TrapType.STUN, curLoc);
+                Pathfinding.moveTowards(rc, curLoc, closestSpawn, true);
+            } else {
+                Pathfinding.moveTowards(rc, curLoc, closestEnemy.location, true);
+                if (rc.canAttack(closestEnemy.location))
+                    rc.attack(closestEnemy.location);
+            }
         }
 
         if (allyInfos.length > 0 && allyFlag != null && curLoc.isWithinDistanceSquared(allyFlag.location, 13)) {
@@ -290,7 +310,6 @@ public class Attacker extends AbstractRobot {
 
         // enemies nearby
         RobotInfo weakestEnemy = Utils.lowestHealth(enemyInfos);
-        RobotInfo closestEnemy = enemyInfos[0];
         MapLocation bestEnemyLoc = closestEnemy.getLocation();
 
 
@@ -299,8 +318,12 @@ public class Attacker extends AbstractRobot {
             int distToClosestEnemy = curLoc.distanceSquaredTo(weakestEnemy.getLocation());
 
             int b4 = Clock.getBytecodeNum();
-            microAttacker.doMicro(curLoc.distanceSquaredTo(target), curLoc.distanceSquaredTo(Utils.getClosest(rc.getAllySpawnLocations(), curLoc)));
+            microAttacker.doMicro(target, Utils.getClosest(rc.getAllySpawnLocations(), curLoc));
             int af = Clock.getBytecodeNum();
+
+            if (rc.getMovementCooldownTurns() < 10) {
+                Pathfinding.moveTowards(rc, curLoc, target, true);
+            }
 
             if (rc.canAttack(bestEnemyLoc)) {
                 rc.attack(bestEnemyLoc);
@@ -322,11 +345,9 @@ public class Attacker extends AbstractRobot {
 //                    || (distToClosestSpawn <= 49 && rc.getCrumbs() > 1000 - rc.getRoundNum() / 2)) {
                 for (Direction direction : Direction.allDirections()) {
                     MapLocation newLoc = curLoc.add(direction);
-                    if ((newLoc.x - newLoc.y * 2) % 3 >= 1) {
-                        if (rc.canBuild(TrapType.STUN, curLoc.add(direction))) {
-                            rc.build(TrapType.STUN, curLoc.add(direction));
-                            break;
-                        }
+                    if (rc.canBuild(TrapType.STUN, curLoc.add(direction))) {
+                        rc.build(TrapType.STUN, curLoc.add(direction));
+                        break;
                     }
                 }
             }
@@ -348,11 +369,9 @@ public class Attacker extends AbstractRobot {
         if (rc.getCrumbs() > 1500 - rc.getRoundNum() / 2) {
             for (Direction direction : Direction.allDirections()) {
                 MapLocation newLoc = curLoc.add(direction);
-                if ((newLoc.x + newLoc.y) % 2 == 0) {
-                    if (rc.canBuild(TrapType.STUN, curLoc.add(direction))) {
-                        rc.build(TrapType.STUN, curLoc.add(direction));
-                        break;
-                    }
+                if (rc.canBuild(TrapType.STUN, curLoc.add(direction))) {
+                    rc.build(TrapType.STUN, curLoc.add(direction));
+                    break;
                 }
             }
         }

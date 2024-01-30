@@ -27,8 +27,10 @@ public class MicroAttacker {
     static double currentRangeExtended = 20; // vision radius
     static double currentActionRadius;
     static boolean canAttack;
+    static int distToSpawn;
 
     static int distToTarget;
+    static int aggressionFactor;
 
     public MicroAttacker(RobotController rc) {
         myRange = 2;
@@ -50,20 +52,29 @@ public class MicroAttacker {
         myDPS = rc.getAttackDamage();
     }
 
-    public boolean doMicro(int distToTarget, int distToSpawn) {
+    public boolean doMicro(MapLocation spawn, MapLocation target) {
         try {
             if (!rc.isMovementReady()) return false;
 
             // TODO: TUNE THIS!!!!!
-
+            distToSpawn = rc.getLocation().distanceSquaredTo(spawn);
+            distToTarget = rc.getLocation().distanceSquaredTo(target);
 //            shouldPlaySafe = distToTarget > 80 && rc.getRoundNum() > 250 && rc.getRoundNum() % 4 < 2;
 
             int DPSDist = 4;
-            if (distToTarget < 80) {
+            if (distToTarget < 64) {
                 DPSDist = 2;
             }
-            if (distToSpawn < 50) {
+            if (distToSpawn < 25) {
                 DPSDist = 2;
+            }
+
+            if (distToSpawn <= 16) {
+                aggressionFactor = 0;
+            } else if (distToTarget <= 49) {
+                aggressionFactor = 2;
+            } else {
+                aggressionFactor = 1;
             }
 
             severelyHurt = rc.getHealth() < 300;
@@ -95,7 +106,7 @@ public class MicroAttacker {
 
             MicroInfo[] microInfo = new MicroInfo[9];
             for (int i = 0; i < 9; ++i) {
-                microInfo[i] = new MicroInfo(Direction.values()[i]);
+                microInfo[i] = new MicroInfo(Direction.values()[i], spawn, target);
             }
 
             int totalEnemyDPS = 0;
@@ -179,19 +190,21 @@ public class MicroAttacker {
         double alliesTargeting = 0;
         boolean canMove = true;
         int distToEnemyFlagHolder = INF;
-        int distToNearestAllySpawn = INF;
+        int distToSpawn;
+        int distToTarget;
 
-        public MicroInfo(Direction dir) throws GameActionException {
-            this.dir = dir;
-            this.location = rc.getLocation().add(dir);
+        public MicroInfo(Direction d, MapLocation spawn, MapLocation target) throws GameActionException {
+            dir = d;
+            location = rc.getLocation().add(d);
+            distToSpawn = location.distanceSquaredTo(spawn);
+            distToTarget = location.distanceSquaredTo(target);
 
-            if (dir != Direction.CENTER && !rc.canMove(dir)) canMove = false;
+            if (d != Direction.CENTER && !rc.canMove(d)) canMove = false;
 
-            for (MapLocation spawn : RobotPlayer.allyFlagSpawnLocs) {
-                int dist = spawn.distanceSquaredTo(location);
-                if (dist < distToNearestAllySpawn) distToNearestAllySpawn = dist;
+            for (MapLocation ml : RobotPlayer.allyFlagSpawnLocs) {
+                int dist = ml.distanceSquaredTo(location);
+                if (dist < distToSpawn) distToSpawn = dist;
             }
-
 
         }
 
@@ -222,9 +235,9 @@ public class MicroAttacker {
 
 
         int safe() {
-//            if (minDistanceToEnemy <= 2 && shouldPlaySafe) return -2;
+            if (minDistanceToEnemy <= 2 && shouldPlaySafe) return -2;
             if (!canMove) return -1;
-//            if (!canAttack) return -1;
+            if (!canAttack) return -1;
             if (DPSreceived > 0 && severelyHurt) return 0; // TODO test if adding severelyHurt actually gains 1 by 1
             if (enemiesTargeting < alliesTargeting) return 2; // TODO test if adding shouldPlaySafe actually gains 1 by 1
             return 3;
@@ -243,23 +256,28 @@ public class MicroAttacker {
 //            System.out.println("a");
 
 ////            //TODO: do these gain?
-//            if (canAttack && inRange() && !M.inRange()) return false;
-//            if (canAttack && !inRange() && M.inRange()) return true;
+            if (canAttack && inRange() && !M.inRange()) return false;
+            if (canAttack && !inRange() && M.inRange()) return true;
+
+            if (aggressionFactor == 2 && distToTarget < M.distToTarget) return true;
+            if (aggressionFactor == 2 && distToTarget > M.distToTarget) return false;
+
+            if (aggressionFactor == 0 && distToSpawn > M.distToSpawn) return true;
+            if (aggressionFactor == 0 && distToSpawn < M.distToSpawn) return false;
+
+            if (aggressionFactor == 0 && safe() > M.safe()) return true;
+            if (aggressionFactor == 0 && safe() < M.safe()) return false;
+
+            if (aggressionFactor == 0 && inRange() && !M.inRange()) return true;
+            if (aggressionFactor == 0 && !inRange() && M.inRange()) return false;
 
 
-            if (safe() > M.safe()) return true;
-            if (safe() < M.safe()) return false;
-
-            if (inRange() && !M.inRange()) return true;
-            if (!inRange() && M.inRange()) return false;
-
-
-            if (severelyHurt) {
+            if (aggressionFactor != 2 && severelyHurt) {
                 if (alliesTargeting > M.alliesTargeting) return true;
                 if (alliesTargeting < M.alliesTargeting) return false;
             }
 
-            if (inRange() && distToNearestAllySpawn > 25) return minDistanceToEnemy >= M.minDistanceToEnemy;
+            if (inRange() && distToSpawn > 25) return minDistanceToEnemy >= M.minDistanceToEnemy;
             else return minDistanceToEnemy <= M.minDistanceToEnemy;
         }
     }

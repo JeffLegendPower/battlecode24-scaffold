@@ -27,6 +27,8 @@ public class MicroAttacker {
     static boolean canAttack;
 
     static int distToTarget;
+    static int aggressionFactor;
+    static int DPSDist;
 
     public MicroAttacker(RobotController rc) {
         myRange = 2;
@@ -56,7 +58,7 @@ public class MicroAttacker {
 
 //            shouldPlaySafe = distToTarget > 80 && rc.getRoundNum() > 250 && rc.getRoundNum() % 4 < 2;
 
-            int DPSDist = 4;
+            DPSDist = 4;
             if (distToTarget < 80) {
                 DPSDist = 2;
             }
@@ -68,6 +70,14 @@ public class MicroAttacker {
             RobotInfo[] enemies = rc.senseNearbyRobots(myVisionRange, rc.getTeam().opponent());
             if (enemies.length == 0) return false;
             canAttack = rc.isActionReady();
+
+            if (distToSpawn <= 16) {
+                aggressionFactor = 0;
+            } else if (distToTarget <= 49) {
+                aggressionFactor = 2;
+            } else {
+                aggressionFactor = 1;
+            }
 
             timeSinceLastTrigger++;
             if (timeSinceLastTrigger > 4)
@@ -95,7 +105,7 @@ public class MicroAttacker {
 
             MicroInfo[] microInfo = new MicroInfo[9];
             for (int i = 0; i < 9; ++i) {
-                microInfo[i] = new MicroInfo(Direction.values()[i]);
+                microInfo[i] = new MicroInfo(Direction.values()[i], robotTarget);
             }
 
             int totalEnemyDPS = 0;
@@ -188,10 +198,12 @@ public class MicroAttacker {
         int distToEnemyFlagHolder = INF;
         int distToNearestAllySpawn = INF;
         int weakest = INF;
+        int distToTarget;
 
-        public MicroInfo(Direction dir) throws GameActionException {
+        public MicroInfo(Direction dir, MapLocation target) throws GameActionException {
             this.dir = dir;
             this.location = rc.getLocation().add(dir);
+            distToTarget = location.distanceSquaredTo(target);
 
             if (dir != Direction.CENTER && !rc.canMove(dir)) canMove = false;
 
@@ -242,7 +254,7 @@ public class MicroAttacker {
 
         boolean inRange(){
             if (alwaysInRange) return true;
-            return minDistanceToEnemy <= myRange;
+            return minDistanceToEnemy <= DPSDist;
         }
 
         //equal => true
