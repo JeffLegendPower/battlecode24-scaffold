@@ -293,6 +293,9 @@ public class Attacker extends AbstractRobot {
                 }
             }
 
+            int closestDist = 9999;
+            int dist;
+
             // no enemies nearby-ish -> there are allies nearby
             if (allyInfos.length > 0) {
                 RobotInfo weakestAlly = allyInfos[0];
@@ -302,9 +305,19 @@ public class Attacker extends AbstractRobot {
                         rc.heal(weakestAlly.getLocation());
                     }
                 }
+                if (enemyInfos.length > 0) {
+                    for (RobotInfo ally : allyInfos) {
+                        for (RobotInfo enemy: enemyInfos) {
+                            dist = enemy.getLocation().distanceSquaredTo(ally.getLocation());
+                            if (dist < closestDist) {
+                                closestDist = dist;
+                            }
+                        }
+                    }
+                }
             }
 
-            if (enemyInfos.length == 0)
+            if (enemyInfos.length == 0 || (closestDist != 9999 && closestDist >= 4))
                 Pathfinding.moveTowards(rc, curLoc, target, true);
             else if (curLoc.distanceSquaredTo(target) < 80 || curLoc.distanceSquaredTo(Utils.getClosest(RobotPlayer.allyFlagSpawnLocs, curLoc)) < 50) {
                 Pathfinding.moveTowards(rc, curLoc, target, true);
@@ -419,23 +432,23 @@ public class Attacker extends AbstractRobot {
                 if (!rc.onTheMap(ml))
                     continue;
 
-                if (rc.senseMapInfo(ml).isDam()) {
-//                    if ((curLoc.x + curLoc.y) % 2 == 0) {
-//                        if (rc.canBuild(TrapType.STUN, curLoc)) {
-//                            rc.build(TrapType.STUN, curLoc);
+//                if (rc.senseMapInfo(ml).isDam()) {
+////                    if ((curLoc.x + curLoc.y) % 2 == 0) {
+////                        if (rc.canBuild(TrapType.STUN, curLoc)) {
+////                            rc.build(TrapType.STUN, curLoc);
+////                        }
+////                    }
+//
+//                    RobotInfo closestAlly = Utils.getClosest(rc.senseNearbyRobots(-1, rc.getTeam()), curLoc);
+//                    if (closestAlly == null) return;
+//                    for (Direction dir : Utils.getIdealMovementDirections(closestAlly.location, curLoc)) {
+//                        if (rc.canMove(dir)) {
+//                            rc.move(dir);
+//                            break;
 //                        }
 //                    }
-
-                    RobotInfo closestAlly = Utils.getClosest(rc.senseNearbyRobots(-1, rc.getTeam()), curLoc);
-                    if (closestAlly == null) return;
-                    for (Direction dir : Utils.getIdealMovementDirections(closestAlly.location, curLoc)) {
-                        if (rc.canMove(dir)) {
-                            rc.move(dir);
-                            break;
-                        }
-                    }
-                    return;
-                }
+//                    return;
+//                }
             }
             MapLocation damLocation = null;
             for (MapInfo sensed : Utils.shuffleInPlace(rc.senseNearbyMapInfos(-1))) {
