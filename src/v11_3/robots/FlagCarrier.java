@@ -49,10 +49,10 @@ public class FlagCarrier extends AbstractRobot {
         int finalLargestWeight = largestWeight;
         int finalLargestLocDist = largestLocDist;
         double[] spawnScores = new double[3];
-        double bestScore = 0;
+        double bestScore = 99999;
         for(int i = 2; --i >= 0;) {
-            spawnScores[i] = centerLocationWeights[i] * 1.0 / largestWeight + centerLocationDists[i] * 1.0 / largestLocDist * 0.75;
-            if (spawnScores[i] > bestScore) {
+            spawnScores[i] = centerLocationWeights[i] * 1.0 / largestWeight * .2 + centerLocationDists[i] * 1.0 / largestLocDist * 2;
+            if (spawnScores[i] < bestScore) {
                 bestScore = spawnScores[i];
                 bestSpawn = RobotPlayer.allyFlagSpawnLocs[i];
             }

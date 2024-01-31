@@ -239,6 +239,12 @@ public class Attacker extends AbstractRobot {
             else
                 Pathfinding.moveTowards(rc, curLoc, allyFlag.location, true);
 
+            if (enemyInfos.length > 0) {
+                if (rc.canAttack(enemyInfos[0].getLocation())) {
+                    rc.attack(enemyInfos[0].getLocation());
+                }
+            }
+
             if (rc.canHeal(allyFlag.location))
                 rc.heal(allyFlag.location);
         }
@@ -298,8 +304,11 @@ public class Attacker extends AbstractRobot {
                 }
             }
 
-
-            Pathfinding.moveTowards(rc, curLoc, target, true);
+            if (enemyInfos.length == 0)
+                Pathfinding.moveTowards(rc, curLoc, target, true);
+            else if (curLoc.distanceSquaredTo(target) < 80 || curLoc.distanceSquaredTo(Utils.getClosest(RobotPlayer.allyFlagSpawnLocs, curLoc)) < 50) {
+                Pathfinding.moveTowards(rc, curLoc, target, true);
+            }
 
             return;
         }
@@ -308,8 +317,6 @@ public class Attacker extends AbstractRobot {
         RobotInfo weakestEnemy = Utils.lowestHealth(enemyInfos);
         RobotInfo closestEnemy = enemyInfos[0];
         MapLocation bestEnemyLoc = closestEnemy.getLocation();
-
-
 
         if (allyInfos.length >= enemyInfos.length - 6) {  // more allies than enemies, attack
             int distToClosestEnemy = curLoc.distanceSquaredTo(weakestEnemy.getLocation());
